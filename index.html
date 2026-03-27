@@ -297,35 +297,36 @@
 
 <!-- MODAL: POINT DE SUIVI -->
 <div id="modalPoint" class="modal-overlay">
-  <div class="modal">
+  <div class="modal" style="max-width:600px;">
     <div class="modal-header">
-      <h2 id="modalPointTitle">Nouveau compte-rendu</h2>
+      <h2 id="modalPointTitle">Point mensuel</h2>
       <button class="btn-close" onclick="closeModal('modalPoint')">✕</button>
     </div>
+    <div style="background:linear-gradient(135deg,#F0F0FF,#FFF0F8);border-radius:12px;padding:16px;margin-bottom:20px;">
+      <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--navy);margin-bottom:4px;">👔 Section Manager</div>
+      <div style="font-size:0.78rem;color:var(--muted);">Ces informations sont visibles par le collaborateur.</div>
+    </div>
     <div class="form-grid">
-      <div class="form-field">
-        <label>Date <span class="req">*</span></label>
-        <input id="pDate" type="date" />
-      </div>
-      <div class="form-field">
-        <label>Type <span class="req">*</span></label>
-        <select id="pType">
-          <option value="mensuel">Point mensuel</option>
-          <option value="semestriel">Point semestriel</option>
-        </select>
+      <div class="form-field full">
+        <label>Retours sur les missions</label>
+        <textarea id="pm_retoursMissions" placeholder="Qualité du travail fourni, implication sur les missions..." style="min-height:80px;"></textarea>
       </div>
       <div class="form-field full">
-        <label>Compte-rendu <span class="req">*</span></label>
-        <textarea id="pContenu" placeholder="Résumé de la réunion, points discutés..."></textarea>
+        <label>Taux de staffing / Satisfaction client</label>
+        <textarea id="pm_tauxStaffing" placeholder="Taux de staffing, retours clients..." style="min-height:60px;"></textarea>
       </div>
       <div class="form-field full">
-        <label>Actions à mener</label>
-        <textarea id="pActions" placeholder="- Action 1&#10;- Action 2" style="min-height:80px;"></textarea>
+        <label>Tes qualités ce mois-ci</label>
+        <textarea id="pm_qualites" placeholder="Points forts observés ce mois..." style="min-height:60px;"></textarea>
+      </div>
+      <div class="form-field full">
+        <label>Un axe d'amélioration</label>
+        <textarea id="pm_axeAmelioration" placeholder="Un point de progression prioritaire..." style="min-height:60px;"></textarea>
       </div>
     </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
       <button class="btn btn-ghost" onclick="closeModal('modalPoint')">Annuler</button>
-      <button class="btn btn-primary" onclick="savePoint()">Enregistrer</button>
+      <button class="btn btn-primary" onclick="saveManagerPoint()">Enregistrer</button>
     </div>
   </div>
 </div>
@@ -448,8 +449,9 @@
 
     <!-- POINTS TAB -->
     <div id="tab-points" class="tab-pane">
-      <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
-        <button class="btn btn-primary hidden" id="btnAddPoint" onclick="openAddPoint()">+ Nouveau compte-rendu</button>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <div class="section-title" style="margin-bottom:0;">Points mensuels</div>
+        <button class="btn btn-primary hidden" id="btnAddPoint" onclick="openCurrentMonthPoint()">+ <span id="btnAddPointLabel">Point du mois</span></button>
       </div>
       <div id="pointsList"></div>
     </div>
@@ -566,7 +568,9 @@ function fromRow(row) {
     managerId: row.manager_id || null,
     onboarding: row.onboarding || defaultOnboarding(),
     pointsSuivi: (row.points_suivi || []).map(p => ({
-      id: p.id, date: p.date, type: p.type, contenu: p.contenu, actions: p.actions || ''
+      id: p.id, date: p.date, type: p.type, mois: p.mois || '',
+      managerData: p.manager_data || {},
+      collabData: p.collab_data || {}
     })),
     objectifs: (row.objectifs || []).map(o => ({
       id: o.id, titre: o.titre, description: o.description || '',
@@ -808,7 +812,7 @@ function renderCollab() {
   document.querySelectorAll('.tab-pane').forEach((p, i) => p.classList.toggle('active', i === 0));
   currentTab = 'onboarding';
 
-  document.getElementById('btnAddPoint').classList.toggle('hidden', !isBack);
+  document.getElementById('btnAddPoint').classList.add('hidden');
   document.getElementById('btnAddObj').classList.toggle('hidden', !isBack);
   document.getElementById('btnSaveOnboarding').classList.toggle('hidden', !isBack);
 
@@ -869,40 +873,130 @@ async function saveOnboarding() {
 }
 
 // ─────────────────────────────────────────
-// POINTS DE SUIVI
+// POINTS DE SUIVI MENSUEL
 // ─────────────────────────────────────────
+
+function currentMois() {
+  const n = new Date();
+  return n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0');
+}
+
+function isPointLocked(mois) {
+  const [year, month] = mois.split('-').map(Number);
+  return new Date() >= new Date(year, month, 1);
+}
+
+function moisLabel(mois) {
+  if (!mois) return '—';
+  const [y, m] = mois.split('-');
+  return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+}
+
 function renderPoints() {
   const c = getCollab(currentCollabId);
   if (!c) return;
-  const sorted = [...(c.pointsSuivi || [])].sort((a, b) => new Date(b.date) - new Date(a.date));
   const isBack = currentMode === 'back';
+  const sorted = [...(c.pointsSuivi || [])].sort((a, b) => (b.mois || b.date) > (a.mois || a.date) ? 1 : -1);
+  const cm = currentMois();
+  const hasCurrent = sorted.some(p => p.mois === cm);
+
+  if (isBack) {
+    const btn = document.getElementById('btnAddPoint');
+    btn.classList.remove('hidden');
+    document.getElementById('btnAddPointLabel').textContent = hasCurrent ? 'Modifier ' + moisLabel(cm) : '+ Point ' + moisLabel(cm);
+  }
 
   if (!sorted.length) {
-    document.getElementById('pointsList').innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><p>Aucun compte-rendu pour le moment</p>${isBack ? '<button class="btn btn-primary" onclick="openAddPoint()">+ Créer le premier</button>' : ''}</div>`;
+    document.getElementById('pointsList').innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><p>Aucun point mensuel pour le moment.</p></div>`;
     return;
   }
 
-  document.getElementById('pointsList').innerHTML = sorted.map(p => `
-    <div class="point-card ${p.type} ${isBack ? 'clickable' : ''}" ${isBack ? `onclick="openEditPoint('${p.id}')"` : ''}>
-      <div class="point-header">
-        <span class="point-type ${p.type}">${p.type === 'mensuel' ? '📅 Point mensuel' : '📊 Point semestriel'}</span>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span class="point-date">${fmtDate(p.date)}</span>
-          ${isBack ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();deletePoint('${p.id}')">🗑️</button>` : ''}
+  document.getElementById('pointsList').innerHTML = sorted.map((p, i) => {
+    const locked = isPointLocked(p.mois || cm);
+    const md = p.managerData || {};
+    const cd = p.collabData || {};
+    const label = moisLabel(p.mois || p.date);
+    const isFirst = i === 0;
+
+    return `
+    <div class="point-accordion" style="margin-bottom:10px;border-radius:14px;border:1.5px solid var(--lavender);overflow:hidden;background:white;">
+      <div onclick="toggleAcc('acc-${p.id}')" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;cursor:pointer;background:${isFirst && !locked ? 'linear-gradient(135deg,#F0F0FF,#FFF0F8)' : 'white'};">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:0.95rem;font-weight:700;color:var(--navy);">📅 ${label}</span>
+          ${locked ? `<span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);background:var(--lavender);padding:2px 8px;border-radius:99px;">🔒 Verrouillé</span>` : `<span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--pink);background:#FFF0F8;padding:2px 8px;border-radius:99px;">En cours</span>`}
         </div>
+        <span style="color:var(--muted);font-size:1rem;" id="acc-icon-${p.id}">${isFirst ? '▲' : '▼'}</span>
       </div>
-      <div class="point-excerpt">${p.contenu}</div>
-      ${p.actions ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--lavender);font-size:0.78rem;color:var(--muted);white-space:pre-line;line-height:1.6;">${p.actions}</div>` : ''}
+      <div id="acc-${p.id}" style="display:${isFirst ? 'block' : 'none'};padding:0 18px 18px;border-top:1.5px solid var(--lavender);">
+
+        <!-- Section Manager -->
+        <div style="margin-top:16px;">
+          <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--skyblue);margin-bottom:12px;display:flex;align-items:center;gap:6px;">👔 Retours Manager</div>
+          ${renderManagerSection(md, locked && !isBack, p.id, isBack)}
+        </div>
+
+        <!-- Section Collaborateur -->
+        <div style="margin-top:20px;padding-top:16px;border-top:1px dashed var(--lavender);">
+          <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--pink);margin-bottom:12px;">👤 Réponses du collaborateur</div>
+          ${renderCollabSectionAdmin(cd)}
+        </div>
+
+        ${isBack && !locked ? `<div style="display:flex;justify-content:flex-end;margin-top:14px;"><button class="btn btn-primary btn-sm" onclick="openEditPoint('${p.id}')">✏️ Modifier mes retours</button></div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderManagerSection(md, readOnly, pid, isBack) {
+  const fields = [
+    ['retoursMissions', 'Retours sur les missions'],
+    ['tauxStaffing', 'Taux de staffing / Satisfaction client'],
+    ['qualites', 'Qualités ce mois-ci'],
+    ['axeAmelioration', 'Axe d\'amélioration'],
+  ];
+  return fields.map(([k, label]) => `
+    <div style="margin-bottom:12px;">
+      <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:4px;">${label}</div>
+      <div style="background:var(--offwhite);border-radius:8px;padding:10px 12px;font-size:0.85rem;color:${md[k] ? 'var(--navy)' : 'var(--muted)'};line-height:1.6;min-height:36px;font-style:${md[k] ? 'normal' : 'italic'};">${md[k] || 'Non renseigné'}</div>
     </div>`).join('');
 }
 
-function openAddPoint() {
+function renderCollabSectionAdmin(cd) {
+  const fields = [
+    ['ressenti', 'Comment s\'est-il/elle senti(e) au travail ce mois-ci ?'],
+    ['reussites', 'Réussites du mois'],
+    ['objectifsAtteints', 'Objectifs M-1 atteints ?'],
+    ['suggestions', 'Commentaires / suggestions process'],
+    ['objectifsMoisSuivant', 'Objectifs et priorités mois suivant'],
+    ['autresSujets', 'Souhaite s\'investir dans d\'autres sujets'],
+    ['axeAmeliorationSoi', 'Axe d\'amélioration personnel'],
+  ];
+  const hasData = Object.keys(cd).length > 0 && Object.values(cd).some(v => v);
+  if (!hasData) return `<div style="font-size:0.83rem;color:var(--muted);font-style:italic;padding:10px 0;">Le collaborateur n'a pas encore renseigné ses réponses.</div>`;
+  return fields.map(([k, label]) => `
+    <div style="margin-bottom:12px;">
+      <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:4px;">${label}</div>
+      <div style="background:var(--offwhite);border-radius:8px;padding:10px 12px;font-size:0.85rem;color:${cd[k] ? 'var(--navy)' : 'var(--muted)'};line-height:1.6;min-height:36px;font-style:${cd[k] ? 'normal' : 'italic'};">${cd[k] || 'Non renseigné'}</div>
+    </div>`).join('');
+}
+
+function toggleAcc(id) {
+  const el = document.getElementById(id);
+  const pointId = id.replace('acc-', '');
+  const icon = document.getElementById('acc-icon-' + pointId);
+  const open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : 'block';
+  if (icon) icon.textContent = open ? '▼' : '▲';
+}
+
+function openCurrentMonthPoint() {
+  const c = getCollab(currentCollabId);
+  const cm = currentMois();
+  const existing = (c.pointsSuivi || []).find(p => p.mois === cm);
+  if (existing) { openEditPoint(existing.id); return; }
   editingPointId = null;
-  document.getElementById('modalPointTitle').textContent = 'Nouveau compte-rendu';
-  document.getElementById('pDate').value = new Date().toISOString().split('T')[0];
-  document.getElementById('pType').value = 'mensuel';
-  document.getElementById('pContenu').value = '';
-  document.getElementById('pActions').value = '';
+  clearManagerForm();
+  document.getElementById('modalPointTitle').textContent = '📅 Point mensuel — ' + moisLabel(cm);
   openModal('modalPoint');
 }
 
@@ -911,42 +1005,60 @@ function openEditPoint(id) {
   const p = (c.pointsSuivi || []).find(x => x.id === id);
   if (!p) return;
   editingPointId = id;
-  document.getElementById('modalPointTitle').textContent = 'Modifier le compte-rendu';
-  document.getElementById('pDate').value = p.date;
-  document.getElementById('pType').value = p.type;
-  document.getElementById('pContenu').value = p.contenu;
-  document.getElementById('pActions').value = p.actions || '';
+  const md = p.managerData || {};
+  document.getElementById('pm_retoursMissions').value = md.retoursMissions || '';
+  document.getElementById('pm_tauxStaffing').value = md.tauxStaffing || '';
+  document.getElementById('pm_qualites').value = md.qualites || '';
+  document.getElementById('pm_axeAmelioration').value = md.axeAmelioration || '';
+  document.getElementById('modalPointTitle').textContent = '📅 Point mensuel — ' + moisLabel(p.mois);
   openModal('modalPoint');
 }
 
-async function savePoint() {
-  const date = document.getElementById('pDate').value;
-  const contenu = document.getElementById('pContenu').value.trim();
-  if (!date || !contenu) { alert('Veuillez renseigner la date et le contenu.'); return; }
+function clearManagerForm() {
+  ['pm_retoursMissions','pm_tauxStaffing','pm_qualites','pm_axeAmelioration'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+}
+
+async function saveManagerPoint() {
   const c = getCollab(currentCollabId);
-  if (!c.pointsSuivi) c.pointsSuivi = [];
-  const row = {
-    collaborateur_id: currentCollabId, date,
-    type: document.getElementById('pType').value,
-    contenu, actions: document.getElementById('pActions').value || null
+  const cm = currentMois();
+  const managerData = {
+    retoursMissions: document.getElementById('pm_retoursMissions').value.trim(),
+    tauxStaffing: document.getElementById('pm_tauxStaffing').value.trim(),
+    qualites: document.getElementById('pm_qualites').value.trim(),
+    axeAmelioration: document.getElementById('pm_axeAmelioration').value.trim(),
   };
+  if (!c.pointsSuivi) c.pointsSuivi = [];
+
   if (editingPointId) {
+    const row = { manager_data: managerData };
     const { error } = await sb.from('points_suivi').update(row).eq('id', editingPointId);
     if (error) { showToast('Erreur: ' + error.message); return; }
     const idx = c.pointsSuivi.findIndex(p => p.id === editingPointId);
-    c.pointsSuivi[idx] = { id: editingPointId, date, type: row.type, contenu, actions: row.actions || '' };
+    c.pointsSuivi[idx].managerData = managerData;
   } else {
+    const mois = cm;
+    const row = {
+      collaborateur_id: currentCollabId,
+      date: mois + '-01',
+      type: 'mensuel',
+      mois,
+      manager_data: managerData,
+      collab_data: {},
+      contenu: 'Point mensuel ' + moisLabel(mois),
+    };
     const { data, error } = await sb.from('points_suivi').insert(row).select().single();
     if (error) { showToast('Erreur: ' + error.message); return; }
-    c.pointsSuivi.push({ id: data.id, date, type: row.type, contenu, actions: row.actions || '' });
+    c.pointsSuivi.push({ id: data.id, date: row.date, type: 'mensuel', mois, managerData, collabData: {} });
   }
   closeModal('modalPoint');
   renderPoints();
-  showToast('Compte-rendu enregistré !');
+  showToast('Point mensuel enregistré !');
 }
 
 async function deletePoint(id) {
-  if (!confirm('Supprimer ce compte-rendu ?')) return;
+  if (!confirm('Supprimer ce point mensuel ?')) return;
   const { error } = await sb.from('points_suivi').delete().eq('id', id);
   if (error) { showToast('Erreur: ' + error.message); return; }
   const c = getCollab(currentCollabId);
