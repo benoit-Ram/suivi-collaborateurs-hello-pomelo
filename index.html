@@ -107,6 +107,10 @@
     .profile-nav-btn:hover { border-color: var(--pink); color: var(--navy); box-shadow: 0 4px 14px rgba(255,50,133,0.12); transform: translateY(-2px); }
     .profile-nav-btn.active { border-color: var(--pink); background: var(--pink); color: white; box-shadow: 0 6px 18px rgba(255,50,133,0.35); transform: translateY(-2px); }
 
+    /* SETTINGS INPUT */
+    .settings-input { flex:1; border:1.5px solid var(--lavender); border-radius:10px; padding:9px 12px; font-family:inherit; font-size:0.9rem; color:var(--navy); outline:none; background:var(--offwhite); transition:border-color 0.2s; }
+    .settings-input:focus { border-color:var(--pink); background:white; }
+
     /* SECTION TITLE */
     .section-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--pink); margin: 24px 0 12px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
     .section-title::after { content: ''; flex: 1; height: 1px; background: var(--lavender); }
@@ -249,6 +253,14 @@
       <div class="form-field">
         <label>Équipe</label>
         <select id="fEquipe"><option value="">— Choisir une équipe —</option></select>
+      </div>
+      <div class="form-field">
+        <label>Type de contrat</label>
+        <select id="fContrat"><option value="">— Choisir —</option></select>
+      </div>
+      <div class="form-field">
+        <label>Type de poste</label>
+        <select id="fTypePoste"><option value="">— Choisir —</option></select>
       </div>
       <div class="form-field full">
         <label>Manager</label>
@@ -506,24 +518,40 @@
   <div id="view-bo-settings" class="view hidden">
     <div class="page-header">
       <h1>Paramètres</h1>
-      <p>Gérer les listes d'équipes et de bureaux</p>
+      <p>Gérer les listes de référence utilisées dans les fiches collaborateurs</p>
     </div>
     <div class="divider"></div>
     <div class="grid-2" style="gap:20px;">
       <div class="card">
         <div class="section-title">Équipes</div>
-        <div id="settingsEquipesList" style="margin-bottom:16px;"></div>
+        <div id="settingsList_equipes" style="margin-bottom:16px;"></div>
         <div style="display:flex;gap:8px;">
-          <input id="newEquipe" type="text" placeholder="Nouvelle équipe..." style="flex:1;border:1.5px solid var(--lavender);border-radius:10px;padding:9px 12px;font-family:inherit;font-size:0.9rem;color:var(--navy);outline:none;" />
+          <input id="newVal_equipes" type="text" placeholder="Nouvelle équipe..." class="settings-input" onkeydown="if(event.key==='Enter')addSettingItem('equipes')" />
           <button class="btn btn-primary" onclick="addSettingItem('equipes')">+ Ajouter</button>
         </div>
       </div>
       <div class="card">
         <div class="section-title">Bureaux</div>
-        <div id="settingsBureauxList" style="margin-bottom:16px;"></div>
+        <div id="settingsList_bureaux" style="margin-bottom:16px;"></div>
         <div style="display:flex;gap:8px;">
-          <input id="newBureau" type="text" placeholder="Nouveau bureau..." style="flex:1;border:1.5px solid var(--lavender);border-radius:10px;padding:9px 12px;font-family:inherit;font-size:0.9rem;color:var(--navy);outline:none;" />
+          <input id="newVal_bureaux" type="text" placeholder="Nouveau bureau..." class="settings-input" onkeydown="if(event.key==='Enter')addSettingItem('bureaux')" />
           <button class="btn btn-primary" onclick="addSettingItem('bureaux')">+ Ajouter</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-title">Types de contrat</div>
+        <div id="settingsList_contrats" style="margin-bottom:16px;"></div>
+        <div style="display:flex;gap:8px;">
+          <input id="newVal_contrats" type="text" placeholder="Nouveau type..." class="settings-input" onkeydown="if(event.key==='Enter')addSettingItem('contrats')" />
+          <button class="btn btn-primary" onclick="addSettingItem('contrats')">+ Ajouter</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-title">Types de poste</div>
+        <div id="settingsList_typePostes" style="margin-bottom:16px;"></div>
+        <div style="display:flex;gap:8px;">
+          <input id="newVal_typePostes" type="text" placeholder="Ex : Senior, Lead..." class="settings-input" onkeydown="if(event.key==='Enter')addSettingItem('typePostes')" />
+          <button class="btn btn-primary" onclick="addSettingItem('typePostes')">+ Ajouter</button>
         </div>
       </div>
     </div>
@@ -574,6 +602,8 @@ function fromRow(row) {
     managerId: row.manager_id || null,
     bureau: row.bureau || '',
     equipe: row.equipe || '',
+    contrat: row.contrat || '',
+    typePoste: row.type_poste || '',
     onboarding: row.onboarding || defaultOnboarding(),
     pointsSuivi: (row.points_suivi || []).map(p => ({
       id: p.id, date: p.date, type: p.type, mois: p.mois || '',
@@ -602,7 +632,7 @@ let DB = { collaborateurs: [] };
 let currentView = 'dashboard';
 let currentCollabId = null;
 let currentTab = 'onboarding';
-let SETTINGS = { equipes: [], bureaux: [] };
+let SETTINGS = { equipes: [], bureaux: [], contrats: [], typePostes: [] };
 let editingCollabId = null;
 let editingPointId = null;
 let editingObjId = null;
@@ -763,8 +793,10 @@ function renderCollab() {
           ${c.email ? `<div class="profile-meta-item">✉️ <span>${c.email}</span></div>` : ''}
           ${c.telephone ? `<div class="profile-meta-item">📞 <span>${c.telephone}</span></div>` : ''}
           ${c.dateEntree ? `<div class="profile-meta-item">📅 Entrée le <span>${fmtDate(c.dateEntree)}</span></div>` : ''}
-          ${c.bureau ? `<div class="profile-meta-item">🏢 Bureau : <span>${c.bureau}</span></div>` : ''}
-          ${c.equipe ? `<div class="profile-meta-item">👥 Équipe : <span>${c.equipe}</span></div>` : ''}
+          ${c.bureau    ? `<div class="profile-meta-item">🏢 Bureau : <span>${c.bureau}</span></div>`          : ''}
+          ${c.equipe    ? `<div class="profile-meta-item">👥 Équipe : <span>${c.equipe}</span></div>`          : ''}
+          ${c.contrat   ? `<div class="profile-meta-item">📄 Contrat : <span>${c.contrat}</span></div>`       : ''}
+          ${c.typePoste ? `<div class="profile-meta-item">🏷️ Type de poste : <span>${c.typePoste}</span></div>` : ''}
           ${manager ? `<div class="profile-meta-item">👔 Manager : <span>${manager}</span></div>` : ''}
         </div>
       </div>
@@ -1260,37 +1292,44 @@ function populateSettingSelect(selectId, key, selected) {
     items.map(v => `<option value="${v}" ${v === selected ? 'selected' : ''}>${v}</option>`).join('');
 }
 
+const SETTINGS_CONFIG = [
+  { key: 'equipes',    label: 'Équipes' },
+  { key: 'bureaux',    label: 'Bureaux' },
+  { key: 'contrats',   label: 'Types de contrat' },
+  { key: 'typePostes', label: 'Types de poste' },
+];
+
 function renderBoSettings() {
-  ['equipes', 'bureaux'].forEach(key => {
-    const listId = key === 'equipes' ? 'settingsEquipesList' : 'settingsBureauxList';
-    const el = document.getElementById(listId);
+  SETTINGS_CONFIG.forEach(({ key }) => {
+    const el = document.getElementById('settingsList_' + key);
     if (!el) return;
     const items = SETTINGS[key] || [];
     el.innerHTML = items.length
       ? items.map(v => `
           <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border:1.5px solid var(--lavender);border-radius:10px;margin-bottom:8px;background:white;">
             <span style="font-weight:600;color:var(--navy);">${v}</span>
-            <button class="btn btn-danger btn-sm" onclick="removeSettingItem('${key}','${v}')">✕</button>
+            <button class="btn btn-danger btn-sm" onclick="removeSettingItem('${key}','${encodeURIComponent(v)}')">✕</button>
           </div>`).join('')
       : `<p style="color:var(--muted);font-size:0.85rem;font-style:italic;">Aucun élément.</p>`;
   });
 }
 
 async function addSettingItem(key) {
-  const inputId = key === 'equipes' ? 'newEquipe' : 'newBureau';
-  const val = document.getElementById(inputId).value.trim();
+  const input = document.getElementById('newVal_' + key);
+  const val = input.value.trim();
   if (!val) return;
   if ((SETTINGS[key] || []).includes(val)) { showToast('Déjà dans la liste.'); return; }
   const newList = [...(SETTINGS[key] || []), val];
   const { error } = await sb.from('settings').update({ value: newList }).eq('key', key);
   if (error) { showToast('Erreur : ' + error.message); return; }
   SETTINGS[key] = newList;
-  document.getElementById(inputId).value = '';
+  input.value = '';
   renderBoSettings();
   showToast(`"${val}" ajouté !`);
 }
 
-async function removeSettingItem(key, val) {
+async function removeSettingItem(key, encodedVal) {
+  const val = decodeURIComponent(encodedVal);
   if (!confirm(`Supprimer "${val}" de la liste ?`)) return;
   const newList = (SETTINGS[key] || []).filter(v => v !== val);
   const { error } = await sb.from('settings').update({ value: newList }).eq('key', key);
@@ -1324,8 +1363,10 @@ function openAddCollab() {
   editingCollabId = null;
   document.getElementById('modalCollabTitle').textContent = 'Ajouter un collaborateur';
   ['fPrenom','fNom','fPoste','fEmail','fTel'].forEach(id => document.getElementById(id).value = '');
-  populateSettingSelect('fBureau', 'bureaux', '');
-  populateSettingSelect('fEquipe', 'equipes', '');
+  populateSettingSelect('fBureau',    'bureaux',    '');
+  populateSettingSelect('fEquipe',    'equipes',    '');
+  populateSettingSelect('fContrat',   'contrats',   '');
+  populateSettingSelect('fTypePoste', 'typePostes', '');
   document.getElementById('fDateEntree').value = '';
   populateManagerSelect('fManager', null);
   renderDocsCheckboxes([]);
@@ -1343,8 +1384,10 @@ function openEditCollab(id) {
   document.getElementById('fEmail').value = c.email || '';
   document.getElementById('fTel').value = c.telephone || '';
   document.getElementById('fDateEntree').value = c.dateEntree || '';
-  populateSettingSelect('fBureau', 'bureaux', c.bureau || '');
-  populateSettingSelect('fEquipe', 'equipes', c.equipe || '');
+  populateSettingSelect('fBureau',    'bureaux',    c.bureau    || '');
+  populateSettingSelect('fEquipe',    'equipes',    c.equipe    || '');
+  populateSettingSelect('fContrat',   'contrats',   c.contrat   || '');
+  populateSettingSelect('fTypePoste', 'typePostes', c.typePoste || '');
   populateManagerSelect('fManager', c.managerId, id);
   renderDocsCheckboxes(c.onboarding.requiredDocs || []);
   openModal('modalCollab');
@@ -1362,8 +1405,10 @@ async function saveCollab() {
     telephone: document.getElementById('fTel').value || null,
     date_entree: document.getElementById('fDateEntree').value || null,
     manager_id: document.getElementById('fManager').value || null,
-    bureau: document.getElementById('fBureau').value || null,
-    equipe: document.getElementById('fEquipe').value || null,
+    bureau:     document.getElementById('fBureau').value    || null,
+    equipe:     document.getElementById('fEquipe').value    || null,
+    contrat:    document.getElementById('fContrat').value   || null,
+    type_poste: document.getElementById('fTypePoste').value || null,
   };
 
   if (editingCollabId) {
@@ -1374,7 +1419,7 @@ async function saveCollab() {
     const { error } = await sb.from('collaborateurs').update(row).eq('id', editingCollabId);
     if (error) { showToast('Erreur: ' + error.message); return; }
     const c = getCollab(editingCollabId);
-    Object.assign(c, { prenom, nom, poste, email: row.email || '', telephone: row.telephone || '', dateEntree: row.date_entree || '', managerId: row.manager_id || null, bureau: row.bureau || '', equipe: row.equipe || '' });
+    Object.assign(c, { prenom, nom, poste, email: row.email || '', telephone: row.telephone || '', dateEntree: row.date_entree || '', managerId: row.manager_id || null, bureau: row.bureau || '', equipe: row.equipe || '', contrat: row.contrat || '', typePoste: row.type_poste || '' });
   } else {
     const requiredDocs = Array.from(document.querySelectorAll('#fDocsCheckboxes input:checked')).map(cb => cb.value);
     row.onboarding = defaultOnboarding();
