@@ -900,11 +900,10 @@ function renderPoints() {
   const cm = currentMois();
   const hasCurrent = sorted.some(p => p.mois === cm);
 
-  if (isBack) {
-    const btn = document.getElementById('btnAddPoint');
-    btn.classList.remove('hidden');
-    document.getElementById('btnAddPointLabel').textContent = hasCurrent ? 'Modifier ' + moisLabel(cm) : '+ Point ' + moisLabel(cm);
-  }
+  // Le bouton est toujours visible (front et back) pour permettre l'édition en cours de mois
+  const btn = document.getElementById('btnAddPoint');
+  btn.classList.remove('hidden');
+  document.getElementById('btnAddPointLabel').textContent = hasCurrent ? 'Modifier ' + moisLabel(cm) : '+ Point ' + moisLabel(cm);
 
   if (!sorted.length) {
     document.getElementById('pointsList').innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><p>Aucun point mensuel pour le moment.</p></div>`;
@@ -941,7 +940,7 @@ function renderPoints() {
           ${renderCollabSectionAdmin(cd)}
         </div>
 
-        ${isBack && !locked ? `<div style="display:flex;justify-content:flex-end;margin-top:14px;"><button class="btn btn-primary btn-sm" onclick="openEditPoint('${p.id}')">✏️ Modifier mes retours</button></div>` : ''}
+        ${!locked ? `<div style="display:flex;justify-content:flex-end;margin-top:14px;"><button class="btn btn-primary btn-sm" onclick="openEditPoint('${p.id}')">✏️ Modifier mes retours</button></div>` : ''}
       </div>
     </div>`;
   }).join('');
