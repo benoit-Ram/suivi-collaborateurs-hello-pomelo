@@ -320,6 +320,7 @@
     <div class="tabs">
       <button class="tab-btn active" onclick="showTab('onboarding')">📋 Mon dossier</button>
       <button class="tab-btn" onclick="showTab('objectifs')">🎯 Mes objectifs</button>
+      <button class="tab-btn" onclick="showTab('documents')">📁 Mes documents</button>
       <button class="tab-btn" onclick="showTab('points')">🗓️ Mon suivi mensuel</button>
       <button id="btnTabEquipe" class="tab-btn hidden" onclick="showTab('equipe')">👥 Mon équipe</button>
     </div>
@@ -350,6 +351,11 @@
     <!-- OBJECTIFS TAB -->
     <div id="tab-objectifs" class="tab-pane">
       <div id="myObjectifs"></div>
+    </div>
+
+    <!-- DOCUMENTS TAB -->
+    <div id="tab-documents" class="tab-pane">
+      <div id="myValidatedDocs"></div>
     </div>
 
     <!-- EQUIPE TAB -->
@@ -608,6 +614,7 @@ function showTab(tab) {
   else if (tab === 'points') renderPoints();
   else if (tab === 'objectifs') renderObjectifs();
   else if (tab === 'equipe') renderTeam();
+  else if (tab === 'documents') renderValidatedDocs();
 }
 
 // ─────────────────────────────────────────
@@ -616,41 +623,33 @@ function showTab(tab) {
 function renderOnboarding() {
   const c = currentCollab;
   const uploads = c.onboarding.uploads || {};
-  const docs = c.onboarding.documents;
-  const docsEnabled = c.onboarding.docsEnabled || {};
+  const required = c.onboarding.requiredDocs || [];
+  // Docs à déposer : requis ET non encore validés
+  const pending = required.filter(k => !docs[k]);
 
-  // Documents gérés uniquement par l'administrateur (pas d'upload collaborateur)
-  const ADMIN_ONLY_DOCS = ['fichePoste', 'lettreObjectif', 'contrat'];
-
-  document.getElementById('myDocs').innerHTML = Object.keys(DOCS_LABELS).map(k => {
-    if (TOGGLABLE_DOCS.includes(k) && !docsEnabled[k]) return '';
-    const adminDone = docs[k];
-    const uploaded  = uploads[k];
-    const adminOnly = ADMIN_ONLY_DOCS.includes(k);
-
-    let actions = '';
-    if (adminDone) {
-      actions = `<span style="font-size:0.7rem;color:#166534;font-weight:700;">Validé ✓</span>`;
-    } else if (adminOnly) {
-      actions = `<span style="font-size:0.7rem;color:var(--muted);font-weight:600;font-style:italic;">Remis par l'admin</span>`;
-    } else if (uploaded) {
-      actions = `<span style="font-size:0.7rem;color:var(--pink);font-weight:700;">⏳ En attente de validation</span>`;
-    } else {
-      actions = `
-        <label class="btn-upload" for="file-${k}">⬆ Déposer</label>
-        <input type="file" class="file-input" id="file-${k}" onchange="uploadDoc('${k}', this)" />`;
-    }
-
-    return `
-      <div class="check-item ${adminDone ? 'done' : uploaded ? 'upload-pending' : ''}" id="doc-item-${k}">
-        <div class="check-box">${adminDone ? '✓' : ''}</div>
-        <div style="flex:1;">
-          <div class="check-label">${DOCS_LABELS[k]}</div>
-          ${uploaded && !adminDone ? `<div class="check-uploaded">📎 ${uploaded.filename} — ${uploaded.uploadedAt}</div>` : ''}
-        </div>
-        <div class="check-actions">${actions}</div>
-      </div>`;
-  }).join('');
+  if (!pending.length) {
+    document.getElementById('myDocs').innerHTML = `<div class="empty-state" style="padding:24px 0;"><div class="empty-icon" style="font-size:2rem;">✅</div><p style="color:var(--green);font-weight:700;">Tous vos documents ont été validés !</p><p style="font-size:0.8rem;color:var(--muted);">Retrouvez-les dans l'onglet "Mes documents".</p></div>`;
+  } else {
+    document.getElementById('myDocs').innerHTML = pending.map(k => {
+      const label = DOCS_LABELS[k] || k;
+      const upload = uploads[k];
+      let actions = '';
+      if (upload) {
+        actions = `<span style="font-size:0.7rem;color:var(--pink);font-weight:700;">⏳ En attente de validation</span>`;
+      } else {
+        actions = `<label class="btn-upload" for="file-${k}">⬆ Déposer</label><input type="file" class="file-input" id="file-${k}" onchange="uploadDoc('${k}', this)" />`;
+      }
+      return `
+        <div class="check-item ${upload ? 'upload-pending' : ''}" id="doc-item-${k}">
+          <div class="check-box"></div>
+          <div style="flex:1;">
+            <div class="check-label">${label}</div>
+            ${upload ? `<div class="check-uploaded">📎 ${upload.filename} — ${upload.uploadedAt}</div>` : ''}
+          </div>
+          <div class="check-actions">${actions}</div>
+        </div>`;
+    }).join('');
+  }
 
   // Infos
   const onb = c.onboarding;
@@ -683,6 +682,35 @@ function renderOnboarding() {
         <div class="info-label" style="margin-bottom:6px;">Notes de votre RH</div>
         <div style="background:#FFF0F6;border-radius:10px;padding:12px 14px;font-size:0.85rem;color:var(--navy);line-height:1.6;border-left:3px solid var(--pink);">${onb.notes}</div>
       </div>` : ''}`;
+}
+
+function renderValidatedDocs() {
+  const c = currentCollab;
+  const docs = c.onboarding.documents;
+  const uploads = c.onboarding.uploads || {};
+  const required = c.onboarding.requiredDocs || [];
+  const validated = required.filter(k => docs[k]);
+
+  if (!validated.length) {
+    document.getElementById('myValidatedDocs').innerHTML = `<div class="empty-state"><div class="empty-icon">📁</div><p>Aucun document validé pour le moment.</p></div>`;
+    return;
+  }
+  document.getElementById('myValidatedDocs').innerHTML = `
+    <div class="section-title" style="margin-bottom:16px;">Mes documents validés</div>
+    ${validated.map(k => {
+      const label = DOCS_LABELS[k] || k;
+      const upload = uploads[k];
+      const SUPABASE_URL = 'https://mlhdghtqfpqhypxwpwjj.supabase.co';
+      return `
+        <div class="check-item done" style="margin-bottom:8px;">
+          <div class="check-box">✓</div>
+          <div style="flex:1;">
+            <div class="check-label">${label}</div>
+            ${upload ? `<div class="check-uploaded">📎 ${upload.filename} — ${upload.uploadedAt}</div>` : ''}
+          </div>
+          ${upload ? `<a href="${SUPABASE_URL}/storage/v1/object/public/onboarding-docs/${upload.path}" target="_blank" class="btn btn-ghost btn-sm" style="font-size:0.75rem;">👁 Voir</a>` : ''}
+        </div>`;
+    }).join('')}`;
 }
 
 async function uploadDoc(docKey, input) {

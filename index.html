@@ -288,6 +288,10 @@
         </select>
       </div>
     </div>
+    <div style="margin-top:14px;border-top:1px solid var(--lavender);padding-top:14px;">
+      <label style="font-size:0.78rem;font-weight:700;color:var(--navy);display:block;margin-bottom:10px;">Documents à demander au collaborateur</label>
+      <div id="fDocsCheckboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"></div>
+    </div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
       <button class="btn btn-ghost" onclick="closeModal('modalCollab')">Annuler</button>
       <button class="btn btn-primary" onclick="saveCollab()">Enregistrer</button>
@@ -561,7 +565,7 @@ const TOGGLABLE_DOCS = ['fichePoste', 'lettreObjectif', 'contrat'];
 function defaultOnboarding() {
   const docs = {};
   Object.keys(DOCS_LABELS).forEach(k => docs[k] = false);
-  return { notes: '', materiel: '', acces: '', documents: docs, docsEnabled: {} };
+  return { notes: '', materiel: '', acces: '', documents: docs, requiredDocs: [], uploads: {} };
 }
 
 function fromRow(row) {
@@ -641,10 +645,10 @@ function fmtDate(d) {
 }
 function onboardingScore(c) {
   const docs = c.onboarding.documents;
-  const docsEnabled = c.onboarding.docsEnabled || {};
-  const keys = Object.keys(DOCS_LABELS).filter(k => !TOGGLABLE_DOCS.includes(k) || docsEnabled[k]);
-  const done = keys.filter(k => docs[k]).length;
-  return { done, total: keys.length, pct: keys.length ? Math.round(done / keys.length * 100) : 0 };
+  const required = c.onboarding.requiredDocs || [];
+  if (!required.length) return { done: 0, total: 0, pct: 0 };
+  const done = required.filter(k => docs[k]).length;
+  return { done, total: required.length, pct: Math.round(done / required.length * 100) };
 }
 
 // ─────────────────────────────────────────
@@ -856,47 +860,38 @@ function renderOnboarding() {
   const isBack = currentMode === 'back';
   const docs = c.onboarding.documents;
 
-  const docsEnabled = c.onboarding.docsEnabled || {};
+  const required = c.onboarding.requiredDocs || [];
   const uploads = c.onboarding.uploads || {};
   const SUPABASE_URL = 'https://mlhdghtqfpqhypxwpwjj.supabase.co';
 
-  document.getElementById('checklistDocs').innerHTML = Object.keys(DOCS_LABELS).map(k => {
-    const isTogglable = TOGGLABLE_DOCS.includes(k);
-    const enabled = !isTogglable || docsEnabled[k];
-    if (!isBack && !enabled) return '';
-    const checked = docs[k];
-    const upload = uploads[k];
-
-    const toggleBadge = isBack && isTogglable ? `
-      <span onclick="event.stopPropagation();toggleDocEnabled('${k}')" style="cursor:pointer;font-size:0.68rem;font-weight:700;color:${enabled ? 'var(--pink)' : 'var(--muted)'};background:${enabled ? '#FFF0F8' : 'var(--lavender)'};border-radius:99px;padding:2px 10px;white-space:nowrap;">
-        ${enabled ? 'Activé ✓' : '+ Activer'}
-      </span>` : '';
-
-    // Bloc upload en attente de validation
-    const uploadBlock = isBack && upload && !checked ? `
-      <div onclick="event.stopPropagation()" style="margin-top:8px;padding:8px 10px;background:#FFF5F9;border-radius:8px;border:1px solid var(--pink);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-        <span style="font-size:0.75rem;color:var(--navy);font-weight:600;">📎 ${upload.filename}</span>
-        <span style="font-size:0.7rem;color:var(--muted);">${upload.uploadedAt} · ${upload.size}</span>
-        <div style="display:flex;gap:6px;margin-left:auto;">
-          <a href="${SUPABASE_URL}/storage/v1/object/public/onboarding-docs/${upload.path}" target="_blank" class="btn btn-ghost btn-sm" style="font-size:0.72rem;padding:3px 10px;">👁 Voir</a>
-          <button onclick="validateUpload('${k}')" class="btn btn-primary btn-sm" style="font-size:0.72rem;padding:3px 10px;background:var(--green);border-color:var(--green);">✓ Valider</button>
-          <button onclick="rejectUpload('${k}')" class="btn btn-danger btn-sm" style="font-size:0.72rem;padding:3px 10px;">✕ Rejeter</button>
-        </div>
-      </div>` : '';
-
-    // Badge "en attente" si upload présent mais pas validé
-    const pendingBadge = upload && !checked ? `<span style="font-size:0.68rem;font-weight:700;color:var(--pink);background:#FFF0F8;border-radius:99px;padding:2px 8px;margin-left:6px;">⏳ En attente</span>` : '';
-
-    return `
-    <div style="margin-bottom:8px;">
-      <div class="check-item ${checked ? 'done' : ''}" style="${!enabled ? 'opacity:0.45;' : ''}">
-        <div class="check-box">${checked ? '✓' : ''}</div>
-        <div class="check-label" style="flex:1;">${DOCS_LABELS[k]}${pendingBadge}</div>
-        ${toggleBadge}
-      </div>
-      ${uploadBlock}
-    </div>`;
-  }).join('');
+  if (!required.length) {
+    document.getElementById('checklistDocs').innerHTML = `<div style="font-size:0.83rem;color:var(--muted);font-style:italic;">Aucun document requis défini pour ce collaborateur.</div>`;
+  } else {
+    document.getElementById('checklistDocs').innerHTML = required.map(k => {
+      const label = DOCS_LABELS[k] || k;
+      const validated = docs[k];
+      const upload = uploads[k];
+      const uploadBlock = isBack && upload && !validated ? `
+        <div onclick="event.stopPropagation()" style="margin-top:8px;padding:8px 10px;background:#FFF5F9;border-radius:8px;border:1px solid var(--pink);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span style="font-size:0.75rem;color:var(--navy);font-weight:600;">📎 ${upload.filename}</span>
+          <span style="font-size:0.7rem;color:var(--muted);">${upload.uploadedAt} · ${upload.size}</span>
+          <div style="display:flex;gap:6px;margin-left:auto;">
+            <a href="${SUPABASE_URL}/storage/v1/object/public/onboarding-docs/${upload.path}" target="_blank" class="btn btn-ghost btn-sm" style="font-size:0.72rem;padding:3px 10px;">👁 Voir</a>
+            <button onclick="validateUpload('${k}')" class="btn btn-primary btn-sm" style="font-size:0.72rem;padding:3px 10px;background:var(--green);border-color:var(--green);">✓ Valider</button>
+            <button onclick="rejectUpload('${k}')" class="btn btn-danger btn-sm" style="font-size:0.72rem;padding:3px 10px;">✕ Rejeter</button>
+          </div>
+        </div>` : '';
+      const pendingBadge = upload && !validated ? `<span style="font-size:0.68rem;font-weight:700;color:var(--pink);background:#FFF0F8;border-radius:99px;padding:2px 8px;margin-left:6px;">⏳ En attente</span>` : '';
+      return `
+        <div style="margin-bottom:8px;">
+          <div class="check-item ${validated ? 'done' : ''}">
+            <div class="check-box">${validated ? '✓' : ''}</div>
+            <div style="flex:1;font-size:0.85rem;font-weight:600;">${label}${pendingBadge}</div>
+          </div>
+          ${uploadBlock}
+        </div>`;
+    }).join('');
+  }
 
   document.getElementById('onboardingNotes').value = c.onboarding.notes || '';
   document.getElementById('onboardingMateriel').value = c.onboarding.materiel || '';
@@ -937,15 +932,6 @@ async function rejectUpload(docKey) {
   renderOnboarding();
 }
 
-async function toggleDocEnabled(docKey) {
-  if (currentMode !== 'back') return;
-  const c = getCollab(currentCollabId);
-  if (!c.onboarding.docsEnabled) c.onboarding.docsEnabled = {};
-  c.onboarding.docsEnabled[docKey] = !c.onboarding.docsEnabled[docKey];
-  const { error } = await sb.from('collaborateurs').update({ onboarding: c.onboarding }).eq('id', c.id);
-  if (error) { c.onboarding.docsEnabled[docKey] = !c.onboarding.docsEnabled[docKey]; showToast('Erreur: ' + error.message); return; }
-  renderOnboarding();
-}
 
 async function saveOnboarding() {
   const c = getCollab(currentCollabId);
@@ -1359,12 +1345,21 @@ function populateManagerSelect(selectId, selected, excludeId) {
   });
 }
 
+function renderDocsCheckboxes(selected) {
+  document.getElementById('fDocsCheckboxes').innerHTML = Object.entries(DOCS_LABELS).map(([k, label]) => `
+    <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;border:1.5px solid var(--lavender);cursor:pointer;font-size:0.82rem;background:white;">
+      <input type="checkbox" id="fdoc_${k}" value="${k}" ${selected.includes(k) ? 'checked' : ''} style="accent-color:var(--pink);width:16px;height:16px;" />
+      ${label}
+    </label>`).join('');
+}
+
 function openAddCollab() {
   editingCollabId = null;
   document.getElementById('modalCollabTitle').textContent = 'Ajouter un collaborateur';
   ['fPrenom','fNom','fPoste','fEmail','fTel'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('fDateEntree').value = '';
   populateManagerSelect('fManager', null);
+  renderDocsCheckboxes([]);
   openModal('modalCollab');
 }
 
@@ -1380,6 +1375,7 @@ function openEditCollab(id) {
   document.getElementById('fTel').value = c.telephone || '';
   document.getElementById('fDateEntree').value = c.dateEntree || '';
   populateManagerSelect('fManager', c.managerId, id);
+  renderDocsCheckboxes(c.onboarding.requiredDocs || []);
   openModal('modalCollab');
 }
 
@@ -1398,12 +1394,18 @@ async function saveCollab() {
   };
 
   if (editingCollabId) {
+    const requiredDocs = Array.from(document.querySelectorAll('#fDocsCheckboxes input:checked')).map(cb => cb.value);
+    const cEdit = getCollab(editingCollabId);
+    cEdit.onboarding.requiredDocs = requiredDocs;
+    row.onboarding = cEdit.onboarding;
     const { error } = await sb.from('collaborateurs').update(row).eq('id', editingCollabId);
     if (error) { showToast('Erreur: ' + error.message); return; }
     const c = getCollab(editingCollabId);
     Object.assign(c, { prenom, nom, poste, email: row.email || '', telephone: row.telephone || '', dateEntree: row.date_entree || '', managerId: row.manager_id || null });
   } else {
+    const requiredDocs = Array.from(document.querySelectorAll('#fDocsCheckboxes input:checked')).map(cb => cb.value);
     row.onboarding = defaultOnboarding();
+    row.onboarding.requiredDocs = requiredDocs;
     const { data, error } = await sb.from('collaborateurs').insert(row).select().single();
     if (error) { showToast('Erreur: ' + error.message); return; }
     DB.collaborateurs.push(fromRow(data));
