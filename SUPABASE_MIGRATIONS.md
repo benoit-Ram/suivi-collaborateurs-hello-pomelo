@@ -14,6 +14,14 @@ ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS bureau text;
 ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS equipe text;
 ```
 
+## Migration v1.5 — Colonnes manquantes
+
+```sql
+-- Type de contrat et type de poste (si pas encore créés)
+ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS contrat text;
+ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS type_poste text;
+```
+
 ## Migration v2 — Nouvelles fonctionnalités
 
 ```sql
