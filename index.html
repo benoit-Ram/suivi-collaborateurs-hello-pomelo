@@ -550,7 +550,10 @@ const DOCS_LABELS = {
   cni: 'Carte d\'identité / Passeport',
   attestationSecu: 'Attestation Sécurité Sociale',
   fichePoste: 'Fiche de poste signée',
+  lettreObjectif: 'Lettre d\'objectif signée',
 };
+// Documents activables/désactivables individuellement par l'admin pour chaque collaborateur
+const TOGGLABLE_DOCS = ['fichePoste', 'lettreObjectif', 'contrat'];
 
 // ─────────────────────────────────────────
 // DATA MAPPING
@@ -558,7 +561,7 @@ const DOCS_LABELS = {
 function defaultOnboarding() {
   const docs = {};
   Object.keys(DOCS_LABELS).forEach(k => docs[k] = false);
-  return { notes: '', materiel: '', acces: '', documents: docs };
+  return { notes: '', materiel: '', acces: '', documents: docs, docsEnabled: {} };
 }
 
 function fromRow(row) {
@@ -631,9 +634,10 @@ function fmtDate(d) {
 }
 function onboardingScore(c) {
   const docs = c.onboarding.documents;
-  const keys = Object.keys(DOCS_LABELS);
+  const docsEnabled = c.onboarding.docsEnabled || {};
+  const keys = Object.keys(DOCS_LABELS).filter(k => !TOGGLABLE_DOCS.includes(k) || docsEnabled[k]);
   const done = keys.filter(k => docs[k]).length;
-  return { done, total: keys.length, pct: Math.round(done / keys.length * 100) };
+  return { done, total: keys.length, pct: keys.length ? Math.round(done / keys.length * 100) : 0 };
 }
 
 // ─────────────────────────────────────────
@@ -845,11 +849,23 @@ function renderOnboarding() {
   const isBack = currentMode === 'back';
   const docs = c.onboarding.documents;
 
-  document.getElementById('checklistDocs').innerHTML = Object.keys(DOCS_LABELS).map(k => `
-    <div class="check-item ${docs[k] ? 'done' : ''} ${isBack ? 'clickable' : ''}" ${isBack ? `onclick="toggleDoc('${k}')"` : ''}>
-      <div class="check-box">${docs[k] ? '✓' : ''}</div>
-      <div class="check-label">${DOCS_LABELS[k]}</div>
-    </div>`).join('');
+  const docsEnabled = c.onboarding.docsEnabled || {};
+  document.getElementById('checklistDocs').innerHTML = Object.keys(DOCS_LABELS).map(k => {
+    const isTogglable = TOGGLABLE_DOCS.includes(k);
+    const enabled = !isTogglable || docsEnabled[k];
+    if (!isBack && !enabled) return '';
+    const checked = docs[k];
+    const toggleBadge = isBack && isTogglable ? `
+      <span onclick="event.stopPropagation();toggleDocEnabled('${k}')" style="cursor:pointer;font-size:0.68rem;font-weight:700;color:${enabled ? 'var(--pink)' : 'var(--muted)'};background:${enabled ? '#FFF0F8' : 'var(--lavender)'};border-radius:99px;padding:2px 10px;margin-left:8px;white-space:nowrap;">
+        ${enabled ? 'Activé ✓' : '+ Activer'}
+      </span>` : '';
+    return `
+    <div class="check-item ${checked ? 'done' : ''} ${isBack && enabled ? 'clickable' : ''}" ${isBack && enabled ? `onclick="toggleDoc('${k}')"` : ''} style="${!enabled ? 'opacity:0.45;' : ''}">
+      <div class="check-box">${checked ? '✓' : ''}</div>
+      <div class="check-label" style="flex:1;">${DOCS_LABELS[k]}</div>
+      ${toggleBadge}
+    </div>`;
+  }).join('');
 
   document.getElementById('onboardingNotes').value = c.onboarding.notes || '';
   document.getElementById('onboardingMateriel').value = c.onboarding.materiel || '';
@@ -865,6 +881,16 @@ async function toggleDoc(docKey) {
   c.onboarding.documents[docKey] = !c.onboarding.documents[docKey];
   const { error } = await sb.from('collaborateurs').update({ onboarding: c.onboarding }).eq('id', c.id);
   if (error) { c.onboarding.documents[docKey] = !c.onboarding.documents[docKey]; showToast('Erreur: ' + error.message); return; }
+  renderOnboarding();
+}
+
+async function toggleDocEnabled(docKey) {
+  if (currentMode !== 'back') return;
+  const c = getCollab(currentCollabId);
+  if (!c.onboarding.docsEnabled) c.onboarding.docsEnabled = {};
+  c.onboarding.docsEnabled[docKey] = !c.onboarding.docsEnabled[docKey];
+  const { error } = await sb.from('collaborateurs').update({ onboarding: c.onboarding }).eq('id', c.id);
+  if (error) { c.onboarding.docsEnabled[docKey] = !c.onboarding.docsEnabled[docKey]; showToast('Erreur: ' + error.message); return; }
   renderOnboarding();
 }
 

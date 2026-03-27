@@ -411,7 +411,9 @@ const DOCS_LABELS = {
   cni: 'Carte d\'identité / Passeport',
   attestationSecu: 'Attestation Sécurité Sociale',
   fichePoste: 'Fiche de poste signée',
+  lettreObjectif: 'Lettre d\'objectif signée',
 };
+const TOGGLABLE_DOCS = ['fichePoste', 'lettreObjectif', 'contrat'];
 
 const STATUS_COLORS = { 'en-cours': 'badge-blue', 'atteint': 'badge-green', 'non-atteint': 'badge-orange', 'en-attente': 'badge-gray' };
 const STATUS_LABELS = { 'en-cours': 'En cours', 'atteint': 'Atteint ✓', 'non-atteint': 'Non atteint', 'en-attente': 'En attente' };
@@ -615,12 +617,14 @@ function renderOnboarding() {
   const c = currentCollab;
   const uploads = getUploads()[c.id] || {};
   const docs = c.onboarding.documents;
+  const docsEnabled = c.onboarding.docsEnabled || {};
 
-  // Documents
-  // Docs gérés uniquement par l'administrateur (pas d'upload collaborateur)
-  const ADMIN_ONLY_DOCS = ['fichePoste'];
+  // Documents gérés uniquement par l'administrateur (pas d'upload collaborateur)
+  const ADMIN_ONLY_DOCS = ['fichePoste', 'lettreObjectif', 'contrat'];
 
   document.getElementById('myDocs').innerHTML = Object.keys(DOCS_LABELS).map(k => {
+    // Masquer les docs togglables non activés par l'admin
+    if (TOGGLABLE_DOCS.includes(k) && !docsEnabled[k]) return '';
     const adminDone = docs[k];
     const uploaded  = uploads[k];
     const adminOnly = ADMIN_ONLY_DOCS.includes(k);
