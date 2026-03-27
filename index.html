@@ -580,11 +580,18 @@ function fromRow(row) {
       managerData: p.manager_data || {},
       collabData: p.collab_data || {}
     })),
-    objectifs: (row.objectifs || []).sort((a,b)=> new Date(a.created_at)-new Date(b.created_at)).map((o,i) => ({
-      id: o.id, numero: i+1, titre: o.titre, description: o.description || '',
-      dateDebut: o.date_debut || '', dateFin: o.date_fin || '',
-      statut: o.statut || 'en-attente'
-    }))
+    objectifs: (() => {
+      const order = (row.onboarding || {}).objOrder || [];
+      return (row.objectifs || []).sort((a, b) => {
+        const ia = order.indexOf(a.id), ib = order.indexOf(b.id);
+        if (ia === -1 && ib === -1) return new Date(a.created_at) - new Date(b.created_at);
+        if (ia === -1) return 1; if (ib === -1) return -1;
+        return ia - ib;
+      }).map((o, i) => ({
+        id: o.id, numero: i + 1, titre: o.titre, description: o.description || '',
+        dateDebut: o.date_debut || '', dateFin: o.date_fin || '', statut: o.statut || 'en-attente'
+      }));
+    })()
   };
 }
 
@@ -1239,16 +1246,34 @@ function renderObjectifs() {
   document.getElementById('objList').innerHTML = objs.map((o,i) => `
     <div class="obj-card">
       <div class="obj-header">
+        <div style="display:flex;flex-direction:column;gap:2px;margin-right:6px;">
+          <button class="btn btn-ghost btn-sm" style="padding:1px 6px;line-height:1;" onclick="moveObj('${o.id}',-1)" ${i===0?'disabled':''}>▲</button>
+          <button class="btn btn-ghost btn-sm" style="padding:1px 6px;line-height:1;" onclick="moveObj('${o.id}',1)" ${i===objs.length-1?'disabled':''}>▼</button>
+        </div>
         <span class="obj-num" style="background:var(--pink);color:white;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;margin-right:8px;">${i+1}</span>
         <span class="obj-titre">${o.titre}</span>
         <span class="badge badge-${o.statut==='atteint'?'green':o.statut==='en-cours'?'pink':'gray'} obj-statut">${o.statut}</span>
-        <button class="btn btn-ghost btn-sm" onclick="openEditObj('${o.id}')">✏️</button><button class="btn btn-danger btn-sm" onclick="deleteObj('${o.id}')">🗑️</button>
+        <button class="btn btn-ghost btn-sm" onclick="openEditObj('${o.id}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteObj('${o.id}')">🗑️</button>
       </div>
       ${o.description ? `<div class="obj-desc">${o.description}</div>` : ''}
       <div class="obj-footer">
         <span>📅 Du ${fmtDate(o.dateDebut)} au ${fmtDate(o.dateFin)}</span>
       </div>
     </div>`).join('');
+}
+
+async function moveObj(id, direction) {
+  const c = getCollab(currentCollabId);
+  const objs = c.objectifs;
+  const idx = objs.findIndex(o => o.id === id);
+  const newIdx = idx + direction;
+  if (newIdx < 0 || newIdx >= objs.length) return;
+  [objs[idx], objs[newIdx]] = [objs[newIdx], objs[idx]];
+  c.onboarding.objOrder = objs.map(o => o.id);
+  const { error } = await sb.from('collaborateurs').update({ onboarding: c.onboarding }).eq('id', c.id);
+  if (error) { showToast('Erreur: ' + error.message); return; }
+  renderObjectifs();
 }
 
 function openAddObj() {
