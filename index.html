@@ -92,12 +92,20 @@
     .btn-navy:hover { transform: translateY(-2px); }
 
     /* TABS */
-    .tabs { display: flex; gap: 0; border-bottom: 2px solid var(--lavender); margin-bottom: 24px; overflow-x: auto; }
-    .tab-btn { padding: 10px 20px; border: none; background: transparent; font-family: inherit; font-size: 0.82rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 0.15s; white-space: nowrap; }
-    .tab-btn:hover { color: var(--navy); }
-    .tab-btn.active { color: var(--pink); border-bottom-color: var(--pink); }
     .tab-pane { display: none; }
     .tab-pane.active { display: block; }
+
+    /* PROFILE NAV (vue collaborateur) */
+    .profile-nav { display: flex; gap: 10px; margin-bottom: 28px; flex-wrap: wrap; }
+    .profile-nav-btn {
+      display: flex; align-items: center; gap: 10px;
+      padding: 13px 22px; border: 2px solid var(--lavender); border-radius: 14px;
+      background: white; cursor: pointer; font-family: inherit; font-size: 0.84rem;
+      font-weight: 700; color: var(--muted); transition: all 0.18s; white-space: nowrap;
+    }
+    .profile-nav-btn .pnav-icon { font-size: 1.15rem; }
+    .profile-nav-btn:hover { border-color: var(--pink); color: var(--navy); box-shadow: 0 4px 14px rgba(255,50,133,0.12); transform: translateY(-2px); }
+    .profile-nav-btn.active { border-color: var(--pink); background: var(--pink); color: white; box-shadow: 0 6px 18px rgba(255,50,133,0.35); transform: translateY(-2px); }
 
     /* SECTION TITLE */
     .section-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--pink); margin: 24px 0 12px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
@@ -377,10 +385,16 @@
       <button class="btn btn-ghost btn-sm" onclick="navigate('dashboard')">← Retour</button>
     </div>
     <div id="profileHeader"></div>
-    <div class="tabs">
-      <button class="tab-btn active" onclick="showTab('onboarding')">Onboarding</button>
-      <button class="tab-btn" onclick="showTab('objectifs')">Objectifs</button>
-      <button class="tab-btn" onclick="showTab('points')">Points de suivi</button>
+    <div class="profile-nav" id="profileNav">
+      <button class="profile-nav-btn active" data-tab="onboarding" onclick="showTab('onboarding')">
+        <span class="pnav-icon">📁</span><span>Onboarding</span>
+      </button>
+      <button class="profile-nav-btn" data-tab="objectifs" onclick="showTab('objectifs')">
+        <span class="pnav-icon">🎯</span><span>Objectifs</span>
+      </button>
+      <button class="profile-nav-btn" data-tab="points" onclick="showTab('points')">
+        <span class="pnav-icon">📋</span><span>Points de suivi</span>
+      </button>
     </div>
 
     <!-- ONBOARDING TAB -->
@@ -720,7 +734,7 @@ function renderCollab() {
     </div>`;
 
   // Reset tabs
-  document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
+  document.querySelectorAll('.profile-nav-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
   document.querySelectorAll('.tab-pane').forEach((p, i) => p.classList.toggle('active', i === 0));
   currentTab = 'onboarding';
 
@@ -733,8 +747,7 @@ function renderCollab() {
 
 function showTab(tab) {
   currentTab = tab;
-  const tabs = ['onboarding', 'points', 'objectifs'];
-  document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', tabs[i] === tab));
+  document.querySelectorAll('.profile-nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
   if (tab === 'onboarding') renderOnboarding();
