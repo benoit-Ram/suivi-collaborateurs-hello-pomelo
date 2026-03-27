@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Mon Espace — Hello Pomelo</title>
+  <link rel="icon" type="image/png" href="logo.png" />
   <script src="https://accounts.google.com/gsi/client" async></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -242,10 +243,7 @@
   <div class="login-card">
 
     <div class="login-logo">
-      <div class="hp-wordmark">
-        <div>HELLO</div>
-        <div>POMELO</div>
-      </div>
+      <img src="LOGO-TYPO-RVB (1).svg" alt="Hello Pomelo" style="height:64px; width:auto; margin-bottom:8px;" />
       <div class="brand-sub">Espace Collaborateur</div>
     </div>
 
@@ -296,7 +294,7 @@
   <!-- TOP BAR -->
   <header class="topbar">
     <div class="topbar-brand">
-      <svg width="28" height="28" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="14" fill="rgba(255,255,255,0.1)"/><circle cx="24" cy="18" r="7" fill="#FF3285"/><path d="M10 38c0-7.732 6.268-14 14-14s14 6.268 14 14" stroke="#5BB6F4" stroke-width="3" stroke-linecap="round"/></svg>
+      <img src="logo.png" alt="Hello Pomelo" style="height:36px; width:36px; object-fit:contain; border-radius:8px;" />
       <span class="brand-name">Hello Pomelo</span>
       <span class="brand-tag">Mon espace</span>
     </div>
@@ -401,10 +399,7 @@ const DOCS_LABELS = {
   contrat: 'Contrat de travail',
   rib: 'RIB bancaire',
   cni: 'Carte d\'identité / Passeport',
-  mutuelle: 'Adhésion mutuelle',
-  casierJudiciaire: 'Casier judiciaire',
   attestationSecu: 'Attestation Sécurité Sociale',
-  dpae: 'DPAE',
   fichePoste: 'Fiche de poste signée',
 };
 
@@ -603,24 +598,39 @@ function renderOnboarding() {
   const docs = c.onboarding.documents;
 
   // Documents
+  // Docs gérés uniquement par l'administrateur (pas d'upload collaborateur)
+  const ADMIN_ONLY_DOCS = ['fichePoste'];
+
   document.getElementById('myDocs').innerHTML = Object.keys(DOCS_LABELS).map(k => {
     const adminDone = docs[k];
-    const uploaded = uploads[k];
+    const uploaded  = uploads[k];
+    const adminOnly = ADMIN_ONLY_DOCS.includes(k);
+
+    let actions = '';
+    if (adminDone) {
+      // L'admin a validé le document
+      actions = `<span style="font-size:0.7rem;color:#166534;font-weight:700;">Reçu ✓</span>`;
+    } else if (adminOnly) {
+      // Document réservé à l'admin : pas de bouton upload
+      actions = `<span style="font-size:0.7rem;color:var(--muted);font-weight:600;font-style:italic;">Remis par l'admin</span>`;
+    } else if (uploaded) {
+      // Déjà déposé : lecture seule, pas de re-dépôt possible
+      actions = `<span style="font-size:0.7rem;color:var(--pink);font-weight:700;">⏳ En attente de validation</span>`;
+    } else {
+      // Pas encore déposé : bouton upload actif
+      actions = `
+        <label class="btn-upload" for="file-${k}">⬆ Déposer</label>
+        <input type="file" class="file-input" id="file-${k}" onchange="uploadDoc('${k}', this)" />`;
+    }
+
     return `
-      <div class="check-item ${adminDone ? 'done' : ''}" id="doc-item-${k}">
+      <div class="check-item ${adminDone ? 'done' : uploaded ? 'upload-pending' : ''}" id="doc-item-${k}">
         <div class="check-box">${adminDone ? '✓' : ''}</div>
         <div style="flex:1;">
           <div class="check-label">${DOCS_LABELS[k]}</div>
           ${uploaded ? `<div class="check-uploaded">📎 ${uploaded.filename} — ${uploaded.date}</div>` : ''}
         </div>
-        <div class="check-actions">
-          ${!adminDone ? `
-            <label class="btn-upload ${uploaded ? 'uploaded' : ''}" for="file-${k}">
-              ${uploaded ? '✓ Déposé' : '⬆ Déposer'}
-            </label>
-            <input type="file" class="file-input" id="file-${k}" onchange="uploadDoc('${k}', this)" />
-          ` : `<span style="font-size:0.7rem;color:#166534;font-weight:700;">Reçu ✓</span>`}
-        </div>
+        <div class="check-actions">${actions}</div>
       </div>`;
   }).join('');
 
