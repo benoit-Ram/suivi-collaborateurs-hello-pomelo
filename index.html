@@ -23,10 +23,6 @@
     .sidebar-logo { padding: 24px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); }
     .sidebar-logo .logo-title { color: white; font-weight: 700; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.08em; }
     .sidebar-logo .logo-sub { color: var(--lilac); font-size: 0.72rem; margin-top: 2px; font-weight: 600; letter-spacing: 0.05em; }
-    .sidebar-mode { margin: 12px 12px 0; }
-    .mode-toggle { display: flex; background: rgba(255,255,255,0.08); border-radius: 10px; padding: 3px; }
-    .mode-btn { flex: 1; padding: 7px 8px; border-radius: 8px; border: none; cursor: pointer; font-family: inherit; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; background: transparent; color: rgba(255,255,255,0.5); }
-    .mode-btn.active { background: var(--pink); color: white; box-shadow: 0 2px 8px rgba(255,50,133,0.4); }
     .sidebar-nav { flex: 1; padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; }
     .nav-section { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--lilac); padding: 12px 8px 6px; margin-top: 4px; }
     .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; cursor: pointer; transition: all 0.15s; color: rgba(255,255,255,0.65); font-size: 0.85rem; font-weight: 600; border: none; background: transparent; width: 100%; text-align: left; font-family: inherit; }
@@ -182,20 +178,6 @@
     tr:last-child td { border-bottom: none; }
     tr:hover td { background: var(--offwhite); }
 
-    /* PIN */
-    .pin-screen { position: fixed; inset: 0; background: rgba(5,5,109,0.6); z-index: 300; display: flex; align-items: center; justify-content: center; }
-    .pin-card { background: white; border-radius: 20px; padding: 40px; max-width: 360px; width: 100%; text-align: center; box-shadow: 0 20px 60px rgba(5,5,109,0.2); }
-    .pin-card h2 { font-size: 1.1rem; font-weight: 700; color: var(--navy); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
-    .pin-card p { font-size: 0.82rem; color: var(--muted); margin-bottom: 24px; }
-    .pin-dots { display: flex; gap: 10px; justify-content: center; margin-bottom: 24px; }
-    .pin-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--lavender); background: white; transition: all 0.15s; }
-    .pin-dot.filled { background: var(--pink); border-color: var(--pink); }
-    .pin-numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-    .pin-key { padding: 16px; border-radius: 12px; border: 1.5px solid var(--lavender); background: white; font-family: inherit; font-size: 1.1rem; font-weight: 700; color: var(--navy); cursor: pointer; transition: all 0.15s; }
-    .pin-key:hover { border-color: var(--pink); background: #FFF0F6; color: var(--pink); }
-    .pin-key.del { font-size: 0.9rem; color: var(--muted); }
-    .pin-error { color: #EF4444; font-size: 0.78rem; font-weight: 700; margin-top: -12px; margin-bottom: 12px; min-height: 20px; }
-
     /* EMPTY STATE */
     .empty-state { text-align: center; padding: 48px 24px; }
     .empty-state .empty-icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.4; }
@@ -210,7 +192,7 @@
 
     @media (max-width: 768px) {
       :root { --sidebar-w: 60px; }
-      .sidebar-logo .logo-title, .sidebar-logo .logo-sub, .nav-item span, .sidebar-mode, .nav-section, .sidebar-footer p { display: none; }
+      .sidebar-logo .logo-title, .sidebar-logo .logo-sub, .nav-item span, .nav-section, .sidebar-footer p { display: none; }
       .main { padding: 20px 16px; }
       .grid-4 { grid-template-columns: 1fr 1fr; }
       .grid-2 { grid-template-columns: 1fr; }
@@ -219,36 +201,6 @@
   </style>
 </head>
 <body>
-
-<!-- PIN SCREEN -->
-<div id="pinScreen" class="pin-screen hidden">
-  <div class="pin-card">
-    <div style="font-size:2rem;margin-bottom:16px;">🔐</div>
-    <h2>Accès Backoffice</h2>
-    <p>Entrez le code PIN pour accéder à l'administration</p>
-    <div class="pin-dots">
-      <div class="pin-dot" id="dot0"></div>
-      <div class="pin-dot" id="dot1"></div>
-      <div class="pin-dot" id="dot2"></div>
-      <div class="pin-dot" id="dot3"></div>
-    </div>
-    <div id="pinError" class="pin-error">&nbsp;</div>
-    <div class="pin-numpad">
-      <button class="pin-key" onclick="pinKey('1')">1</button>
-      <button class="pin-key" onclick="pinKey('2')">2</button>
-      <button class="pin-key" onclick="pinKey('3')">3</button>
-      <button class="pin-key" onclick="pinKey('4')">4</button>
-      <button class="pin-key" onclick="pinKey('5')">5</button>
-      <button class="pin-key" onclick="pinKey('6')">6</button>
-      <button class="pin-key" onclick="pinKey('7')">7</button>
-      <button class="pin-key" onclick="pinKey('8')">8</button>
-      <button class="pin-key" onclick="pinKey('9')">9</button>
-      <button class="pin-key del" onclick="pinKey('del')">⌫</button>
-      <button class="pin-key" onclick="pinKey('0')">0</button>
-      <button class="pin-key del" onclick="pinKey('ok')">OK</button>
-    </div>
-  </div>
-</div>
 
 <!-- MODAL: COLLABORATEUR -->
 <div id="modalCollab" class="modal-overlay">
@@ -395,12 +347,6 @@
   <div class="sidebar-logo">
     <div class="logo-title">Hello Pomelo</div>
     <div class="logo-sub">Suivi Collaborateurs</div>
-  </div>
-  <div class="sidebar-mode">
-    <div class="mode-toggle">
-      <button class="mode-btn active" id="btnFront" onclick="setMode('front')">Front</button>
-      <button class="mode-btn" id="btnBack" onclick="requestBack()">Admin</button>
-    </div>
   </div>
   <div class="sidebar-nav" id="sidebarNav"></div>
   <div class="sidebar-footer"><p>Hello Pomelo © 2025</p></div>
@@ -555,8 +501,6 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 // ─────────────────────────────────────────
 // CONFIG
 // ─────────────────────────────────────────
-const PIN_CODE = '1234';
-
 const DOCS_LABELS = {
   contrat: 'Contrat de travail',
   rib: 'RIB bancaire',
@@ -614,14 +558,12 @@ function fromRow(row) {
 // STATE
 // ─────────────────────────────────────────
 let DB = { collaborateurs: [] };
-let currentMode = 'front';
 let currentView = 'dashboard';
 let currentCollabId = null;
 let currentTab = 'onboarding';
 let editingCollabId = null;
 let editingPointId = null;
 let editingObjId = null;
-let pinBuffer = '';
 
 // ─────────────────────────────────────────
 // DB INIT (Supabase)
@@ -656,87 +598,31 @@ function onboardingScore(c) {
 }
 
 // ─────────────────────────────────────────
-// PIN
+// NAVIGATION
 // ─────────────────────────────────────────
-function requestBack() {
-  document.getElementById('pinScreen').classList.remove('hidden');
-  pinBuffer = '';
-  updatePinDots();
-  document.getElementById('pinError').textContent = '\u00a0';
-}
-
-function pinKey(k) {
-  if (k === 'del') {
-    pinBuffer = pinBuffer.slice(0, -1);
-    document.getElementById('pinError').textContent = '\u00a0';
-  } else if (k === 'ok') {
-    checkPin();
-    return;
-  } else if (pinBuffer.length < 4) {
-    pinBuffer += k;
-    if (pinBuffer.length === 4) {
-      updatePinDots();
-      setTimeout(checkPin, 180);
-      return;
-    }
-  }
-  updatePinDots();
-}
-
-function checkPin() {
-  if (pinBuffer === PIN_CODE) {
-    document.getElementById('pinScreen').classList.add('hidden');
-    setMode('back');
-  } else {
-    document.getElementById('pinError').textContent = 'Code incorrect';
-    pinBuffer = '';
-    updatePinDots();
-  }
-}
-
-function updatePinDots() {
-  for (let i = 0; i < 4; i++) {
-    document.getElementById('dot' + i).classList.toggle('filled', i < pinBuffer.length);
-  }
-}
-
-// ─────────────────────────────────────────
-// MODE & NAVIGATION
-// ─────────────────────────────────────────
-function setMode(mode) {
-  currentMode = mode;
-  document.getElementById('btnFront').classList.toggle('active', mode === 'front');
-  document.getElementById('btnBack').classList.toggle('active', mode === 'back');
-  renderSidebar();
-  navigate(mode === 'front' ? 'dashboard' : 'bo-people');
-}
-
 function renderSidebar() {
   const nav = document.getElementById('sidebarNav');
-  if (currentMode === 'front') {
-    let html = `
-      <span class="nav-section">Navigation</span>
-      <button class="nav-item ${currentView === 'dashboard' ? 'active' : ''}" onclick="navigate('dashboard')">
-        <span class="nav-icon">🏠</span><span>Tableau de bord</span>
-      </button>`;
-    if (currentView === 'collab' && currentCollabId) {
-      const c = getCollab(currentCollabId);
-      if (c) html += `
-        <button class="nav-item active">
-          <span class="nav-icon">👤</span><span>${c.prenom} ${c.nom}</span>
-        </button>`;
-    }
-    nav.innerHTML = html;
-  } else {
-    nav.innerHTML = `
-      <span class="nav-section">Administration</span>
-      <button class="nav-item ${currentView === 'bo-people' ? 'active' : ''}" onclick="navigate('bo-people')">
-        <span class="nav-icon">👥</span><span>Collaborateurs</span>
-      </button>
-      <button class="nav-item ${currentView === 'bo-managers' ? 'active' : ''}" onclick="navigate('bo-managers')">
-        <span class="nav-icon">🗂️</span><span>Organigramme</span>
+  let html = `
+    <span class="nav-section">Navigation</span>
+    <button class="nav-item ${currentView === 'dashboard' ? 'active' : ''}" onclick="navigate('dashboard')">
+      <span class="nav-icon">🏠</span><span>Tableau de bord</span>
+    </button>`;
+  if (currentView === 'collab' && currentCollabId) {
+    const c = getCollab(currentCollabId);
+    if (c) html += `
+      <button class="nav-item active">
+        <span class="nav-icon">👤</span><span>${c.prenom} ${c.nom}</span>
       </button>`;
   }
+  html += `
+    <span class="nav-section">Administration</span>
+    <button class="nav-item ${currentView === 'bo-people' ? 'active' : ''}" onclick="navigate('bo-people')">
+      <span class="nav-icon">👥</span><span>Collaborateurs</span>
+    </button>
+    <button class="nav-item ${currentView === 'bo-managers' ? 'active' : ''}" onclick="navigate('bo-managers')">
+      <span class="nav-icon">🗂️</span><span>Organigramme</span>
+    </button>`;
+  nav.innerHTML = html;
 }
 
 function navigate(view, collabId) {
@@ -772,7 +658,7 @@ function renderDashboard() {
     <div class="stat-card sky"><div class="stat-num">${managers}</div><div class="stat-label">Managers</div></div>
     <div class="stat-card green"><div class="stat-num">${docsOk}</div><div class="stat-label">Dossiers complets</div></div>`;
 
-  document.getElementById('btnAddCollabDash').classList.toggle('hidden', currentMode !== 'back');
+  document.getElementById('btnAddCollabDash').classList.remove('hidden');
   renderCollabGrid(DB.collaborateurs);
 }
 
@@ -814,7 +700,6 @@ function renderCollab() {
   const c = getCollab(currentCollabId);
   if (!c) return;
   const manager = c.managerId ? getManagerName(c.managerId) : null;
-  const isBack = currentMode === 'back';
 
   document.getElementById('profileHeader').innerHTML = `
     <div class="profile-header">
@@ -831,7 +716,7 @@ function renderCollab() {
           ${manager ? `<div class="profile-meta-item">👔 Manager : <span>${manager}</span></div>` : ''}
         </div>
       </div>
-      ${isBack ? `<button class="btn btn-ghost btn-sm" onclick="openEditCollab('${c.id}')">✏️ Modifier</button>` : ''}
+      <button class="btn btn-ghost btn-sm" onclick="openEditCollab('${c.id}')">✏️ Modifier</button>
     </div>`;
 
   // Reset tabs
@@ -841,7 +726,7 @@ function renderCollab() {
 
   document.getElementById('btnAddPoint').classList.add('hidden');
   document.getElementById('btnAddObj').classList.remove('hidden');
-  document.getElementById('btnSaveOnboarding').classList.toggle('hidden', !isBack);
+  document.getElementById('btnSaveOnboarding').classList.remove('hidden');
 
   renderOnboarding();
 }
@@ -863,7 +748,6 @@ function showTab(tab) {
 function renderOnboarding() {
   const c = getCollab(currentCollabId);
   if (!c) return;
-  const isBack = currentMode === 'back';
   const docs = c.onboarding.documents;
 
   const required = c.onboarding.requiredDocs || [];
@@ -877,7 +761,7 @@ function renderOnboarding() {
       const label = DOCS_LABELS[k] || k;
       const validated = docs[k];
       const upload = uploads[k];
-      const uploadBlock = isBack && upload && !validated ? `
+      const uploadBlock = upload && !validated ? `
         <div onclick="event.stopPropagation()" style="margin-top:8px;padding:8px 10px;background:#FFF5F9;border-radius:8px;border:1px solid var(--pink);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <span style="font-size:0.75rem;color:var(--navy);font-weight:600;">📎 ${upload.filename}</span>
           <span style="font-size:0.7rem;color:var(--muted);">${upload.uploadedAt} · ${upload.size}</span>
@@ -903,12 +787,11 @@ function renderOnboarding() {
   document.getElementById('onboardingMateriel').value = c.onboarding.materiel || '';
   document.getElementById('onboardingAcces').value = c.onboarding.acces || '';
   ['onboardingNotes', 'onboardingMateriel', 'onboardingAcces'].forEach(id => {
-    document.getElementById(id).readOnly = !isBack;
+    document.getElementById(id).readOnly = false;
   });
 }
 
 async function toggleDoc(docKey) {
-  if (currentMode !== 'back') return;
   const c = getCollab(currentCollabId);
   c.onboarding.documents[docKey] = !c.onboarding.documents[docKey];
   const { error } = await sb.from('collaborateurs').update({ onboarding: c.onboarding }).eq('id', c.id);
@@ -959,7 +842,6 @@ async function saveOnboarding() {
 function renderPoints() {
   const c = getCollab(currentCollabId);
   if (!c) return;
-  const isBack = currentMode === 'back';
   const sorted = [...(c.pointsSuivi || [])].sort((a, b) => (b.mois || b.date) > (a.mois || a.date) ? 1 : -1);
   const cm = currentMois();
   const hasCurrent = sorted.some(p => p.mois === cm);
@@ -995,7 +877,7 @@ function renderPoints() {
         <!-- Section Manager -->
         <div style="margin-top:16px;">
           <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--skyblue);margin-bottom:12px;display:flex;align-items:center;gap:6px;">👔 Retours Manager</div>
-          ${renderManagerSection(md, locked && !isBack, p.id, isBack)}
+          ${renderManagerSection(md, locked, p.id)}
         </div>
 
         <!-- Section Collaborateur -->
@@ -1010,7 +892,7 @@ function renderPoints() {
   }).join('');
 }
 
-function renderManagerSection(md, readOnly, pid, isBack) {
+function renderManagerSection(md, readOnly, pid) {
   const fields = [
     ['retoursMissions', 'Retours sur les missions'],
     ['tauxStaffing', 'Taux de staffing / Satisfaction client'],
@@ -1206,7 +1088,6 @@ function renderObjectifs() {
   const c = getCollab(currentCollabId);
   if (!c) return;
   const objs = c.objectifs || [];
-  const isBack = currentMode === 'back';
 
   if (!objs.length) {
     document.getElementById('objList').innerHTML = `<div class="empty-state"><div class="empty-icon">🎯</div><p>Aucun objectif défini</p><button class="btn btn-primary" onclick="openAddObj()">+ Définir le premier</button></div>`;
