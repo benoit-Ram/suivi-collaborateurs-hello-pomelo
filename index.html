@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Suivi Collaborateurs — Hello Pomelo</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="utils.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap');
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -627,7 +628,6 @@ let pinBuffer = '';
 // ─────────────────────────────────────────
 async function initDB() {
   const loader = document.createElement('div');
-  loader.id = 'sb-loader';
   loader.style.cssText = 'position:fixed;inset:0;background:rgba(5,5,109,0.7);z-index:999;display:flex;align-items:center;justify-content:center;color:white;font-family:Quicksand,sans-serif;font-size:1rem;font-weight:700;gap:12px;';
   loader.innerHTML = '<div style="width:28px;height:28px;border:3px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 0.7s linear infinite;"></div> Connexion à la base de données…';
   const style = document.createElement('style');
@@ -647,12 +647,6 @@ async function initDB() {
 // ─────────────────────────────────────────
 function getCollab(id) { return DB.collaborateurs.find(c => c.id === id); }
 function getManagerName(id) { const m = getCollab(id); return m ? m.prenom + ' ' + m.nom : '—'; }
-function initials(c) { return ((c.prenom||'')[0]||'').toUpperCase() + ((c.nom||'')[0]||'').toUpperCase(); }
-function fmtDate(d) {
-  if (!d) return '—';
-  const [y, m, day] = d.split('-');
-  return `${day}/${m}/${y}`;
-}
 function onboardingScore(c) {
   const docs = c.onboarding.documents;
   const required = c.onboarding.requiredDocs || [];
@@ -935,7 +929,10 @@ async function rejectUpload(docKey) {
   if (!confirm('Rejeter ce document ? Le collaborateur devra en déposer un nouveau.')) return;
   const c = getCollab(currentCollabId);
   const upload = c.onboarding.uploads?.[docKey];
-  if (upload) await sb.storage.from('onboarding-docs').remove([upload.path]);
+  if (upload) {
+    const { error: storageErr } = await sb.storage.from('onboarding-docs').remove([upload.path]);
+    if (storageErr) { showToast('Erreur suppression fichier: ' + storageErr.message); return; }
+  }
   delete c.onboarding.uploads[docKey];
   c.onboarding.documents[docKey] = false;
   const { error } = await sb.from('collaborateurs').update({ onboarding: c.onboarding }).eq('id', c.id);
@@ -958,22 +955,6 @@ async function saveOnboarding() {
 // ─────────────────────────────────────────
 // POINTS DE SUIVI MENSUEL
 // ─────────────────────────────────────────
-
-function currentMois() {
-  const n = new Date();
-  return n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0');
-}
-
-function isPointLocked(mois) {
-  const [year, month] = mois.split('-').map(Number);
-  return new Date() >= new Date(year, month, 1);
-}
-
-function moisLabel(mois) {
-  if (!mois) return '—';
-  const [y, m] = mois.split('-');
-  return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-}
 
 function renderPoints() {
   const c = getCollab(currentCollabId);
@@ -1100,15 +1081,6 @@ function renderCollabSectionAdmin(cd) {
     </div>`;
   }
   return html;
-}
-
-function toggleAcc(id) {
-  const el = document.getElementById(id);
-  const pointId = id.replace('acc-', '');
-  const icon = document.getElementById('acc-icon-' + pointId);
-  const open = el.style.display !== 'none';
-  el.style.display = open ? 'none' : 'block';
-  if (icon) icon.textContent = open ? '▼' : '▲';
 }
 
 function openCurrentMonthPoint() {
@@ -1499,8 +1471,15 @@ function renderBoManagers() {
 }
 
 function renderOrgChart() {
+  // Build children lookup map once → O(n) instead of O(n²) filtering per node
+  const childrenMap = {};
+  DB.collaborateurs.forEach(c => {
+    if (c.managerId) {
+      (childrenMap[c.managerId] = childrenMap[c.managerId] || []).push(c);
+    }
+  });
   function renderNode(c, depth) {
-    const children = DB.collaborateurs.filter(x => x.managerId === c.id);
+    const children = childrenMap[c.id] || [];
     return `
       <div style="margin-left:${depth * 22}px;${depth ? 'border-left:2px solid var(--lavender);padding-left:14px;' : ''}margin-top:8px;">
         <div class="tree-item">
@@ -1541,17 +1520,6 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 document.querySelectorAll('.modal-overlay').forEach(o => {
   o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
 });
-
-// ─────────────────────────────────────────
-// TOAST
-// ─────────────────────────────────────────
-function showToast(msg) {
-  const t = document.createElement('div');
-  t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:var(--navy);color:white;padding:12px 20px;border-radius:12px;font-size:0.85rem;font-weight:700;box-shadow:0 8px 24px rgba(5,5,109,0.3);z-index:500;transition:opacity 0.3s;';
-  t.textContent = '✓ ' + msg;
-  document.body.appendChild(t);
-  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 2500);
-}
 
 // ─────────────────────────────────────────
 // INIT

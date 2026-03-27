@@ -7,6 +7,7 @@
   <link rel="icon" type="image/png" href="logo.png" />
   <script src="https://accounts.google.com/gsi/client" async></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="utils.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:wght@800;900&display=swap');
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -318,11 +319,11 @@
 
     <!-- Tabs -->
     <div class="tabs">
-      <button class="tab-btn active" onclick="showTab('onboarding')">📋 Mon dossier</button>
-      <button class="tab-btn" onclick="showTab('objectifs')">🎯 Mes objectifs</button>
-      <button class="tab-btn" onclick="showTab('documents')">📁 Mes documents</button>
-      <button class="tab-btn" onclick="showTab('points')">🗓️ Mon suivi mensuel</button>
-      <button id="btnTabEquipe" class="tab-btn hidden" onclick="showTab('equipe')">👥 Mon équipe</button>
+      <button class="tab-btn active" data-tab="onboarding" onclick="showTab('onboarding')">📋 Mon dossier</button>
+      <button class="tab-btn" data-tab="objectifs" onclick="showTab('objectifs')">🎯 Mes objectifs</button>
+      <button class="tab-btn" data-tab="documents" onclick="showTab('documents')">📁 Mes documents</button>
+      <button class="tab-btn" data-tab="points" onclick="showTab('points')">🗓️ Mon suivi mensuel</button>
+      <button id="btnTabEquipe" class="tab-btn hidden" data-tab="equipe" onclick="showTab('equipe')">👥 Mon équipe</button>
     </div>
 
     <!-- ONBOARDING TAB -->
@@ -405,7 +406,7 @@ function collabFromRow(row) {
 
 async function loadCollabsFromSupabase() {
   const { data, error } = await sb.from('collaborateurs').select('*, points_suivi(*), objectifs(*)');
-  if (error) { console.error(error); return []; }
+  if (error) { showToast('Erreur chargement : ' + error.message); return []; }
   return data.map(collabFromRow);
 }
 
@@ -426,20 +427,7 @@ const STATUS_COLORS = { 'en-cours': 'badge-blue', 'atteint': 'badge-green', 'non
 const STATUS_LABELS = { 'en-cours': 'En cours', 'atteint': 'Atteint ✓', 'non-atteint': 'Non atteint', 'en-attente': 'En attente' };
 const BAR_COLORS   = { 'en-cours': 'linear-gradient(90deg,var(--pink),var(--blue))', 'atteint': 'linear-gradient(90deg,#22C55E,#16A34A)', 'non-atteint': 'linear-gradient(90deg,#F97316,#EA580C)', 'en-attente': 'var(--lavender)' };
 
-function getUploads() {
-  const d = localStorage.getItem('hp_collab_uploads');
-  return d ? JSON.parse(d) : {};
-}
-function saveUploads(u) { localStorage.setItem('hp_collab_uploads', JSON.stringify(u)); }
 
-function fmtDate(d) {
-  if (!d) return '—';
-  const [y, m, day] = d.split('-');
-  return `${day}/${m}/${y}`;
-}
-function initials(c) {
-  return ((c.prenom||'')[0]||'').toUpperCase() + ((c.nom||'')[0]||'').toUpperCase();
-}
 
 let currentCollab = null;
 let currentUser = null; // { name, email, picture }
@@ -606,10 +594,7 @@ function renderProfile() {
 }
 
 function showTab(tab) {
-  document.querySelectorAll('.tab-btn').forEach(b => {
-    const tabName = b.getAttribute('onclick').match(/showTab\('(\w+)'\)/)?.[1];
-    b.classList.toggle('active', tabName === tab);
-  });
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
 
@@ -746,31 +731,6 @@ async function uploadDoc(docKey, input) {
 // ─────────────────────────────────────────
 // POINTS MENSUELS
 // ─────────────────────────────────────────
-function currentMois() {
-  const n = new Date();
-  return n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0');
-}
-
-function isPointLocked(mois) {
-  const [year, month] = mois.split('-').map(Number);
-  return new Date() >= new Date(year, month, 1);
-}
-
-function moisLabel(mois) {
-  if (!mois) return '—';
-  const [y, m] = mois.split('-');
-  return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-}
-
-function toggleAcc(id) {
-  const el = document.getElementById(id);
-  const pointId = id.replace('acc-', '');
-  const icon = document.getElementById('acc-icon-' + pointId);
-  const open = el.style.display !== 'none';
-  el.style.display = open ? 'none' : 'block';
-  if (icon) icon.textContent = open ? '▼' : '▲';
-}
-
 function renderPoints() {
   const c = currentCollab;
   const sorted = [...(c.pointsSuivi || [])].sort((a, b) => (b.mois || b.date) > (a.mois || a.date) ? 1 : -1);
@@ -1098,16 +1058,6 @@ async function saveTeamManagerPoint(memberId, pointId) {
   showToast('Retours manager enregistrés !');
 }
 
-// ─────────────────────────────────────────
-// TOAST
-// ─────────────────────────────────────────
-function showToast(msg) {
-  const t = document.createElement('div');
-  t.className = 'toast';
-  t.textContent = '✓ ' + msg;
-  document.body.appendChild(t);
-  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 2800);
-}
 </script>
 </body>
 </html>
