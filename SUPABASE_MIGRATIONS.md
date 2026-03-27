@@ -35,3 +35,12 @@ ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS date_fin_essai date;
 
 > **Note :** Les entretiens annuels utilisent la table `points_suivi` existante avec le champ `type`
 > valorisé à `'annuel'`, `'semestriel'`, `'fin_pe'` ou `'professionnel'` (au lieu de `'mensuel'`).
+
+## Migration v3 — Un seul point mensuel par collaborateur
+
+```sql
+-- Empêcher les doublons : un seul point mensuel par collaborateur par mois
+CREATE UNIQUE INDEX IF NOT EXISTS unique_point_mensuel_par_mois
+  ON points_suivi (collaborateur_id, mois)
+  WHERE type = 'mensuel';
+```

@@ -1413,6 +1413,9 @@ async function saveManagerPoint() {
     c.pointsSuivi[idx].managerData = managerData;
   } else {
     const mois = cm;
+    // Vérifier qu'il n'existe pas déjà un point pour ce mois
+    const existing = (c.pointsSuivi || []).find(p => p.mois === mois);
+    if (existing) { openEditPoint(existing.id); return; }
     const row = {
       collaborateur_id: currentCollabId,
       date: mois + '-01',

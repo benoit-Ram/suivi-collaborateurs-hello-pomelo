@@ -1009,6 +1009,12 @@ function toggleTeamAcc(accId, iconId) {
 
 async function createTeamPoint(memberId) {
   const cm = currentMois();
+  // Vérifier qu'il n'existe pas déjà un point pour ce mois
+  const member = myTeam.find(c => c.id === memberId);
+  if (member && (member.pointsSuivi || []).some(p => p.mois === cm)) {
+    showToast('Un point existe déjà pour ce mois.');
+    return;
+  }
   const { data, error } = await sb.from('points_suivi').insert({
     collaborateur_id: memberId,
     type: 'mensuel',
