@@ -319,45 +319,21 @@
 
     <!-- Tabs -->
     <div class="tabs">
-      <button class="tab-btn active" data-tab="onboarding" onclick="showTab('onboarding')">📋 Mon dossier</button>
-      <button class="tab-btn" data-tab="objectifs" onclick="showTab('objectifs')">🎯 Mes objectifs</button>
-      <button class="tab-btn" data-tab="documents" onclick="showTab('documents')">📁 Mes documents</button>
+      <button class="tab-btn active" data-tab="objectifs" onclick="showTab('objectifs')">🎯 Mes objectifs</button>
       <button class="tab-btn" data-tab="points" onclick="showTab('points')">🗓️ Mon suivi mensuel</button>
       <button class="tab-btn" data-tab="conges" onclick="showTab('conges')">🏖️ Mes congés</button>
       <button id="btnTabEquipe" class="tab-btn hidden" data-tab="equipe" onclick="showTab('equipe')">👥 Mon équipe</button>
     </div>
 
-    <!-- ONBOARDING TAB -->
-    <div id="tab-onboarding" class="tab-pane active">
-      <div class="grid-2">
-        <div>
-          <div class="section-title">Mes documents</div>
-          <div class="card">
-            <p style="font-size:0.8rem;color:var(--muted);margin-bottom:16px;line-height:1.6;">Déposez vos documents ci-dessous. Votre responsable RH sera notifié(e).</p>
-            <div class="checklist" id="myDocs"></div>
-          </div>
-        </div>
-        <div>
-          <div class="section-title">Mes informations</div>
-          <div class="card" id="myInfos"></div>
-        </div>
-      </div>
+    <!-- OBJECTIFS TAB -->
+    <div id="tab-objectifs" class="tab-pane active">
+      <div id="myObjectifs"></div>
     </div>
 
     <!-- POINTS TAB -->
     <div id="tab-points" class="tab-pane">
       <div class="section-title">Mes points mensuels</div>
       <div id="myPoints"></div>
-    </div>
-
-    <!-- OBJECTIFS TAB -->
-    <div id="tab-objectifs" class="tab-pane">
-      <div id="myObjectifs"></div>
-    </div>
-
-    <!-- DOCUMENTS TAB -->
-    <div id="tab-documents" class="tab-pane">
-      <div id="myValidatedDocs"></div>
     </div>
 
     <!-- CONGÉS TAB -->
@@ -566,7 +542,7 @@ function showApp() {
   if (!GOOGLE_CLIENT_ID) document.getElementById('configBanner').classList.remove('hidden');
 
   renderProfile();
-  showTab('onboarding');
+  showTab('objectifs');
 }
 
 function renderProfile() {
