@@ -400,7 +400,7 @@ function collabFromRow(row) {
     email: row.email || '', telephone: row.telephone || '',
     dateEntree: row.date_entree || '', managerId: row.manager_id || null,
     bureau: row.bureau || '', equipe: row.equipe || '',
-    soldeConges: row.solde_conges ?? 0, acquisitionConges: row.acquisition_conges ?? 2.08,
+    soldeConges: row.solde_conges ?? 0, acquisitionConges: row.acquisition_conges ?? 2.08, valideurCongesId: row.valideur_conges_id || null,
     onboarding: row.onboarding || { notes:'', materiel:'', acces:'', documents:{} },
     pointsSuivi: (row.points_suivi || []).map(p => ({
       id: p.id, date: p.date, type: p.type, mois: p.mois || '',
@@ -1124,9 +1124,17 @@ async function renderConges() {
 
   const s = getMySolde();
   const soldeColor = s.solde <= 0 ? 'var(--red)' : s.solde <= 5 ? 'var(--orange)' : 'var(--green)';
+  const valideurId = currentCollab.valideurCongesId || currentCollab.managerId;
+  const valideur = valideurId ? COLLABS.find(c => c.id === valideurId) : null;
+  const valideurNom = valideur ? valideur.prenom + ' ' + valideur.nom : 'Non défini';
 
   const container = document.getElementById('myCongesContent');
   container.innerHTML = `
+    <!-- Valideur -->
+    <div style="background:linear-gradient(135deg,#F0F0FF,#FFF0F8);border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:10px;border:1.5px solid #E0D8FF;">
+      <span style="font-size:1.1rem;">👔</span>
+      <span style="font-size:0.85rem;font-weight:600;color:var(--navy);">Valideur de congés : <strong>${valideurNom}</strong></span>
+    </div>
     <!-- Solde -->
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px;">
       <div class="card" style="text-align:center;padding:16px;">

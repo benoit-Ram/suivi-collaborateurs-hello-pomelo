@@ -63,4 +63,7 @@ CREATE TABLE IF NOT EXISTS absences (
 -- Solde et acquisition de congés sur les collaborateurs
 ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS solde_conges numeric DEFAULT 0;
 ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS acquisition_conges numeric DEFAULT 2.08;
+
+-- Valideur de congés (par défaut le manager si non renseigné)
+ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS valideur_conges_id uuid REFERENCES collaborateurs(id);
 ```
