@@ -1035,7 +1035,6 @@ async function createTeamPoint(memberId) {
   if (error) { showToast('Erreur : ' + error.message); return; }
 
   // Mettre à jour le cache local
-  const member = myTeam.find(c => c.id === memberId);
   if (member) {
     member.pointsSuivi = member.pointsSuivi || [];
     member.pointsSuivi.push({
