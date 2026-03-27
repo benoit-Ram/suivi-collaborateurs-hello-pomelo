@@ -96,10 +96,10 @@
     .tab-pane.active { display: block; }
 
     /* PROFILE NAV (vue collaborateur) */
-    .profile-nav { display: flex; gap: 10px; margin-bottom: 28px; flex-wrap: wrap; }
+    .profile-nav { display: flex; gap: 10px; margin-bottom: 28px; flex-wrap: nowrap; }
     .profile-nav-btn {
-      display: flex; align-items: center; gap: 10px;
-      padding: 13px 22px; border: 2px solid var(--lavender); border-radius: 14px;
+      flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px;
+      padding: 13px 16px; border: 2px solid var(--lavender); border-radius: 14px;
       background: white; cursor: pointer; font-family: inherit; font-size: 0.84rem;
       font-weight: 700; color: var(--muted); transition: all 0.18s; white-space: nowrap;
     }
