@@ -392,6 +392,7 @@ function collabFromRow(row) {
     id: row.id, prenom: row.prenom, nom: row.nom, poste: row.poste || '',
     email: row.email || '', telephone: row.telephone || '',
     dateEntree: row.date_entree || '', managerId: row.manager_id || null,
+    bureau: row.bureau || '', equipe: row.equipe || '',
     onboarding: row.onboarding || { notes:'', materiel:'', acces:'', documents:{} },
     pointsSuivi: (row.points_suivi || []).map(p => ({
       id: p.id, date: p.date, type: p.type, mois: p.mois || '',
@@ -597,6 +598,8 @@ function renderProfile() {
       <div class="profile-meta">
         ${c.email ? `<div class="profile-meta-item">✉️ <span>${c.email}</span></div>` : ''}
         ${c.dateEntree ? `<div class="profile-meta-item">📅 Entrée le <span>${fmtDate(c.dateEntree)}</span></div>` : ''}
+        ${c.bureau ? `<div class="profile-meta-item">🏢 Bureau : <span>${c.bureau}</span></div>` : ''}
+        ${c.equipe ? `<div class="profile-meta-item">👥 Équipe : <span>${c.equipe}</span></div>` : ''}
         ${manager ? `<div class="profile-meta-item">👔 Manager : <span>${manager.prenom} ${manager.nom}</span></div>` : ''}
       </div>
     </div>`;

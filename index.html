@@ -281,6 +281,14 @@
         <label>Téléphone</label>
         <input id="fTel" type="tel" placeholder="06 00 00 00 00" />
       </div>
+      <div class="form-field">
+        <label>Bureau</label>
+        <input id="fBureau" type="text" placeholder="Paris, Lyon..." />
+      </div>
+      <div class="form-field">
+        <label>Équipe</label>
+        <input id="fEquipe" type="text" placeholder="Tech, RH, Ops..." />
+      </div>
       <div class="form-field full">
         <label>Manager</label>
         <select id="fManager">
@@ -578,6 +586,8 @@ function fromRow(row) {
     telephone: row.telephone || '',
     dateEntree: row.date_entree || '',
     managerId: row.manager_id || null,
+    bureau: row.bureau || '',
+    equipe: row.equipe || '',
     onboarding: row.onboarding || defaultOnboarding(),
     pointsSuivi: (row.points_suivi || []).map(p => ({
       id: p.id, date: p.date, type: p.type, mois: p.mois || '',
@@ -822,6 +832,8 @@ function renderCollab() {
           ${c.email ? `<div class="profile-meta-item">✉️ <span>${c.email}</span></div>` : ''}
           ${c.telephone ? `<div class="profile-meta-item">📞 <span>${c.telephone}</span></div>` : ''}
           ${c.dateEntree ? `<div class="profile-meta-item">📅 Entrée le <span>${fmtDate(c.dateEntree)}</span></div>` : ''}
+          ${c.bureau ? `<div class="profile-meta-item">🏢 Bureau : <span>${c.bureau}</span></div>` : ''}
+          ${c.equipe ? `<div class="profile-meta-item">👥 Équipe : <span>${c.equipe}</span></div>` : ''}
           ${manager ? `<div class="profile-meta-item">👔 Manager : <span>${manager}</span></div>` : ''}
         </div>
       </div>
@@ -1356,7 +1368,7 @@ function renderDocsCheckboxes(selected) {
 function openAddCollab() {
   editingCollabId = null;
   document.getElementById('modalCollabTitle').textContent = 'Ajouter un collaborateur';
-  ['fPrenom','fNom','fPoste','fEmail','fTel'].forEach(id => document.getElementById(id).value = '');
+  ['fPrenom','fNom','fPoste','fEmail','fTel','fBureau','fEquipe'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('fDateEntree').value = '';
   populateManagerSelect('fManager', null);
   renderDocsCheckboxes([]);
@@ -1374,6 +1386,8 @@ function openEditCollab(id) {
   document.getElementById('fEmail').value = c.email || '';
   document.getElementById('fTel').value = c.telephone || '';
   document.getElementById('fDateEntree').value = c.dateEntree || '';
+  document.getElementById('fBureau').value = c.bureau || '';
+  document.getElementById('fEquipe').value = c.equipe || '';
   populateManagerSelect('fManager', c.managerId, id);
   renderDocsCheckboxes(c.onboarding.requiredDocs || []);
   openModal('modalCollab');
@@ -1391,6 +1405,8 @@ async function saveCollab() {
     telephone: document.getElementById('fTel').value || null,
     date_entree: document.getElementById('fDateEntree').value || null,
     manager_id: document.getElementById('fManager').value || null,
+    bureau: document.getElementById('fBureau').value || null,
+    equipe: document.getElementById('fEquipe').value || null,
   };
 
   if (editingCollabId) {
@@ -1401,7 +1417,7 @@ async function saveCollab() {
     const { error } = await sb.from('collaborateurs').update(row).eq('id', editingCollabId);
     if (error) { showToast('Erreur: ' + error.message); return; }
     const c = getCollab(editingCollabId);
-    Object.assign(c, { prenom, nom, poste, email: row.email || '', telephone: row.telephone || '', dateEntree: row.date_entree || '', managerId: row.manager_id || null });
+    Object.assign(c, { prenom, nom, poste, email: row.email || '', telephone: row.telephone || '', dateEntree: row.date_entree || '', managerId: row.manager_id || null, bureau: row.bureau || '', equipe: row.equipe || '' });
   } else {
     const requiredDocs = Array.from(document.querySelectorAll('#fDocsCheckboxes input:checked')).map(cb => cb.value);
     row.onboarding = defaultOnboarding();
