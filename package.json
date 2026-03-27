@@ -1,0 +1,12 @@
+{
+  "name": "suivi-collaborateurs-hello-pomelo",
+  "version": "1.0.0",
+  "description": "Outil de suivi des collaborateurs — Hello Pomelo",
+  "scripts": {
+    "start": "npx serve . -p 3000",
+    "dev": "npx serve . -p 3000"
+  },
+  "keywords": ["rh", "collaborateurs", "suivi", "hello-pomelo"],
+  "author": "Hello Pomelo",
+  "license": "MIT"
+}
