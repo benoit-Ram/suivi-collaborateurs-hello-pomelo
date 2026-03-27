@@ -323,6 +323,7 @@
       <button class="tab-btn" data-tab="objectifs" onclick="showTab('objectifs')">🎯 Mes objectifs</button>
       <button class="tab-btn" data-tab="documents" onclick="showTab('documents')">📁 Mes documents</button>
       <button class="tab-btn" data-tab="points" onclick="showTab('points')">🗓️ Mon suivi mensuel</button>
+      <button class="tab-btn" data-tab="conges" onclick="showTab('conges')">🏖️ Mes congés</button>
       <button id="btnTabEquipe" class="tab-btn hidden" data-tab="equipe" onclick="showTab('equipe')">👥 Mon équipe</button>
     </div>
 
@@ -357,6 +358,11 @@
     <!-- DOCUMENTS TAB -->
     <div id="tab-documents" class="tab-pane">
       <div id="myValidatedDocs"></div>
+    </div>
+
+    <!-- CONGÉS TAB -->
+    <div id="tab-conges" class="tab-pane">
+      <div id="myCongesContent"></div>
     </div>
 
     <!-- EQUIPE TAB -->
@@ -394,6 +400,7 @@ function collabFromRow(row) {
     email: row.email || '', telephone: row.telephone || '',
     dateEntree: row.date_entree || '', managerId: row.manager_id || null,
     bureau: row.bureau || '', equipe: row.equipe || '',
+    soldeConges: row.solde_conges ?? 0, acquisitionConges: row.acquisition_conges ?? 2.08,
     onboarding: row.onboarding || { notes:'', materiel:'', acces:'', documents:{} },
     pointsSuivi: (row.points_suivi || []).map(p => ({
       id: p.id, date: p.date, type: p.type, mois: p.mois || '',
@@ -589,6 +596,7 @@ function showTab(tab) {
   if (tab === 'onboarding') renderOnboarding();
   else if (tab === 'points') renderPoints();
   else if (tab === 'objectifs') renderObjectifs();
+  else if (tab === 'conges') renderConges();
   else if (tab === 'equipe') renderTeam();
   else if (tab === 'documents') renderValidatedDocs();
 }
@@ -1061,6 +1069,158 @@ async function saveTeamManagerPoint(memberId, pointId) {
 
   p.managerData = managerData;
   showToast('Retours manager enregistrés !');
+}
+
+// ─────────────────────────────────────────
+// MES CONGÉS
+// ─────────────────────────────────────────
+const ABS_TYPES = { conge_paye:'Congé payé', rtt:'RTT', maladie:'Maladie', teletravail:'Télétravail', formation:'Formation', sans_solde:'Sans solde' };
+const ABS_STATUTS = { en_attente:'En attente', approuve:'Approuvé', refuse:'Refusé' };
+const ABS_STATUT_BADGE = { en_attente:'badge-orange', approuve:'badge-green', refuse:'badge-pink' };
+
+let myAbsences = [];
+
+function countWorkDays(d1, d2) {
+  let count = 0;
+  const start = new Date(d1);
+  const end = new Date(d2);
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const dow = d.getDay();
+    if (dow !== 0 && dow !== 6) count++;
+  }
+  return count;
+}
+
+function getMySolde() {
+  const c = currentCollab;
+  const soldeInitial = c.soldeConges || 0;
+  const acquisition = c.acquisitionConges || 2.08;
+  let moisAcquis = 0;
+  if (c.dateEntree) {
+    const entree = new Date(c.dateEntree);
+    const now = new Date();
+    moisAcquis = Math.max(0, (now.getFullYear() - entree.getFullYear()) * 12 + (now.getMonth() - entree.getMonth()));
+  }
+  const acquis = Math.round(moisAcquis * acquisition * 100) / 100;
+  const pris = myAbsences
+    .filter(a => a.statut === 'approuve' && ['conge_paye','rtt'].includes(a.type))
+    .reduce((sum, a) => sum + countWorkDays(a.dateDebut, a.dateFin), 0);
+  const enAttente = myAbsences
+    .filter(a => a.statut === 'en_attente' && ['conge_paye','rtt'].includes(a.type))
+    .reduce((sum, a) => sum + countWorkDays(a.dateDebut, a.dateFin), 0);
+  const solde = Math.round((soldeInitial + acquis - pris) * 100) / 100;
+  return { soldeInitial, acquis, pris, enAttente, solde };
+}
+
+async function renderConges() {
+  // Charger les absences du collaborateur
+  const { data, error } = await sb.from('absences').select('*')
+    .eq('collaborateur_id', currentCollab.id)
+    .order('date_debut', { ascending: false });
+  if (error) { showToast('Erreur: ' + error.message); return; }
+  myAbsences = (data||[]).map(a => ({
+    id: a.id, type: a.type, dateDebut: a.date_debut, dateFin: a.date_fin,
+    statut: a.statut || 'en_attente', commentaire: a.commentaire || ''
+  }));
+
+  const s = getMySolde();
+  const soldeColor = s.solde <= 0 ? 'var(--red)' : s.solde <= 5 ? 'var(--orange)' : 'var(--green)';
+
+  const container = document.getElementById('myCongesContent');
+  container.innerHTML = `
+    <!-- Solde -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px;">
+      <div class="card" style="text-align:center;padding:16px;">
+        <div style="font-size:1.8rem;font-weight:700;color:${soldeColor};">${s.solde}</div>
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-top:4px;">Jours restants</div>
+      </div>
+      <div class="card" style="text-align:center;padding:16px;">
+        <div style="font-size:1.8rem;font-weight:700;color:var(--navy);">${s.acquis}</div>
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-top:4px;">Acquis</div>
+      </div>
+      <div class="card" style="text-align:center;padding:16px;">
+        <div style="font-size:1.8rem;font-weight:700;color:var(--pink);">${s.pris}</div>
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-top:4px;">Pris</div>
+      </div>
+      <div class="card" style="text-align:center;padding:16px;">
+        <div style="font-size:1.8rem;font-weight:700;color:var(--orange);">${s.enAttente}</div>
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-top:4px;">En attente</div>
+      </div>
+    </div>
+
+    <!-- Formulaire de demande -->
+    <div class="card" style="margin-bottom:24px;">
+      <div class="section-title" style="margin-top:0;">Nouvelle demande</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end;">
+        <div>
+          <label style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:5px;">Type</label>
+          <select id="absType" style="width:100%;border:1.5px solid var(--lavender);border-radius:10px;padding:10px 14px;font-family:inherit;font-size:0.9rem;color:var(--navy);background:var(--offwhite);outline:none;">
+            ${Object.entries(ABS_TYPES).map(([k,v]) => `<option value="${k}">${v}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:5px;">Du</label>
+          <input id="absDateDebut" type="date" style="width:100%;border:1.5px solid var(--lavender);border-radius:10px;padding:10px 14px;font-family:inherit;font-size:0.9rem;color:var(--navy);background:var(--offwhite);outline:none;" />
+        </div>
+        <div>
+          <label style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:5px;">Au</label>
+          <input id="absDateFin" type="date" style="width:100%;border:1.5px solid var(--lavender);border-radius:10px;padding:10px 14px;font-family:inherit;font-size:0.9rem;color:var(--navy);background:var(--offwhite);outline:none;" />
+        </div>
+        <button class="btn btn-primary" onclick="submitAbsence()">Demander</button>
+      </div>
+      <div style="margin-top:10px;">
+        <label style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:5px;">Commentaire (optionnel)</label>
+        <input id="absCommentaire" type="text" placeholder="Motif, précisions..." style="width:100%;border:1.5px solid var(--lavender);border-radius:10px;padding:10px 14px;font-family:inherit;font-size:0.9rem;color:var(--navy);background:var(--offwhite);outline:none;" />
+      </div>
+    </div>
+
+    <!-- Historique -->
+    <div class="section-title">Historique</div>
+    ${myAbsences.length ? myAbsences.map(a => {
+      const jours = countWorkDays(a.dateDebut, a.dateFin);
+      return `
+      <div style="display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:12px;border:1.5px solid var(--lavender);margin-bottom:8px;background:white;">
+        <div style="flex:1;">
+          <div style="font-weight:700;font-size:0.9rem;color:var(--navy);">${ABS_TYPES[a.type]||a.type}</div>
+          <div style="font-size:0.78rem;color:var(--muted);margin-top:2px;">Du ${fmtDate(a.dateDebut)} au ${fmtDate(a.dateFin)} · ${jours} jour${jours>1?'s':''}</div>
+          ${a.commentaire ? `<div style="font-size:0.78rem;color:var(--muted);margin-top:4px;font-style:italic;">${a.commentaire}</div>` : ''}
+        </div>
+        <span class="badge ${ABS_STATUT_BADGE[a.statut]||'badge-gray'}">${ABS_STATUTS[a.statut]||a.statut}</span>
+        ${a.statut === 'en_attente' ? `<button class="btn btn-danger btn-sm" onclick="cancelAbsence('${a.id}')">Annuler</button>` : ''}
+      </div>`;
+    }).join('') : '<div class="empty-state"><div class="empty-icon">🏖️</div><p>Aucune demande de congé.</p></div>'}
+  `;
+}
+
+async function submitAbsence() {
+  const type = document.getElementById('absType').value;
+  const dateDebut = document.getElementById('absDateDebut').value;
+  const dateFin = document.getElementById('absDateFin').value;
+  const commentaire = document.getElementById('absCommentaire').value.trim();
+
+  if (!dateDebut || !dateFin) { showToast('Veuillez renseigner les dates.'); return; }
+  if (dateFin < dateDebut) { showToast('La date de fin doit être après la date de début.'); return; }
+
+  const { data, error } = await sb.from('absences').insert({
+    collaborateur_id: currentCollab.id,
+    type, date_debut: dateDebut, date_fin: dateFin,
+    statut: 'en_attente', commentaire: commentaire || null
+  }).select().single();
+
+  if (error) { showToast('Erreur: ' + error.message); return; }
+  showToast('Demande envoyée !');
+  document.getElementById('absDateDebut').value = '';
+  document.getElementById('absDateFin').value = '';
+  document.getElementById('absCommentaire').value = '';
+  renderConges();
+}
+
+async function cancelAbsence(id) {
+  if (!confirm('Annuler cette demande ?')) return;
+  const { error } = await sb.from('absences').delete().eq('id', id);
+  if (error) { showToast('Erreur: ' + error.message); return; }
+  showToast('Demande annulée.');
+  renderConges();
 }
 
 </script>

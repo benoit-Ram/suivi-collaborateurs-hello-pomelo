@@ -272,6 +272,14 @@
         <label>Date de fin de période d'essai</label>
         <input id="fDateFinEssai" type="date" />
       </div>
+      <div class="form-field">
+        <label>Solde de congés (jours restants)</label>
+        <input id="fSoldeConges" type="number" min="0" step="0.5" value="0" placeholder="25" />
+      </div>
+      <div class="form-field">
+        <label>Acquisition mensuelle (jours/mois)</label>
+        <input id="fAcquisitionConges" type="number" min="0" step="0.1" value="2.08" placeholder="2.08" />
+      </div>
       <div class="form-field full">
         <label>Notes RH (libres)</label>
         <textarea id="fNotes" rows="3" placeholder="Annotations internes RH..."></textarea>
@@ -637,6 +645,68 @@
     </div>
   </div>
 
+  <!-- BO: ABSENCES / CONGÉS -->
+  <div id="view-bo-absences" class="view hidden">
+    <div class="page-header">
+      <h1>Gestion des congés & absences</h1>
+      <p>Suivi des demandes de congés et absences des collaborateurs</p>
+    </div>
+    <div class="divider"></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+      <select id="absFilterStatut" class="settings-input" style="flex:none;width:160px;padding:8px 12px;font-size:0.82rem;" onchange="renderBoAbsences()">
+        <option value="">Tous les statuts</option>
+        <option value="en_attente">En attente</option>
+        <option value="approuve">Approuvé</option>
+        <option value="refuse">Refusé</option>
+      </select>
+      <select id="absFilterType" class="settings-input" style="flex:none;width:180px;padding:8px 12px;font-size:0.82rem;" onchange="renderBoAbsences()">
+        <option value="">Tous les types</option>
+        <option value="conge_paye">Congé payé</option>
+        <option value="rtt">RTT</option>
+        <option value="maladie">Maladie</option>
+        <option value="teletravail">Télétravail</option>
+        <option value="formation">Formation</option>
+        <option value="sans_solde">Sans solde</option>
+      </select>
+      <select id="absFilterCollab" class="settings-input" style="flex:none;width:200px;padding:8px 12px;font-size:0.82rem;" onchange="renderBoAbsences()">
+        <option value="">Tous les collaborateurs</option>
+      </select>
+    </div>
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Collaborateur</th>
+            <th>Type</th>
+            <th>Du</th>
+            <th>Au</th>
+            <th>Jours</th>
+            <th>Statut</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="absencesTable"></tbody>
+      </table>
+    </div>
+    <!-- Soldes congés -->
+    <div class="section-title" style="margin-top:28px;">Soldes de congés</div>
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Collaborateur</th>
+            <th>Solde initial</th>
+            <th>Acquisition/mois</th>
+            <th>Acquis depuis entrée</th>
+            <th>Pris (approuvés)</th>
+            <th>Solde restant</th>
+          </tr>
+        </thead>
+        <tbody id="soldesTable"></tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- BO: PARAMÈTRES -->
   <div id="view-bo-settings" class="view hidden">
     <div class="page-header">
@@ -715,6 +785,8 @@ function fromRow(row) {
     dateEntree: row.date_entree || '',
     dateFinEssai: row.date_fin_essai || '',
     notes: row.notes || '',
+    soldeConges: row.solde_conges ?? 0,
+    acquisitionConges: row.acquisition_conges ?? 2.08,
     managerId: row.manager_id || null,
     bureau: row.bureau || '',
     equipe: row.equipe || '',
@@ -773,13 +845,21 @@ async function initDB() {
   document.head.appendChild(style);
   document.body.appendChild(loader);
 
-  const [collabRes, settingsRes] = await Promise.all([
+  const [collabRes, settingsRes, absencesRes] = await Promise.all([
     sb.from('collaborateurs').select('*, points_suivi(*), objectifs(*)'),
-    sb.from('settings').select('*')
+    sb.from('settings').select('*'),
+    sb.from('absences').select('*').order('date_debut', { ascending: false })
   ]);
   loader.remove();
   if (collabRes.error) { alert('Erreur Supabase : ' + collabRes.error.message); return; }
-  DB = { collaborateurs: collabRes.data.map(fromRow) };
+  DB = {
+    collaborateurs: collabRes.data.map(fromRow),
+    absences: (absencesRes.data || []).map(a => ({
+      id: a.id, collaborateurId: a.collaborateur_id, type: a.type,
+      dateDebut: a.date_debut, dateFin: a.date_fin,
+      statut: a.statut || 'en_attente', commentaire: a.commentaire || ''
+    }))
+  };
   if (settingsRes.data) {
     settingsRes.data.forEach(row => { SETTINGS[row.key] = row.value; });
   }
@@ -824,6 +904,9 @@ function renderSidebar() {
     <button class="nav-item ${currentView === 'bo-managers' ? 'active' : ''}" onclick="navigate('bo-managers')">
       <span class="nav-icon">🗂️</span><span>Organigramme</span>
     </button>
+    <button class="nav-item ${currentView === 'bo-absences' ? 'active' : ''}" onclick="navigate('bo-absences')">
+      <span class="nav-icon">🏖️</span><span>Congés & Absences</span>
+    </button>
     <button class="nav-item ${currentView === 'bo-settings' ? 'active' : ''}" onclick="navigate('bo-settings')">
       <span class="nav-icon">⚙️</span><span>Paramètres</span>
     </button>`;
@@ -841,6 +924,7 @@ function navigate(view, collabId) {
   else if (view === 'collab') { currentTab = 'onboarding'; renderCollab(); }
   else if (view === 'bo-people') renderBoPeople();
   else if (view === 'bo-managers') renderBoManagers();
+  else if (view === 'bo-absences') renderBoAbsences();
   else if (view === 'bo-settings') renderBoSettings();
 }
 
@@ -1666,6 +1750,8 @@ function openAddCollab() {
   populateSettingSelect('fTypePoste', 'typePostes', '');
   document.getElementById('fDateEntree').value = '';
   document.getElementById('fDateFinEssai').value = '';
+  document.getElementById('fSoldeConges').value = '0';
+  document.getElementById('fAcquisitionConges').value = '2.08';
   populateManagerSelect('fManager', null);
   renderDocsCheckboxes([]);
   openModal('modalCollab');
@@ -1683,6 +1769,8 @@ function openEditCollab(id) {
   document.getElementById('fTel').value = c.telephone || '';
   document.getElementById('fDateEntree').value = c.dateEntree || '';
   document.getElementById('fDateFinEssai').value = c.dateFinEssai || '';
+  document.getElementById('fSoldeConges').value = c.soldeConges ?? 0;
+  document.getElementById('fAcquisitionConges').value = c.acquisitionConges ?? 2.08;
   document.getElementById('fNotes').value = c.notes || '';
   populateSettingSelect('fBureau',    'bureaux',    c.bureau    || '');
   populateSettingSelect('fEquipe',    'equipes',    c.equipe    || '');
@@ -1705,6 +1793,8 @@ async function saveCollab() {
     telephone: document.getElementById('fTel').value || null,
     date_entree: document.getElementById('fDateEntree').value || null,
     date_fin_essai: document.getElementById('fDateFinEssai').value || null,
+    solde_conges: parseFloat(document.getElementById('fSoldeConges').value) || 0,
+    acquisition_conges: parseFloat(document.getElementById('fAcquisitionConges').value) || 2.08,
     notes: document.getElementById('fNotes').value || null,
     manager_id: document.getElementById('fManager').value || null,
     bureau:     document.getElementById('fBureau').value    || null,
@@ -1721,7 +1811,7 @@ async function saveCollab() {
     const { error } = await sb.from('collaborateurs').update(row).eq('id', editingCollabId);
     if (error) { showToast('Erreur: ' + error.message); return; }
     const c = getCollab(editingCollabId);
-    Object.assign(c, { prenom, nom, poste, email: row.email || '', telephone: row.telephone || '', dateEntree: row.date_entree || '', dateFinEssai: row.date_fin_essai || '', notes: row.notes || '', managerId: row.manager_id || null, bureau: row.bureau || '', equipe: row.equipe || '', contrat: row.contrat || '', typePoste: row.type_poste || '' });
+    Object.assign(c, { prenom, nom, poste, email: row.email || '', telephone: row.telephone || '', dateEntree: row.date_entree || '', dateFinEssai: row.date_fin_essai || '', soldeConges: row.solde_conges || 0, acquisitionConges: row.acquisition_conges || 2.08, notes: row.notes || '', managerId: row.manager_id || null, bureau: row.bureau || '', equipe: row.equipe || '', contrat: row.contrat || '', typePoste: row.type_poste || '' });
   } else {
     const requiredDocs = Array.from(document.querySelectorAll('#fDocsCheckboxes input:checked')).map(cb => cb.value);
     row.onboarding = defaultOnboarding();
@@ -1842,6 +1932,120 @@ async function saveRelation() {
   const alertEl = document.getElementById('relAlert');
   alertEl.classList.remove('hidden');
   setTimeout(() => alertEl.classList.add('hidden'), 3000);
+}
+
+// ─────────────────────────────────────────
+// CONGÉS & ABSENCES
+// ─────────────────────────────────────────
+const ABS_TYPES = { conge_paye:'Congé payé', rtt:'RTT', maladie:'Maladie', teletravail:'Télétravail', formation:'Formation', sans_solde:'Sans solde' };
+const ABS_STATUTS = { en_attente:'En attente', approuve:'Approuvé', refuse:'Refusé' };
+const ABS_STATUT_BADGE = { en_attente:'badge-orange', approuve:'badge-green', refuse:'badge-pink' };
+
+function countWorkDays(d1, d2) {
+  let count = 0;
+  const start = new Date(d1);
+  const end = new Date(d2);
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const dow = d.getDay();
+    if (dow !== 0 && dow !== 6) count++;
+  }
+  return count;
+}
+
+function getSoldeConges(c) {
+  const soldeInitial = c.soldeConges || 0;
+  const acquisition = c.acquisitionConges || 2.08;
+  // Mois écoulés depuis date d'entrée
+  let moisAcquis = 0;
+  if (c.dateEntree) {
+    const entree = new Date(c.dateEntree);
+    const now = new Date();
+    moisAcquis = Math.max(0, (now.getFullYear() - entree.getFullYear()) * 12 + (now.getMonth() - entree.getMonth()));
+  }
+  const acquis = Math.round(moisAcquis * acquisition * 100) / 100;
+  // Jours pris (absences approuvées de type congé payé ou RTT)
+  const pris = (DB.absences || [])
+    .filter(a => a.collaborateurId === c.id && a.statut === 'approuve' && ['conge_paye','rtt'].includes(a.type))
+    .reduce((sum, a) => sum + countWorkDays(a.dateDebut, a.dateFin), 0);
+  const solde = Math.round((soldeInitial + acquis - pris) * 100) / 100;
+  return { soldeInitial, acquisition, moisAcquis, acquis, pris, solde };
+}
+
+function renderBoAbsences() {
+  // Populate collab filter
+  const collabSel = document.getElementById('absFilterCollab');
+  const curVal = collabSel.value;
+  collabSel.innerHTML = '<option value="">Tous les collaborateurs</option>' +
+    DB.collaborateurs.map(c => `<option value="${c.id}" ${c.id===curVal?'selected':''}>${c.prenom} ${c.nom}</option>`).join('');
+
+  const fStatut = document.getElementById('absFilterStatut').value;
+  const fType = document.getElementById('absFilterType').value;
+  const fCollab = document.getElementById('absFilterCollab').value;
+
+  let absences = DB.absences || [];
+  if (fStatut) absences = absences.filter(a => a.statut === fStatut);
+  if (fType) absences = absences.filter(a => a.type === fType);
+  if (fCollab) absences = absences.filter(a => a.collaborateurId === fCollab);
+
+  const tbody = document.getElementById('absencesTable');
+  if (!absences.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px;">Aucune absence enregistrée</td></tr>';
+  } else {
+    tbody.innerHTML = absences.map(a => {
+      const c = getCollab(a.collaborateurId);
+      const nom = c ? `${c.prenom} ${c.nom}` : '—';
+      const jours = countWorkDays(a.dateDebut, a.dateFin);
+      return `<tr>
+        <td><strong>${nom}</strong></td>
+        <td>${ABS_TYPES[a.type]||a.type}</td>
+        <td>${fmtDate(a.dateDebut)}</td>
+        <td>${fmtDate(a.dateFin)}</td>
+        <td style="font-weight:700;">${jours}j</td>
+        <td><span class="badge ${ABS_STATUT_BADGE[a.statut]||'badge-gray'}">${ABS_STATUTS[a.statut]||a.statut}</span></td>
+        <td>
+          <div style="display:flex;gap:6px;">
+            ${a.statut === 'en_attente' ? `
+              <button class="btn btn-sm" style="background:var(--green);color:white;" onclick="updateAbsStatut('${a.id}','approuve')">✓</button>
+              <button class="btn btn-danger btn-sm" onclick="updateAbsStatut('${a.id}','refuse')">✕</button>
+            ` : ''}
+            <button class="btn btn-danger btn-sm" onclick="deleteAbsence('${a.id}')">🗑️</button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Soldes table
+  const soldesTbody = document.getElementById('soldesTable');
+  soldesTbody.innerHTML = DB.collaborateurs.map(c => {
+    const s = getSoldeConges(c);
+    const soldeColor = s.solde <= 0 ? 'var(--red)' : s.solde <= 5 ? 'var(--orange)' : 'var(--green)';
+    return `<tr>
+      <td><strong>${c.prenom} ${c.nom}</strong></td>
+      <td>${s.soldeInitial}j</td>
+      <td>${s.acquisition}j/mois</td>
+      <td>${s.acquis}j (${s.moisAcquis} mois)</td>
+      <td>${s.pris}j</td>
+      <td style="font-weight:700;color:${soldeColor};">${s.solde}j</td>
+    </tr>`;
+  }).join('');
+}
+
+async function updateAbsStatut(id, statut) {
+  const { error } = await sb.from('absences').update({ statut }).eq('id', id);
+  if (error) { showToast('Erreur: ' + error.message); return; }
+  const abs = (DB.absences||[]).find(a => a.id === id);
+  if (abs) abs.statut = statut;
+  renderBoAbsences();
+  showToast(statut === 'approuve' ? 'Absence approuvée ✓' : 'Absence refusée');
+}
+
+async function deleteAbsence(id) {
+  if (!confirm('Supprimer cette absence ?')) return;
+  const { error } = await sb.from('absences').delete().eq('id', id);
+  if (error) { showToast('Erreur: ' + error.message); return; }
+  DB.absences = (DB.absences||[]).filter(a => a.id !== id);
+  renderBoAbsences();
 }
 
 // ─────────────────────────────────────────

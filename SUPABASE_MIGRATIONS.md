@@ -44,3 +44,23 @@ CREATE UNIQUE INDEX IF NOT EXISTS unique_point_mensuel_par_mois
   ON points_suivi (collaborateur_id, mois)
   WHERE type = 'mensuel';
 ```
+
+## Migration v4 — Congés & Absences
+
+```sql
+-- Table des absences
+CREATE TABLE IF NOT EXISTS absences (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  collaborateur_id uuid REFERENCES collaborateurs(id) ON DELETE CASCADE,
+  type text NOT NULL,
+  date_debut date NOT NULL,
+  date_fin date NOT NULL,
+  statut text DEFAULT 'en_attente',
+  commentaire text,
+  created_at timestamptz DEFAULT now()
+);
+
+-- Solde et acquisition de congés sur les collaborateurs
+ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS solde_conges numeric DEFAULT 0;
+ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS acquisition_conges numeric DEFAULT 2.08;
+```
