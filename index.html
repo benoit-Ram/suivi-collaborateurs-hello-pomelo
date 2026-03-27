@@ -292,8 +292,10 @@
       </div>
     </div>
     <div style="margin-top:14px;border-top:1px solid var(--lavender);padding-top:14px;">
-      <label style="font-size:0.78rem;font-weight:700;color:var(--navy);display:block;margin-bottom:10px;">Documents à demander au collaborateur</label>
-      <div id="fDocsCheckboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"></div>
+      <div class="form-field full">
+        <label>📁 Lien Google Drive du collaborateur</label>
+        <input id="fGoogleDrive" type="url" placeholder="https://drive.google.com/drive/folders/..." />
+      </div>
     </div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
       <button class="btn btn-ghost" onclick="closeModal('modalCollab')">Annuler</button>
@@ -796,6 +798,7 @@ function fromRow(row) {
     soldeConges: row.solde_conges ?? 0,
     acquisitionConges: row.acquisition_conges ?? 2.08,
     valideurCongesId: row.valideur_conges_id || null,
+    googleDrive: row.google_drive || '',
     managerId: row.manager_id || null,
     bureau: row.bureau || '',
     equipe: row.equipe || '',
@@ -1166,6 +1169,7 @@ function renderCollab() {
           ${c.typePoste ? `<div class="profile-meta-item">🏷️ Type de poste : <span>${c.typePoste}</span></div>` : ''}
           ${manager ? `<div class="profile-meta-item">👔 Manager : <span>${manager}</span></div>` : ''}
           ${c.dateFinEssai ? `<div class="profile-meta-item">⏰ Fin période d'essai : <span>${fmtDate(c.dateFinEssai)}</span></div>` : ''}
+          ${c.googleDrive ? `<div class="profile-meta-item">📁 <a href="${c.googleDrive}" target="_blank" style="color:var(--blue);text-decoration:underline;font-weight:700;">Google Drive</a></div>` : ''}
         </div>
         ${c.notes ? `<div style="margin-top:10px;padding:10px 14px;background:#FFF7ED;border-radius:10px;border-left:3px solid var(--orange);font-size:0.82rem;color:#9A3412;"><strong>Notes RH :</strong> ${c.notes}</div>` : ''}
       </div>
@@ -1753,7 +1757,7 @@ function renderDocsCheckboxes(selected) {
 function openAddCollab() {
   editingCollabId = null;
   document.getElementById('modalCollabTitle').textContent = 'Ajouter un collaborateur';
-  ['fPrenom','fNom','fPoste','fEmail','fTel','fNotes'].forEach(id => document.getElementById(id).value = '');
+  ['fPrenom','fNom','fPoste','fEmail','fTel','fNotes','fGoogleDrive'].forEach(id => document.getElementById(id).value = '');
   populateSettingSelect('fBureau',    'bureaux',    '');
   populateSettingSelect('fEquipe',    'equipes',    '');
   populateSettingSelect('fContrat',   'contrats',   '');
@@ -1764,7 +1768,6 @@ function openAddCollab() {
   document.getElementById('fAcquisitionConges').value = '2.08';
   populateManagerSelect('fManager', null);
   populateManagerSelect('fValideurConges', null);
-  renderDocsCheckboxes([]);
   openModal('modalCollab');
 }
 
@@ -1783,13 +1786,13 @@ function openEditCollab(id) {
   document.getElementById('fSoldeConges').value = c.soldeConges ?? 0;
   document.getElementById('fAcquisitionConges').value = c.acquisitionConges ?? 2.08;
   document.getElementById('fNotes').value = c.notes || '';
+  document.getElementById('fGoogleDrive').value = c.googleDrive || '';
   populateManagerSelect('fValideurConges', c.valideurCongesId, id);
   populateSettingSelect('fBureau',    'bureaux',    c.bureau    || '');
   populateSettingSelect('fEquipe',    'equipes',    c.equipe    || '');
   populateSettingSelect('fContrat',   'contrats',   c.contrat   || '');
   populateSettingSelect('fTypePoste', 'typePostes', c.typePoste || '');
   populateManagerSelect('fManager', c.managerId, id);
-  renderDocsCheckboxes(c.onboarding.requiredDocs || []);
   openModal('modalCollab');
 }
 
@@ -1808,6 +1811,7 @@ async function saveCollab() {
     solde_conges: parseFloat(document.getElementById('fSoldeConges').value) || 0,
     acquisition_conges: parseFloat(document.getElementById('fAcquisitionConges').value) || 2.08,
     valideur_conges_id: document.getElementById('fValideurConges').value || null,
+    google_drive: document.getElementById('fGoogleDrive').value || null,
     notes: document.getElementById('fNotes').value || null,
     manager_id: document.getElementById('fManager').value || null,
     bureau:     document.getElementById('fBureau').value    || null,
@@ -1817,18 +1821,12 @@ async function saveCollab() {
   };
 
   if (editingCollabId) {
-    const requiredDocs = Array.from(document.querySelectorAll('#fDocsCheckboxes input:checked')).map(cb => cb.value);
-    const cEdit = getCollab(editingCollabId);
-    cEdit.onboarding.requiredDocs = requiredDocs;
-    row.onboarding = cEdit.onboarding;
     const { error } = await sb.from('collaborateurs').update(row).eq('id', editingCollabId);
     if (error) { showToast('Erreur: ' + error.message); return; }
     const c = getCollab(editingCollabId);
-    Object.assign(c, { prenom, nom, poste, email: row.email || '', telephone: row.telephone || '', dateEntree: row.date_entree || '', dateFinEssai: row.date_fin_essai || '', soldeConges: row.solde_conges || 0, acquisitionConges: row.acquisition_conges || 2.08, valideurCongesId: row.valideur_conges_id || null, notes: row.notes || '', managerId: row.manager_id || null, bureau: row.bureau || '', equipe: row.equipe || '', contrat: row.contrat || '', typePoste: row.type_poste || '' });
+    Object.assign(c, { prenom, nom, poste, email: row.email || '', telephone: row.telephone || '', dateEntree: row.date_entree || '', dateFinEssai: row.date_fin_essai || '', soldeConges: row.solde_conges || 0, acquisitionConges: row.acquisition_conges || 2.08, valideurCongesId: row.valideur_conges_id || null, googleDrive: row.google_drive || '', notes: row.notes || '', managerId: row.manager_id || null, bureau: row.bureau || '', equipe: row.equipe || '', contrat: row.contrat || '', typePoste: row.type_poste || '' });
   } else {
-    const requiredDocs = Array.from(document.querySelectorAll('#fDocsCheckboxes input:checked')).map(cb => cb.value);
     row.onboarding = defaultOnboarding();
-    row.onboarding.requiredDocs = requiredDocs;
     const { data, error } = await sb.from('collaborateurs').insert(row).select().single();
     if (error) { showToast('Erreur: ' + error.message); return; }
     DB.collaborateurs.push(fromRow(data));
