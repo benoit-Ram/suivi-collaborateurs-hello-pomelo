@@ -268,6 +268,14 @@
           <option value="">— Aucun manager —</option>
         </select>
       </div>
+      <div class="form-field full">
+        <label>Date de fin de période d'essai</label>
+        <input id="fDateFinEssai" type="date" />
+      </div>
+      <div class="form-field full">
+        <label>Notes RH (libres)</label>
+        <textarea id="fNotes" rows="3" placeholder="Annotations internes RH..."></textarea>
+      </div>
     </div>
     <div style="margin-top:14px;border-top:1px solid var(--lavender);padding-top:14px;">
       <label style="font-size:0.78rem;font-weight:700;color:var(--navy);display:block;margin-bottom:10px;">Documents à demander au collaborateur</label>
@@ -353,11 +361,71 @@
           <option value="en-attente">En attente</option>
         </select>
       </div>
+      <div class="form-field full">
+        <label>Progression (%)</label>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <input id="oProgression" type="range" min="0" max="100" value="0" oninput="document.getElementById('oProgressionVal').textContent=this.value+'%'" style="flex:1;" />
+          <span id="oProgressionVal" style="font-weight:700;color:var(--navy);min-width:40px;">0%</span>
+        </div>
+      </div>
     </div>
     <div style="font-size:0.75rem;color:var(--muted);margin-bottom:8px;" id="objCountInfo"></div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
       <button class="btn btn-ghost" onclick="closeModal('modalObj')">Annuler</button>
       <button class="btn btn-primary" onclick="saveObj()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ENTRETIEN ANNUEL -->
+<div id="modalEntretien" class="modal-overlay">
+  <div class="modal" style="max-width:620px;">
+    <div class="modal-header">
+      <h2 id="modalEntretienTitle">Entretien annuel</h2>
+      <button class="btn-close" onclick="closeModal('modalEntretien')">✕</button>
+    </div>
+    <div style="background:linear-gradient(135deg,#F0F0FF,#FFF0F8);border-radius:12px;padding:16px;margin-bottom:20px;">
+      <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--navy);margin-bottom:4px;">📋 Entretien formel</div>
+      <div style="font-size:0.78rem;color:var(--muted);">Bilan complet et axes de développement.</div>
+    </div>
+    <div class="form-grid">
+      <div class="form-field full">
+        <label>Type d'entretien</label>
+        <select id="ea_type">
+          <option value="annuel">Entretien annuel</option>
+          <option value="semestriel">Entretien semestriel</option>
+          <option value="fin_pe">Fin de période d'essai</option>
+          <option value="professionnel">Entretien professionnel</option>
+        </select>
+      </div>
+      <div class="form-field full">
+        <label>Bilan global de la période</label>
+        <textarea id="ea_bilan" placeholder="Synthèse du travail sur la période..." style="min-height:80px;"></textarea>
+      </div>
+      <div class="form-field full">
+        <label>Points forts</label>
+        <textarea id="ea_pointsForts" placeholder="Qualités et réussites majeures..." style="min-height:60px;"></textarea>
+      </div>
+      <div class="form-field full">
+        <label>Axes d'amélioration</label>
+        <textarea id="ea_axesAmelioration" placeholder="Points de progression identifiés..." style="min-height:60px;"></textarea>
+      </div>
+      <div class="form-field full">
+        <label>Souhaits d'évolution du collaborateur</label>
+        <textarea id="ea_souhaitsEvolution" placeholder="Mobilité, formation, nouveau rôle..." style="min-height:60px;"></textarea>
+      </div>
+      <div class="form-field full">
+        <label>Plan de formation</label>
+        <textarea id="ea_formation" placeholder="Formations prévues ou souhaitées..." style="min-height:60px;"></textarea>
+      </div>
+      <div class="form-field full">
+        <label>Objectifs pour la prochaine période</label>
+        <textarea id="ea_objectifsSuivants" placeholder="Objectifs fixés pour l'année/semestre à venir..." style="min-height:60px;"></textarea>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+      <button class="btn btn-ghost" onclick="closeModal('modalEntretien')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveEntretien()">Enregistrer</button>
     </div>
   </div>
 </div>
@@ -382,13 +450,56 @@
       <p>Vue d'ensemble de vos collaborateurs</p>
     </div>
     <div class="divider"></div>
+
+    <!-- STATS ROW -->
     <div class="grid-4" id="statsRow"></div>
+
+    <!-- ALERTS PANEL -->
+    <div id="alertsPanel" class="hidden" style="background:white;border-radius:16px;padding:20px 24px;box-shadow:0 4px 24px rgba(5,5,109,0.08);margin-top:20px;margin-bottom:4px;border-left:4px solid var(--orange);">
+      <h3 style="font-size:0.85rem;font-weight:700;color:var(--navy);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.05em;">⚠️ Actions requises</h3>
+      <div id="alertsList"></div>
+    </div>
+
+    <!-- ANALYTICS SECTION -->
+    <div id="analyticsSection" style="margin-top:20px;">
+      <div class="grid-2" style="gap:16px;">
+        <div style="background:white;border-radius:16px;padding:20px 24px;box-shadow:0 4px 24px rgba(5,5,109,0.08);">
+          <div class="section-title" style="margin-top:0;">Objectifs par statut</div>
+          <div id="chartObjectifs"></div>
+        </div>
+        <div style="background:white;border-radius:16px;padding:20px 24px;box-shadow:0 4px 24px rgba(5,5,109,0.08);">
+          <div class="section-title" style="margin-top:0;">Répartition par équipe</div>
+          <div id="chartEquipes"></div>
+        </div>
+      </div>
+    </div>
+
     <div class="section-title" style="margin-top:28px;">Collaborateurs</div>
+
+    <!-- SEARCH + FILTERS + EXPORT -->
     <div class="search-bar">
       <input class="search-input" id="searchInput" type="text" placeholder="Rechercher un collaborateur..." oninput="filterCollabs()" />
+      <button class="btn btn-navy btn-sm" onclick="exportCollabsCSV()" title="Exporter en CSV">📥 Export CSV</button>
       <button class="btn btn-primary hidden" id="btnAddCollabDash" onclick="openAddCollab()">+ Ajouter</button>
     </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+      <select id="filterEquipe" class="settings-input" style="flex:none;width:160px;padding:8px 12px;font-size:0.82rem;" onchange="filterCollabs()">
+        <option value="">Toutes les équipes</option>
+      </select>
+      <select id="filterBureau" class="settings-input" style="flex:none;width:160px;padding:8px 12px;font-size:0.82rem;" onchange="filterCollabs()">
+        <option value="">Tous les bureaux</option>
+      </select>
+      <select id="filterManager" class="settings-input" style="flex:none;width:200px;padding:8px 12px;font-size:0.82rem;" onchange="filterCollabs()">
+        <option value="">Tous les managers</option>
+      </select>
+      <select id="filterContrat" class="settings-input" style="flex:none;width:160px;padding:8px 12px;font-size:0.82rem;" onchange="filterCollabs()">
+        <option value="">Tous les contrats</option>
+      </select>
+    </div>
+
     <div class="collab-grid" id="collabGrid"></div>
+    <!-- PAGINATION -->
+    <div id="paginationRow" style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:20px;"></div>
   </div>
 
   <!-- COLLAB PROFILE -->
@@ -406,6 +517,9 @@
       </button>
       <button class="profile-nav-btn" data-tab="points" onclick="showTab('points')">
         <span class="pnav-icon">📋</span><span>Points de suivi</span>
+      </button>
+      <button class="profile-nav-btn" data-tab="entretiens" onclick="showTab('entretiens')">
+        <span class="pnav-icon">📝</span><span>Entretiens</span>
       </button>
     </div>
 
@@ -452,6 +566,15 @@
         <button class="btn btn-primary hidden" id="btnAddObj" onclick="openAddObj()">+ Nouvel objectif</button>
       </div>
       <div id="objList"></div>
+    </div>
+
+    <!-- ENTRETIENS TAB -->
+    <div id="tab-entretiens" class="tab-pane">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <div class="section-title" style="margin-bottom:0;">Entretiens formels</div>
+        <button class="btn btn-primary" onclick="openAddEntretien()">+ Nouvel entretien</button>
+      </div>
+      <div id="entretiensList"></div>
     </div>
   </div>
 
@@ -570,16 +693,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 // ─────────────────────────────────────────
 // CONFIG
 // ─────────────────────────────────────────
-const DOCS_LABELS = {
-  contrat: 'Contrat de travail',
-  rib: 'RIB bancaire',
-  cni: 'Carte d\'identité / Passeport',
-  attestationSecu: 'Attestation Sécurité Sociale',
-  fichePoste: 'Fiche de poste signée',
-  lettreObjectif: 'Lettre d\'objectif signée',
-};
-// Documents activables/désactivables individuellement par l'admin pour chaque collaborateur
-const TOGGLABLE_DOCS = ['fichePoste', 'lettreObjectif', 'contrat'];
+// DOCS_LABELS, TOGGLABLE_DOCS, STATUS_COLORS, STATUS_LABELS, BAR_COLORS sont dans utils.js
 
 // ─────────────────────────────────────────
 // DATA MAPPING
@@ -599,16 +713,22 @@ function fromRow(row) {
     email: row.email || '',
     telephone: row.telephone || '',
     dateEntree: row.date_entree || '',
+    dateFinEssai: row.date_fin_essai || '',
+    notes: row.notes || '',
     managerId: row.manager_id || null,
     bureau: row.bureau || '',
     equipe: row.equipe || '',
     contrat: row.contrat || '',
     typePoste: row.type_poste || '',
     onboarding: row.onboarding || defaultOnboarding(),
-    pointsSuivi: (row.points_suivi || []).map(p => ({
+    pointsSuivi: (row.points_suivi || []).filter(p => p.type === 'mensuel' || !p.type).map(p => ({
       id: p.id, date: p.date, type: p.type, mois: p.mois || '',
       managerData: p.manager_data || {},
       collabData: p.collab_data || {}
+    })),
+    entretiens: (row.points_suivi || []).filter(p => ['annuel','semestriel','fin_pe','professionnel'].includes(p.type)).map(p => ({
+      id: p.id, date: p.date, type: p.type, mois: p.mois || '',
+      managerData: p.manager_data || {}
     })),
     objectifs: (() => {
       const order = (row.onboarding || {}).objOrder || [];
@@ -619,7 +739,8 @@ function fromRow(row) {
         return ia - ib;
       }).map((o, i) => ({
         id: o.id, numero: i + 1, titre: o.titre, description: o.description || '',
-        dateDebut: o.date_debut || '', dateFin: o.date_fin || '', statut: o.statut || 'en-attente'
+        dateDebut: o.date_debut || '', dateFin: o.date_fin || '', statut: o.statut || 'en-attente',
+        progression: o.progression || 0
       }));
     })()
   };
@@ -632,10 +753,13 @@ let DB = { collaborateurs: [] };
 let currentView = 'dashboard';
 let currentCollabId = null;
 let currentTab = 'onboarding';
-let SETTINGS = { equipes: [], bureaux: [], contrats: [], typePostes: [] };
+let SETTINGS = { equipes: [], bureaux: [], contrats: [], typePostes: [], maxObjectifs: 10 };
 let editingCollabId = null;
 let editingPointId = null;
 let editingObjId = null;
+let editingEntretienId = null;
+let currentPage = 1;
+const PAGE_SIZE = 20;
 
 // ─────────────────────────────────────────
 // DB INIT (Supabase)
@@ -726,6 +850,7 @@ function navigate(view, collabId) {
 function renderDashboard() {
   const total = DB.collaborateurs.length;
   const now = new Date();
+  const cm = currentMois();
   const thisMonth = DB.collaborateurs.filter(c => {
     if (!c.dateEntree) return false;
     const d = new Date(c.dateEntree);
@@ -734,34 +859,161 @@ function renderDashboard() {
   const managers = new Set(DB.collaborateurs.map(c => c.managerId).filter(Boolean)).size;
   const docsOk = DB.collaborateurs.filter(c => onboardingScore(c).pct === 100).length;
 
+  // Points mensuels complétés ce mois
+  const pointsCeMois = DB.collaborateurs.filter(c => (c.pointsSuivi||[]).some(p => p.mois === cm)).length;
+
   document.getElementById('statsRow').innerHTML = `
     <div class="stat-card pink"><div class="stat-num">${total}</div><div class="stat-label">Collaborateurs</div></div>
     <div class="stat-card blue"><div class="stat-num">${thisMonth}</div><div class="stat-label">Arrivées ce mois</div></div>
-    <div class="stat-card sky"><div class="stat-num">${managers}</div><div class="stat-label">Managers</div></div>
+    <div class="stat-card sky"><div class="stat-num">${pointsCeMois}/${total}</div><div class="stat-label">Points mensuels</div></div>
     <div class="stat-card green"><div class="stat-num">${docsOk}</div><div class="stat-label">Dossiers complets</div></div>`;
 
   document.getElementById('btnAddCollabDash').classList.remove('hidden');
-  renderCollabGrid(DB.collaborateurs);
+
+  // Populate filters
+  populateFilterSelects();
+
+  // Render alerts
+  renderAlerts();
+
+  // Render analytics
+  renderAnalytics();
+
+  currentPage = 1;
+  filterCollabs();
+}
+
+// ── ALERTS ──
+function renderAlerts() {
+  const cm = currentMois();
+  const today = new Date().toISOString().split('T')[0];
+  const alerts = [];
+
+  DB.collaborateurs.forEach(c => {
+    // Points non remplis ce mois
+    const hasPoint = (c.pointsSuivi||[]).some(p => p.mois === cm);
+    if (!hasPoint) alerts.push({ type: 'warning', icon: '📋', text: `<strong>${c.prenom} ${c.nom}</strong> — Point mensuel de ${moisLabel(cm)} non créé`, collabId: c.id });
+
+    // Documents en attente de validation
+    const uploads = c.onboarding.uploads || {};
+    const docs = c.onboarding.documents || {};
+    Object.keys(uploads).forEach(k => {
+      if (!docs[k]) alerts.push({ type: 'info', icon: '📎', text: `<strong>${c.prenom} ${c.nom}</strong> — Document "${DOCS_LABELS[k]||k}" en attente de validation`, collabId: c.id });
+    });
+
+    // Objectifs expirés
+    (c.objectifs||[]).forEach(o => {
+      if (o.statut === 'en-cours' && o.dateFin && o.dateFin < today) {
+        alerts.push({ type: 'danger', icon: '🎯', text: `<strong>${c.prenom} ${c.nom}</strong> — Objectif "${o.titre}" expiré depuis le ${fmtDate(o.dateFin)}`, collabId: c.id });
+      }
+    });
+
+    // Période d'essai < 30 jours
+    if (c.dateFinEssai) {
+      const daysLeft = daysFromNow(c.dateFinEssai);
+      if (daysLeft !== null && daysLeft >= 0 && daysLeft <= 30) {
+        alerts.push({ type: 'danger', icon: '⏰', text: `<strong>${c.prenom} ${c.nom}</strong> — Fin de période d'essai dans ${daysLeft} jours (${fmtDate(c.dateFinEssai)})`, collabId: c.id });
+      }
+    }
+  });
+
+  const panel = document.getElementById('alertsPanel');
+  const list = document.getElementById('alertsList');
+  if (!alerts.length) { panel.classList.add('hidden'); return; }
+  panel.classList.remove('hidden');
+  list.innerHTML = alerts.slice(0, 10).map(a => `
+    <div onclick="navigate('collab','${a.collabId}')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;margin-bottom:6px;font-size:0.82rem;font-weight:600;cursor:pointer;background:${a.type==='danger'?'#FFF1F2':a.type==='warning'?'#FFF7ED':'#EFF6FF'};color:${a.type==='danger'?'#881337':a.type==='warning'?'#9A3412':'#1E40AF'};">
+      <span style="font-size:1rem;flex-shrink:0;">${a.icon}</span>
+      <span style="flex:1;">${a.text}</span>
+    </div>`).join('') + (alerts.length > 10 ? `<div style="font-size:0.78rem;color:var(--muted);text-align:center;margin-top:8px;">… et ${alerts.length - 10} autres alertes</div>` : '');
+}
+
+// ── ANALYTICS ──
+function renderAnalytics() {
+  // Objectifs by status
+  const allObjs = DB.collaborateurs.flatMap(c => c.objectifs||[]);
+  const objByStatus = { 'en-cours': 0, 'atteint': 0, 'non-atteint': 0, 'en-attente': 0 };
+  allObjs.forEach(o => { objByStatus[o.statut] = (objByStatus[o.statut]||0) + 1; });
+  const maxObj = Math.max(...Object.values(objByStatus), 1);
+  const objColors = { 'en-cours': 'var(--blue)', 'atteint': 'var(--green)', 'non-atteint': 'var(--orange)', 'en-attente': 'var(--lavender)' };
+  document.getElementById('chartObjectifs').innerHTML = allObjs.length ? Object.entries(objByStatus).map(([k,v]) => `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+      <span style="font-size:0.75rem;font-weight:600;color:var(--navy);min-width:90px;text-align:right;">${STATUS_LABELS[k]}</span>
+      <div style="flex:1;height:22px;background:var(--offwhite);border-radius:6px;overflow:hidden;">
+        <div style="height:100%;width:${Math.round(v/maxObj*100)}%;background:${objColors[k]};border-radius:6px;display:flex;align-items:center;padding-left:8px;font-size:0.7rem;font-weight:700;color:white;min-width:${v?'24px':'0'};">${v||''}</div>
+      </div>
+    </div>`).join('') : '<p style="color:var(--muted);font-size:0.85rem;">Aucun objectif.</p>';
+
+  // Team distribution
+  const teamCounts = {};
+  DB.collaborateurs.forEach(c => { const eq = c.equipe || 'Non assigné'; teamCounts[eq] = (teamCounts[eq]||0) + 1; });
+  const maxTeam = Math.max(...Object.values(teamCounts), 1);
+  const teamColors = ['var(--pink)','var(--blue)','var(--skyblue)','var(--green)','var(--orange)','var(--lilac)'];
+  document.getElementById('chartEquipes').innerHTML = Object.keys(teamCounts).length ? Object.entries(teamCounts).sort((a,b)=>b[1]-a[1]).map(([k,v],i) => `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+      <span style="font-size:0.75rem;font-weight:600;color:var(--navy);min-width:90px;text-align:right;">${k}</span>
+      <div style="flex:1;height:22px;background:var(--offwhite);border-radius:6px;overflow:hidden;">
+        <div style="height:100%;width:${Math.round(v/maxTeam*100)}%;background:${teamColors[i%teamColors.length]};border-radius:6px;display:flex;align-items:center;padding-left:8px;font-size:0.7rem;font-weight:700;color:white;min-width:24px;">${v}</div>
+      </div>
+    </div>`).join('') : '<p style="color:var(--muted);font-size:0.85rem;">Aucune équipe.</p>';
+}
+
+// ── FILTERS ──
+function populateFilterSelects() {
+  const equipes = [...new Set(DB.collaborateurs.map(c=>c.equipe).filter(Boolean))];
+  const bureaux = [...new Set(DB.collaborateurs.map(c=>c.bureau).filter(Boolean))];
+  const contrats = [...new Set(DB.collaborateurs.map(c=>c.contrat).filter(Boolean))];
+  const managerIds = [...new Set(DB.collaborateurs.map(c=>c.managerId).filter(Boolean))];
+
+  const fillSelect = (id, items, labelFn) => {
+    const sel = document.getElementById(id);
+    const val = sel.value;
+    const firstOpt = sel.options[0].textContent;
+    sel.innerHTML = `<option value="">${firstOpt}</option>` + items.map(v => `<option value="${v}" ${v===val?'selected':''}>${labelFn?labelFn(v):v}</option>`).join('');
+  };
+  fillSelect('filterEquipe', equipes);
+  fillSelect('filterBureau', bureaux);
+  fillSelect('filterContrat', contrats);
+  fillSelect('filterManager', managerIds, id => getManagerName(id));
 }
 
 function filterCollabs() {
-  const q = document.getElementById('searchInput').value.toLowerCase();
-  const filtered = DB.collaborateurs.filter(c =>
-    (c.prenom + ' ' + c.nom + ' ' + c.poste).toLowerCase().includes(q)
-  );
+  const q = (document.getElementById('searchInput').value||'').toLowerCase();
+  const fEquipe = document.getElementById('filterEquipe').value;
+  const fBureau = document.getElementById('filterBureau').value;
+  const fManager = document.getElementById('filterManager').value;
+  const fContrat = document.getElementById('filterContrat').value;
+
+  const filtered = DB.collaborateurs.filter(c => {
+    if (q && !(c.prenom + ' ' + c.nom + ' ' + c.poste).toLowerCase().includes(q)) return false;
+    if (fEquipe && c.equipe !== fEquipe) return false;
+    if (fBureau && c.bureau !== fBureau) return false;
+    if (fManager && c.managerId !== fManager) return false;
+    if (fContrat && c.contrat !== fContrat) return false;
+    return true;
+  });
   renderCollabGrid(filtered);
 }
 
 function renderCollabGrid(list) {
   const grid = document.getElementById('collabGrid');
+  const pagRow = document.getElementById('paginationRow');
   if (!list.length) {
     grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">👤</div><p>Aucun collaborateur trouvé</p></div>`;
+    pagRow.innerHTML = '';
     return;
   }
-  grid.innerHTML = list.map(c => {
+
+  // Pagination
+  const totalPages = Math.ceil(list.length / PAGE_SIZE);
+  if (currentPage > totalPages) currentPage = totalPages;
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const pageList = list.slice(start, start + PAGE_SIZE);
+
+  grid.innerHTML = pageList.map(c => {
     const score = onboardingScore(c);
     const manager = c.managerId ? getManagerName(c.managerId) : null;
-    const badge = score.pct === 100
+    const badge = score.total === 0 ? '' : score.pct === 100
       ? '<span class="badge badge-green">Dossier complet</span>'
       : `<span class="badge badge-orange">${score.done}/${score.total} docs</span>`;
     return `
@@ -773,6 +1025,28 @@ function renderCollabGrid(list) {
         <div class="collab-badges">${badge}</div>
       </div>`;
   }).join('');
+
+  // Pagination controls
+  if (totalPages <= 1) { pagRow.innerHTML = ''; return; }
+  let pagHTML = `<button class="btn btn-ghost btn-sm" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>← Préc</button>`;
+  pagHTML += `<span style="font-size:0.78rem;color:var(--muted);font-weight:600;">Page ${currentPage} / ${totalPages} (${list.length} résultats)</span>`;
+  pagHTML += `<button class="btn btn-ghost btn-sm" onclick="goPage(${currentPage+1})" ${currentPage===totalPages?'disabled':''}>Suiv →</button>`;
+  pagRow.innerHTML = pagHTML;
+}
+
+function goPage(p) { currentPage = p; filterCollabs(); }
+
+// ── EXPORT CSV ──
+function exportCollabsCSV() {
+  const headers = ['Prénom','Nom','Poste','Email','Téléphone','Date entrée','Bureau','Équipe','Contrat','Type poste','Manager','Dossier complet'];
+  const rows = DB.collaborateurs.map(c => [
+    c.prenom, c.nom, c.poste, c.email, c.telephone, c.dateEntree,
+    c.bureau, c.equipe, c.contrat, c.typePoste,
+    c.managerId ? getManagerName(c.managerId) : '',
+    onboardingScore(c).pct === 100 ? 'Oui' : 'Non'
+  ]);
+  exportCSV('collaborateurs_' + new Date().toISOString().split('T')[0] + '.csv', headers, rows);
+  showToast('Export CSV téléchargé !');
 }
 
 // ─────────────────────────────────────────
@@ -798,9 +1072,14 @@ function renderCollab() {
           ${c.contrat   ? `<div class="profile-meta-item">📄 Contrat : <span>${c.contrat}</span></div>`       : ''}
           ${c.typePoste ? `<div class="profile-meta-item">🏷️ Type de poste : <span>${c.typePoste}</span></div>` : ''}
           ${manager ? `<div class="profile-meta-item">👔 Manager : <span>${manager}</span></div>` : ''}
+          ${c.dateFinEssai ? `<div class="profile-meta-item">⏰ Fin période d'essai : <span>${fmtDate(c.dateFinEssai)}</span></div>` : ''}
         </div>
+        ${c.notes ? `<div style="margin-top:10px;padding:10px 14px;background:#FFF7ED;border-radius:10px;border-left:3px solid var(--orange);font-size:0.82rem;color:#9A3412;"><strong>Notes RH :</strong> ${c.notes}</div>` : ''}
       </div>
-      <button class="btn btn-ghost btn-sm" onclick="openEditCollab('${c.id}')">✏️ Modifier</button>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button class="btn btn-ghost btn-sm" onclick="openEditCollab('${c.id}')">✏️ Modifier</button>
+        <button class="btn btn-navy btn-sm" onclick="exportCollabPDF()">📄 Export PDF</button>
+      </div>
     </div>`;
 
   // Reset tabs
@@ -823,6 +1102,7 @@ function showTab(tab) {
   if (tab === 'onboarding') renderOnboarding();
   else if (tab === 'points') renderPoints();
   else if (tab === 'objectifs') renderObjectifs();
+  else if (tab === 'entretiens') renderEntretiens();
 }
 
 // ─────────────────────────────────────────
@@ -1163,10 +1443,6 @@ async function deletePoint(id) {
 // ─────────────────────────────────────────
 // OBJECTIFS
 // ─────────────────────────────────────────
-const STATUS_COLORS = { 'en-cours': 'badge-blue', 'atteint': 'badge-green', 'non-atteint': 'badge-orange', 'en-attente': 'badge-gray' };
-const STATUS_LABELS = { 'en-cours': 'En cours', 'atteint': 'Atteint ✓', 'non-atteint': 'Non atteint', 'en-attente': 'En attente' };
-const BAR_COLORS = { 'en-cours': 'linear-gradient(90deg,var(--pink),var(--blue))', 'atteint': 'linear-gradient(90deg,#22C55E,#16A34A)', 'non-atteint': 'linear-gradient(90deg,#F97316,#EA580C)', 'en-attente': 'var(--lavender)' };
-
 function renderObjectifs() {
   const c = getCollab(currentCollabId);
   if (!c) return;
@@ -1177,7 +1453,10 @@ function renderObjectifs() {
     return;
   }
 
-  document.getElementById('objList').innerHTML = objs.map((o,i) => `
+  document.getElementById('objList').innerHTML = objs.map((o,i) => {
+    const pct = o.progression || 0;
+    const barColor = BAR_COLORS[o.statut] || 'var(--lavender)';
+    return `
     <div class="obj-card">
       <div class="obj-header">
         <div style="display:flex;flex-direction:column;gap:2px;margin-right:6px;">
@@ -1185,16 +1464,23 @@ function renderObjectifs() {
           <button class="btn btn-ghost btn-sm" style="padding:1px 6px;line-height:1;" onclick="moveObj('${o.id}',1)" ${i===objs.length-1?'disabled':''}>▼</button>
         </div>
         <span class="obj-num" style="background:var(--pink);color:white;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;margin-right:8px;">${i+1}</span>
-        <span class="obj-titre">${o.titre}</span>
-        <span class="badge badge-${o.statut==='atteint'?'green':o.statut==='en-cours'?'pink':'gray'} obj-statut">${o.statut}</span>
+        <span class="obj-titre" style="flex:1;">${o.titre}</span>
+        <span class="badge ${STATUS_COLORS[o.statut]||'badge-gray'}">${STATUS_LABELS[o.statut]||o.statut}</span>
         <button class="btn btn-ghost btn-sm" onclick="openEditObj('${o.id}')">✏️</button>
         <button class="btn btn-danger btn-sm" onclick="deleteObj('${o.id}')">🗑️</button>
       </div>
       ${o.description ? `<div class="obj-desc">${o.description}</div>` : ''}
+      <div style="margin:8px 0;">
+        <div style="display:flex;justify-content:space-between;font-size:0.7rem;font-weight:700;color:var(--muted);margin-bottom:4px;">
+          <span>Progression</span><span>${pct}%</span>
+        </div>
+        <div class="progress-wrap"><div class="progress-bar" style="width:${pct}%;background:${barColor};"></div></div>
+      </div>
       <div class="obj-footer">
         <span>📅 Du ${fmtDate(o.dateDebut)} au ${fmtDate(o.dateFin)}</span>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 async function moveObj(id, direction) {
@@ -1212,7 +1498,8 @@ async function moveObj(id, direction) {
 
 function openAddObj() {
   const c = getCollab(currentCollabId);
-  if ((c.objectifs||[]).length >= 5) { showToast('Maximum 5 objectifs par collaborateur.'); return; }
+  const max = SETTINGS.maxObjectifs || 10;
+  if ((c.objectifs||[]).length >= max) { showToast(`Maximum ${max} objectifs par collaborateur.`); return; }
   editingObjId = null;
   document.getElementById('modalObjTitle').textContent = 'Nouvel objectif';
   document.getElementById('oTitre').value = '';
@@ -1220,8 +1507,10 @@ function openAddObj() {
   document.getElementById('oDateDebut').value = '';
   document.getElementById('oDateFin').value = '';
   document.getElementById('oStatut').value = 'en-cours';
+  document.getElementById('oProgression').value = 0;
+  document.getElementById('oProgressionVal').textContent = '0%';
   const count = (c.objectifs||[]).length;
-  document.getElementById('objCountInfo').textContent = `Objectif ${count+1}/5`;
+  document.getElementById('objCountInfo').textContent = `Objectif ${count+1}/${max}`;
   openModal('modalObj');
 }
 
@@ -1236,7 +1525,10 @@ function openEditObj(id) {
   document.getElementById('oDateDebut').value = o.dateDebut || '';
   document.getElementById('oDateFin').value = o.dateFin || '';
   document.getElementById('oStatut').value = o.statut || 'en-cours';
-  document.getElementById('objCountInfo').textContent = `Objectif ${o.numero}/5`;
+  document.getElementById('oProgression').value = o.progression || 0;
+  document.getElementById('oProgressionVal').textContent = (o.progression||0)+'%';
+  const max = SETTINGS.maxObjectifs || 10;
+  document.getElementById('objCountInfo').textContent = `Objectif ${o.numero}/${max}`;
   openModal('modalObj');
 }
 
@@ -1245,12 +1537,14 @@ async function saveObj() {
   if (!titre) { alert('Veuillez renseigner le titre de l\'objectif.'); return; }
   const c = getCollab(currentCollabId);
   if (!c.objectifs) c.objectifs = [];
+  const progression = parseInt(document.getElementById('oProgression').value) || 0;
   const row = {
     collaborateur_id: currentCollabId, titre,
     description: document.getElementById('oDesc').value || null,
     date_debut: document.getElementById('oDateDebut').value || null,
     date_fin: document.getElementById('oDateFin').value || null,
     statut: document.getElementById('oStatut').value,
+    progression,
   };
   if (!row.date_debut || !row.date_fin) { alert('Veuillez définir une date de début et de fin.'); return; }
   if (editingObjId) {
@@ -1258,11 +1552,11 @@ async function saveObj() {
     if (error) { showToast('Erreur: ' + error.message); return; }
     const idx = c.objectifs.findIndex(o => o.id === editingObjId);
     const existing = c.objectifs[idx];
-    c.objectifs[idx] = { id: editingObjId, numero: existing.numero, titre, description: row.description || '', dateDebut: row.date_debut||'', dateFin: row.date_fin||'', statut: row.statut };
+    c.objectifs[idx] = { id: editingObjId, numero: existing.numero, titre, description: row.description || '', dateDebut: row.date_debut||'', dateFin: row.date_fin||'', statut: row.statut, progression };
   } else {
     const { data, error } = await sb.from('objectifs').insert(row).select().single();
     if (error) { showToast('Erreur: ' + error.message); return; }
-    c.objectifs.push({ id: data.id, numero: c.objectifs.length+1, titre, description: row.description || '', dateDebut: row.date_debut||'', dateFin: row.date_fin||'', statut: row.statut });
+    c.objectifs.push({ id: data.id, numero: c.objectifs.length+1, titre, description: row.description || '', dateDebut: row.date_debut||'', dateFin: row.date_fin||'', statut: row.statut, progression });
   }
   closeModal('modalObj');
   renderObjectifs();
@@ -1362,12 +1656,13 @@ function renderDocsCheckboxes(selected) {
 function openAddCollab() {
   editingCollabId = null;
   document.getElementById('modalCollabTitle').textContent = 'Ajouter un collaborateur';
-  ['fPrenom','fNom','fPoste','fEmail','fTel'].forEach(id => document.getElementById(id).value = '');
+  ['fPrenom','fNom','fPoste','fEmail','fTel','fNotes'].forEach(id => document.getElementById(id).value = '');
   populateSettingSelect('fBureau',    'bureaux',    '');
   populateSettingSelect('fEquipe',    'equipes',    '');
   populateSettingSelect('fContrat',   'contrats',   '');
   populateSettingSelect('fTypePoste', 'typePostes', '');
   document.getElementById('fDateEntree').value = '';
+  document.getElementById('fDateFinEssai').value = '';
   populateManagerSelect('fManager', null);
   renderDocsCheckboxes([]);
   openModal('modalCollab');
@@ -1384,6 +1679,8 @@ function openEditCollab(id) {
   document.getElementById('fEmail').value = c.email || '';
   document.getElementById('fTel').value = c.telephone || '';
   document.getElementById('fDateEntree').value = c.dateEntree || '';
+  document.getElementById('fDateFinEssai').value = c.dateFinEssai || '';
+  document.getElementById('fNotes').value = c.notes || '';
   populateSettingSelect('fBureau',    'bureaux',    c.bureau    || '');
   populateSettingSelect('fEquipe',    'equipes',    c.equipe    || '');
   populateSettingSelect('fContrat',   'contrats',   c.contrat   || '');
@@ -1404,6 +1701,8 @@ async function saveCollab() {
     email: document.getElementById('fEmail').value || null,
     telephone: document.getElementById('fTel').value || null,
     date_entree: document.getElementById('fDateEntree').value || null,
+    date_fin_essai: document.getElementById('fDateFinEssai').value || null,
+    notes: document.getElementById('fNotes').value || null,
     manager_id: document.getElementById('fManager').value || null,
     bureau:     document.getElementById('fBureau').value    || null,
     equipe:     document.getElementById('fEquipe').value    || null,
@@ -1419,7 +1718,7 @@ async function saveCollab() {
     const { error } = await sb.from('collaborateurs').update(row).eq('id', editingCollabId);
     if (error) { showToast('Erreur: ' + error.message); return; }
     const c = getCollab(editingCollabId);
-    Object.assign(c, { prenom, nom, poste, email: row.email || '', telephone: row.telephone || '', dateEntree: row.date_entree || '', managerId: row.manager_id || null, bureau: row.bureau || '', equipe: row.equipe || '', contrat: row.contrat || '', typePoste: row.type_poste || '' });
+    Object.assign(c, { prenom, nom, poste, email: row.email || '', telephone: row.telephone || '', dateEntree: row.date_entree || '', dateFinEssai: row.date_fin_essai || '', notes: row.notes || '', managerId: row.manager_id || null, bureau: row.bureau || '', equipe: row.equipe || '', contrat: row.contrat || '', typePoste: row.type_poste || '' });
   } else {
     const requiredDocs = Array.from(document.querySelectorAll('#fDocsCheckboxes input:checked')).map(cb => cb.value);
     row.onboarding = defaultOnboarding();
@@ -1540,6 +1839,142 @@ async function saveRelation() {
   const alertEl = document.getElementById('relAlert');
   alertEl.classList.remove('hidden');
   setTimeout(() => alertEl.classList.add('hidden'), 3000);
+}
+
+// ─────────────────────────────────────────
+// ENTRETIENS ANNUELS
+// ─────────────────────────────────────────
+const ENTRETIEN_TYPES = { annuel: 'Entretien annuel', semestriel: 'Entretien semestriel', fin_pe: 'Fin de période d\'essai', professionnel: 'Entretien professionnel' };
+const ENTRETIEN_FIELDS = ['bilan','pointsForts','axesAmelioration','souhaitsEvolution','formation','objectifsSuivants'];
+
+function renderEntretiens() {
+  const c = getCollab(currentCollabId);
+  if (!c) return;
+  const entretiens = (c.entretiens || []).sort((a,b) => (b.date||'') > (a.date||'') ? 1 : -1);
+
+  if (!entretiens.length) {
+    document.getElementById('entretiensList').innerHTML = `<div class="empty-state"><div class="empty-icon">📝</div><p>Aucun entretien formel enregistré.</p><button class="btn btn-primary" onclick="openAddEntretien()">+ Créer un entretien</button></div>`;
+    return;
+  }
+
+  document.getElementById('entretiensList').innerHTML = entretiens.map((e, i) => {
+    const md = e.managerData || {};
+    const typeLabel = ENTRETIEN_TYPES[e.type] || e.type;
+    const isFirst = i === 0;
+    const labels = { bilan: 'Bilan global', pointsForts: 'Points forts', axesAmelioration: 'Axes d\'amélioration', souhaitsEvolution: 'Souhaits d\'évolution', formation: 'Plan de formation', objectifsSuivants: 'Objectifs prochaine période' };
+
+    return `
+    <div style="margin-bottom:10px;border-radius:14px;border:1.5px solid var(--lavender);overflow:hidden;background:white;">
+      <div onclick="toggleAcc('acc-${e.id}')" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;cursor:pointer;background:${isFirst?'linear-gradient(135deg,#F0F0FF,#FFF0F8)':'white'};">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:0.95rem;font-weight:700;color:var(--navy);">📝 ${typeLabel}</span>
+          <span style="font-size:0.75rem;color:var(--muted);font-weight:600;">${fmtDate(e.date)}</span>
+        </div>
+        <span style="color:var(--muted);font-size:1rem;" id="acc-icon-${e.id}">${isFirst?'▲':'▼'}</span>
+      </div>
+      <div id="acc-${e.id}" style="display:${isFirst?'block':'none'};padding:0 18px 18px;border-top:1.5px solid var(--lavender);">
+        ${ENTRETIEN_FIELDS.map(k => `
+          <div style="margin-top:12px;">
+            <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:4px;">${labels[k]||k}</div>
+            <div style="background:var(--offwhite);border-radius:8px;padding:10px 12px;font-size:0.85rem;color:${md[k]?'var(--navy)':'var(--muted)'};line-height:1.6;min-height:36px;font-style:${md[k]?'normal':'italic'};">${md[k]||'Non renseigné'}</div>
+          </div>`).join('')}
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
+          <button class="btn btn-ghost btn-sm" onclick="openEditEntretien('${e.id}')">✏️ Modifier</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteEntretien('${e.id}')">🗑️</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openAddEntretien() {
+  editingEntretienId = null;
+  document.getElementById('modalEntretienTitle').textContent = 'Nouvel entretien';
+  document.getElementById('ea_type').value = 'annuel';
+  ENTRETIEN_FIELDS.forEach(k => { document.getElementById('ea_'+k).value = ''; });
+  openModal('modalEntretien');
+}
+
+function openEditEntretien(id) {
+  const c = getCollab(currentCollabId);
+  const e = (c.entretiens||[]).find(x => x.id === id);
+  if (!e) return;
+  editingEntretienId = id;
+  document.getElementById('modalEntretienTitle').textContent = 'Modifier l\'entretien';
+  document.getElementById('ea_type').value = e.type || 'annuel';
+  const md = e.managerData || {};
+  ENTRETIEN_FIELDS.forEach(k => { document.getElementById('ea_'+k).value = md[k] || ''; });
+  openModal('modalEntretien');
+}
+
+async function saveEntretien() {
+  const c = getCollab(currentCollabId);
+  const type = document.getElementById('ea_type').value;
+  const managerData = {};
+  ENTRETIEN_FIELDS.forEach(k => { managerData[k] = document.getElementById('ea_'+k).value.trim(); });
+
+  if (editingEntretienId) {
+    const { error } = await sb.from('points_suivi').update({ type, manager_data: managerData }).eq('id', editingEntretienId);
+    if (error) { showToast('Erreur: ' + error.message); return; }
+    const idx = (c.entretiens||[]).findIndex(e => e.id === editingEntretienId);
+    if (idx >= 0) { c.entretiens[idx].type = type; c.entretiens[idx].managerData = managerData; }
+  } else {
+    const row = {
+      collaborateur_id: currentCollabId,
+      date: new Date().toISOString().split('T')[0],
+      type, mois: currentMois(),
+      manager_data: managerData, collab_data: {},
+      contenu: (ENTRETIEN_TYPES[type]||type) + ' — ' + new Date().toLocaleDateString('fr-FR'),
+    };
+    const { data, error } = await sb.from('points_suivi').insert(row).select().single();
+    if (error) { showToast('Erreur: ' + error.message); return; }
+    if (!c.entretiens) c.entretiens = [];
+    c.entretiens.push({ id: data.id, date: row.date, type, mois: row.mois, managerData });
+  }
+  closeModal('modalEntretien');
+  renderEntretiens();
+  showToast('Entretien enregistré !');
+}
+
+async function deleteEntretien(id) {
+  if (!confirm('Supprimer cet entretien ?')) return;
+  const { error } = await sb.from('points_suivi').delete().eq('id', id);
+  if (error) { showToast('Erreur: ' + error.message); return; }
+  const c = getCollab(currentCollabId);
+  c.entretiens = (c.entretiens||[]).filter(e => e.id !== id);
+  renderEntretiens();
+}
+
+// ─────────────────────────────────────────
+// EXPORT PDF (Fiche collaborateur)
+// ─────────────────────────────────────────
+function exportCollabPDF() {
+  const c = getCollab(currentCollabId);
+  if (!c) return;
+  const manager = c.managerId ? getManagerName(c.managerId) : '—';
+  const objs = (c.objectifs||[]).map((o,i) => `
+    <div class="field">
+      <div class="field-label">Objectif ${i+1} — ${STATUS_LABELS[o.statut]||o.statut} (${o.progression||0}%)</div>
+      <div class="field-value"><strong>${o.titre}</strong>${o.description ? '<br>'+o.description : ''}<br>Du ${fmtDate(o.dateDebut)} au ${fmtDate(o.dateFin)}</div>
+    </div>`).join('');
+
+  const lastPoints = [...(c.pointsSuivi||[])].sort((a,b) => (b.mois||'') > (a.mois||'') ? 1 : -1).slice(0,3);
+  const pointsHTML = lastPoints.map(p => {
+    const md = p.managerData||{};
+    return `<div class="field"><div class="field-label">${moisLabel(p.mois)}</div><div class="field-value">${md.retoursMissions||'—'}</div></div>`;
+  }).join('');
+
+  const html = `
+    <h1>${c.prenom} ${c.nom}</h1>
+    <div class="meta">${c.poste} · Manager : ${manager} · Entrée le ${fmtDate(c.dateEntree)}${c.bureau?' · Bureau : '+c.bureau:''}${c.equipe?' · Équipe : '+c.equipe:''}</div>
+    ${c.notes ? `<div class="field"><div class="field-label">Notes RH</div><div class="field-value">${c.notes}</div></div>` : ''}
+    <h2>Objectifs</h2>
+    ${objs || '<p>Aucun objectif</p>'}
+    <h2>Derniers points mensuels</h2>
+    ${pointsHTML || '<p>Aucun point</p>'}
+    <div style="margin-top:40px;font-size:0.75rem;color:#6B6B9A;">Exporté le ${new Date().toLocaleDateString('fr-FR')} — Hello Pomelo</div>`;
+
+  exportPrintHTML(`Fiche ${c.prenom} ${c.nom}`, html);
 }
 
 // ─────────────────────────────────────────
