@@ -1986,9 +1986,9 @@ function getSoldeConges(c) {
 
 function getValideurName(c) {
   const valideurId = c.valideurCongesId || c.managerId;
-  if (!valideurId) return '— Aucun —';
+  if (!valideurId) return 'Admin';
   const v = getCollab(valideurId);
-  return v ? v.prenom + ' ' + v.nom : '—';
+  return v ? v.prenom + ' ' + v.nom : 'Admin';
 }
 
 function renderBoAbsences() {

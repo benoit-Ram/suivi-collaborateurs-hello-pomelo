@@ -1126,7 +1126,7 @@ async function renderConges() {
   const soldeColor = s.solde <= 0 ? 'var(--red)' : s.solde <= 5 ? 'var(--orange)' : 'var(--green)';
   const valideurId = currentCollab.valideurCongesId || currentCollab.managerId;
   const valideur = valideurId ? COLLABS.find(c => c.id === valideurId) : null;
-  const valideurNom = valideur ? valideur.prenom + ' ' + valideur.nom : 'Non défini';
+  const valideurNom = valideur ? valideur.prenom + ' ' + valideur.nom : 'Admin';
 
   const container = document.getElementById('myCongesContent');
   container.innerHTML = `
