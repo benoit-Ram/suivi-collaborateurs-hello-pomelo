@@ -906,7 +906,7 @@ function renderPoints() {
   document.getElementById('btnAddPointLabel').textContent = hasCurrent ? 'Modifier ' + moisLabel(cm) : '+ Point ' + moisLabel(cm);
 
   if (!sorted.length) {
-    document.getElementById('pointsList').innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><p>Aucun point mensuel pour le moment.</p></div>`;
+    document.getElementById('pointsList').innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><p>Aucun point mensuel créé pour ce collaborateur.</p><button class="btn btn-primary" onclick="openCurrentMonthPoint()" style="margin-top:8px;">+ Créer le point de ${moisLabel(cm)}</button></div>`;
     return;
   }
 
