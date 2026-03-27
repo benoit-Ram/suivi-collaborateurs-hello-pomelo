@@ -244,11 +244,11 @@
       </div>
       <div class="form-field">
         <label>Bureau</label>
-        <input id="fBureau" type="text" placeholder="Paris, Lyon..." />
+        <select id="fBureau"><option value="">— Choisir un bureau —</option></select>
       </div>
       <div class="form-field">
         <label>Équipe</label>
-        <input id="fEquipe" type="text" placeholder="Tech, RH, Ops..." />
+        <select id="fEquipe"><option value="">— Choisir une équipe —</option></select>
       </div>
       <div class="form-field full">
         <label>Manager</label>
@@ -502,6 +502,33 @@
     </div>
   </div>
 
+  <!-- BO: PARAMÈTRES -->
+  <div id="view-bo-settings" class="view hidden">
+    <div class="page-header">
+      <h1>Paramètres</h1>
+      <p>Gérer les listes d'équipes et de bureaux</p>
+    </div>
+    <div class="divider"></div>
+    <div class="grid-2" style="gap:20px;">
+      <div class="card">
+        <div class="section-title">Équipes</div>
+        <div id="settingsEquipesList" style="margin-bottom:16px;"></div>
+        <div style="display:flex;gap:8px;">
+          <input id="newEquipe" type="text" placeholder="Nouvelle équipe..." style="flex:1;border:1.5px solid var(--lavender);border-radius:10px;padding:9px 12px;font-family:inherit;font-size:0.9rem;color:var(--navy);outline:none;" />
+          <button class="btn btn-primary" onclick="addSettingItem('equipes')">+ Ajouter</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-title">Bureaux</div>
+        <div id="settingsBureauxList" style="margin-bottom:16px;"></div>
+        <div style="display:flex;gap:8px;">
+          <input id="newBureau" type="text" placeholder="Nouveau bureau..." style="flex:1;border:1.5px solid var(--lavender);border-radius:10px;padding:9px 12px;font-family:inherit;font-size:0.9rem;color:var(--navy);outline:none;" />
+          <button class="btn btn-primary" onclick="addSettingItem('bureaux')">+ Ajouter</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </main>
 
 <script>
@@ -575,6 +602,7 @@ let DB = { collaborateurs: [] };
 let currentView = 'dashboard';
 let currentCollabId = null;
 let currentTab = 'onboarding';
+let SETTINGS = { equipes: [], bureaux: [] };
 let editingCollabId = null;
 let editingPointId = null;
 let editingObjId = null;
@@ -591,10 +619,16 @@ async function initDB() {
   document.head.appendChild(style);
   document.body.appendChild(loader);
 
-  const { data, error } = await sb.from('collaborateurs').select('*, points_suivi(*), objectifs(*)');
+  const [collabRes, settingsRes] = await Promise.all([
+    sb.from('collaborateurs').select('*, points_suivi(*), objectifs(*)'),
+    sb.from('settings').select('*')
+  ]);
   loader.remove();
-  if (error) { alert('Erreur Supabase : ' + error.message); return; }
-  DB = { collaborateurs: data.map(fromRow) };
+  if (collabRes.error) { alert('Erreur Supabase : ' + collabRes.error.message); return; }
+  DB = { collaborateurs: collabRes.data.map(fromRow) };
+  if (settingsRes.data) {
+    settingsRes.data.forEach(row => { SETTINGS[row.key] = row.value; });
+  }
   navigate('dashboard');
 }
 
@@ -635,6 +669,9 @@ function renderSidebar() {
     </button>
     <button class="nav-item ${currentView === 'bo-managers' ? 'active' : ''}" onclick="navigate('bo-managers')">
       <span class="nav-icon">🗂️</span><span>Organigramme</span>
+    </button>
+    <button class="nav-item ${currentView === 'bo-settings' ? 'active' : ''}" onclick="navigate('bo-settings')">
+      <span class="nav-icon">⚙️</span><span>Paramètres</span>
     </button>`;
   nav.innerHTML = html;
 }
@@ -650,6 +687,7 @@ function navigate(view, collabId) {
   else if (view === 'collab') { currentTab = 'onboarding'; renderCollab(); }
   else if (view === 'bo-people') renderBoPeople();
   else if (view === 'bo-managers') renderBoManagers();
+  else if (view === 'bo-settings') renderBoSettings();
 }
 
 // ─────────────────────────────────────────
@@ -1211,6 +1249,57 @@ async function deleteObj(id) {
 // ─────────────────────────────────────────
 // COLLABORATEUR CRUD
 // ─────────────────────────────────────────
+// ─────────────────────────────────────────
+// PARAMÈTRES (équipes & bureaux)
+// ─────────────────────────────────────────
+function populateSettingSelect(selectId, key, selected) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  const items = SETTINGS[key] || [];
+  sel.innerHTML = `<option value="">— Choisir —</option>` +
+    items.map(v => `<option value="${v}" ${v === selected ? 'selected' : ''}>${v}</option>`).join('');
+}
+
+function renderBoSettings() {
+  ['equipes', 'bureaux'].forEach(key => {
+    const listId = key === 'equipes' ? 'settingsEquipesList' : 'settingsBureauxList';
+    const el = document.getElementById(listId);
+    if (!el) return;
+    const items = SETTINGS[key] || [];
+    el.innerHTML = items.length
+      ? items.map(v => `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border:1.5px solid var(--lavender);border-radius:10px;margin-bottom:8px;background:white;">
+            <span style="font-weight:600;color:var(--navy);">${v}</span>
+            <button class="btn btn-danger btn-sm" onclick="removeSettingItem('${key}','${v}')">✕</button>
+          </div>`).join('')
+      : `<p style="color:var(--muted);font-size:0.85rem;font-style:italic;">Aucun élément.</p>`;
+  });
+}
+
+async function addSettingItem(key) {
+  const inputId = key === 'equipes' ? 'newEquipe' : 'newBureau';
+  const val = document.getElementById(inputId).value.trim();
+  if (!val) return;
+  if ((SETTINGS[key] || []).includes(val)) { showToast('Déjà dans la liste.'); return; }
+  const newList = [...(SETTINGS[key] || []), val];
+  const { error } = await sb.from('settings').update({ value: newList }).eq('key', key);
+  if (error) { showToast('Erreur : ' + error.message); return; }
+  SETTINGS[key] = newList;
+  document.getElementById(inputId).value = '';
+  renderBoSettings();
+  showToast(`"${val}" ajouté !`);
+}
+
+async function removeSettingItem(key, val) {
+  if (!confirm(`Supprimer "${val}" de la liste ?`)) return;
+  const newList = (SETTINGS[key] || []).filter(v => v !== val);
+  const { error } = await sb.from('settings').update({ value: newList }).eq('key', key);
+  if (error) { showToast('Erreur : ' + error.message); return; }
+  SETTINGS[key] = newList;
+  renderBoSettings();
+  showToast(`"${val}" supprimé.`);
+}
+
 function populateManagerSelect(selectId, selected, excludeId) {
   const sel = document.getElementById(selectId);
   sel.innerHTML = '<option value="">— Aucun manager —</option>';
@@ -1234,7 +1323,9 @@ function renderDocsCheckboxes(selected) {
 function openAddCollab() {
   editingCollabId = null;
   document.getElementById('modalCollabTitle').textContent = 'Ajouter un collaborateur';
-  ['fPrenom','fNom','fPoste','fEmail','fTel','fBureau','fEquipe'].forEach(id => document.getElementById(id).value = '');
+  ['fPrenom','fNom','fPoste','fEmail','fTel'].forEach(id => document.getElementById(id).value = '');
+  populateSettingSelect('fBureau', 'bureaux', '');
+  populateSettingSelect('fEquipe', 'equipes', '');
   document.getElementById('fDateEntree').value = '';
   populateManagerSelect('fManager', null);
   renderDocsCheckboxes([]);
@@ -1252,8 +1343,8 @@ function openEditCollab(id) {
   document.getElementById('fEmail').value = c.email || '';
   document.getElementById('fTel').value = c.telephone || '';
   document.getElementById('fDateEntree').value = c.dateEntree || '';
-  document.getElementById('fBureau').value = c.bureau || '';
-  document.getElementById('fEquipe').value = c.equipe || '';
+  populateSettingSelect('fBureau', 'bureaux', c.bureau || '');
+  populateSettingSelect('fEquipe', 'equipes', c.equipe || '');
   populateManagerSelect('fManager', c.managerId, id);
   renderDocsCheckboxes(c.onboarding.requiredDocs || []);
   openModal('modalCollab');
