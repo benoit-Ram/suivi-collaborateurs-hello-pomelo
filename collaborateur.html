@@ -615,7 +615,7 @@ function showTab(tab) {
 // ─────────────────────────────────────────
 function renderOnboarding() {
   const c = currentCollab;
-  const uploads = getUploads()[c.id] || {};
+  const uploads = c.onboarding.uploads || {};
   const docs = c.onboarding.documents;
   const docsEnabled = c.onboarding.docsEnabled || {};
 
@@ -623,7 +623,6 @@ function renderOnboarding() {
   const ADMIN_ONLY_DOCS = ['fichePoste', 'lettreObjectif', 'contrat'];
 
   document.getElementById('myDocs').innerHTML = Object.keys(DOCS_LABELS).map(k => {
-    // Masquer les docs togglables non activés par l'admin
     if (TOGGLABLE_DOCS.includes(k) && !docsEnabled[k]) return '';
     const adminDone = docs[k];
     const uploaded  = uploads[k];
@@ -631,16 +630,12 @@ function renderOnboarding() {
 
     let actions = '';
     if (adminDone) {
-      // L'admin a validé le document
-      actions = `<span style="font-size:0.7rem;color:#166534;font-weight:700;">Reçu ✓</span>`;
+      actions = `<span style="font-size:0.7rem;color:#166534;font-weight:700;">Validé ✓</span>`;
     } else if (adminOnly) {
-      // Document réservé à l'admin : pas de bouton upload
       actions = `<span style="font-size:0.7rem;color:var(--muted);font-weight:600;font-style:italic;">Remis par l'admin</span>`;
     } else if (uploaded) {
-      // Déjà déposé : lecture seule, pas de re-dépôt possible
       actions = `<span style="font-size:0.7rem;color:var(--pink);font-weight:700;">⏳ En attente de validation</span>`;
     } else {
-      // Pas encore déposé : bouton upload actif
       actions = `
         <label class="btn-upload" for="file-${k}">⬆ Déposer</label>
         <input type="file" class="file-input" id="file-${k}" onchange="uploadDoc('${k}', this)" />`;
@@ -651,7 +646,7 @@ function renderOnboarding() {
         <div class="check-box">${adminDone ? '✓' : ''}</div>
         <div style="flex:1;">
           <div class="check-label">${DOCS_LABELS[k]}</div>
-          ${uploaded ? `<div class="check-uploaded">📎 ${uploaded.filename} — ${uploaded.date}</div>` : ''}
+          ${uploaded && !adminDone ? `<div class="check-uploaded">📎 ${uploaded.filename} — ${uploaded.uploadedAt}</div>` : ''}
         </div>
         <div class="check-actions">${actions}</div>
       </div>`;
@@ -690,28 +685,31 @@ function renderOnboarding() {
       </div>` : ''}`;
 }
 
-function uploadDoc(docKey, input) {
+async function uploadDoc(docKey, input) {
   if (!input.files || !input.files[0]) return;
   const file = input.files[0];
-  const MAX = 5 * 1024 * 1024; // 5 MB
-  if (file.size > MAX) { showToast('Fichier trop volumineux (max 5 Mo)'); return; }
+  const MAX = 10 * 1024 * 1024; // 10 MB
+  if (file.size > MAX) { showToast('Fichier trop volumineux (max 10 Mo)'); return; }
 
-  const reader = new FileReader();
-  reader.onload = () => {
-    const c = currentCollab;
-    const uploads = getUploads();
-    if (!uploads[c.id]) uploads[c.id] = {};
-    uploads[c.id][docKey] = {
-      filename: file.name,
-      date: new Date().toLocaleDateString('fr-FR'),
-      size: (file.size / 1024).toFixed(0) + ' Ko',
-      data: reader.result,
-    };
-    saveUploads(uploads);
-    showToast(`"${file.name}" déposé avec succès`);
-    renderOnboarding();
+  showToast('Dépôt en cours...');
+  const c = currentCollab;
+  const path = `${c.id}/${docKey}/${Date.now()}_${file.name}`;
+
+  const { error: storageError } = await sb.storage.from('onboarding-docs').upload(path, file, { upsert: true });
+  if (storageError) { showToast('Erreur upload : ' + storageError.message); return; }
+
+  if (!c.onboarding.uploads) c.onboarding.uploads = {};
+  c.onboarding.uploads[docKey] = {
+    path,
+    filename: file.name,
+    uploadedAt: new Date().toISOString().substring(0, 10),
+    size: (file.size / 1024).toFixed(0) + ' Ko',
   };
-  reader.readAsDataURL(file);
+
+  const { error } = await sb.from('collaborateurs').update({ onboarding: c.onboarding }).eq('id', c.id);
+  if (error) { showToast('Erreur : ' + error.message); return; }
+  showToast(`"${file.name}" déposé avec succès ✓`);
+  renderOnboarding();
 }
 
 // ─────────────────────────────────────────

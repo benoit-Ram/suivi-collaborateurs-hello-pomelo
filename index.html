@@ -850,20 +850,44 @@ function renderOnboarding() {
   const docs = c.onboarding.documents;
 
   const docsEnabled = c.onboarding.docsEnabled || {};
+  const uploads = c.onboarding.uploads || {};
+  const SUPABASE_URL = 'https://mlhdghtqfpqhypxwpwjj.supabase.co';
+
   document.getElementById('checklistDocs').innerHTML = Object.keys(DOCS_LABELS).map(k => {
     const isTogglable = TOGGLABLE_DOCS.includes(k);
     const enabled = !isTogglable || docsEnabled[k];
     if (!isBack && !enabled) return '';
     const checked = docs[k];
+    const upload = uploads[k];
+
     const toggleBadge = isBack && isTogglable ? `
-      <span onclick="event.stopPropagation();toggleDocEnabled('${k}')" style="cursor:pointer;font-size:0.68rem;font-weight:700;color:${enabled ? 'var(--pink)' : 'var(--muted)'};background:${enabled ? '#FFF0F8' : 'var(--lavender)'};border-radius:99px;padding:2px 10px;margin-left:8px;white-space:nowrap;">
+      <span onclick="event.stopPropagation();toggleDocEnabled('${k}')" style="cursor:pointer;font-size:0.68rem;font-weight:700;color:${enabled ? 'var(--pink)' : 'var(--muted)'};background:${enabled ? '#FFF0F8' : 'var(--lavender)'};border-radius:99px;padding:2px 10px;white-space:nowrap;">
         ${enabled ? 'Activé ✓' : '+ Activer'}
       </span>` : '';
+
+    // Bloc upload en attente de validation
+    const uploadBlock = isBack && upload && !checked ? `
+      <div onclick="event.stopPropagation()" style="margin-top:8px;padding:8px 10px;background:#FFF5F9;border-radius:8px;border:1px solid var(--pink);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span style="font-size:0.75rem;color:var(--navy);font-weight:600;">📎 ${upload.filename}</span>
+        <span style="font-size:0.7rem;color:var(--muted);">${upload.uploadedAt} · ${upload.size}</span>
+        <div style="display:flex;gap:6px;margin-left:auto;">
+          <a href="${SUPABASE_URL}/storage/v1/object/public/onboarding-docs/${upload.path}" target="_blank" class="btn btn-ghost btn-sm" style="font-size:0.72rem;padding:3px 10px;">👁 Voir</a>
+          <button onclick="validateUpload('${k}')" class="btn btn-primary btn-sm" style="font-size:0.72rem;padding:3px 10px;background:var(--green);border-color:var(--green);">✓ Valider</button>
+          <button onclick="rejectUpload('${k}')" class="btn btn-danger btn-sm" style="font-size:0.72rem;padding:3px 10px;">✕ Rejeter</button>
+        </div>
+      </div>` : '';
+
+    // Badge "en attente" si upload présent mais pas validé
+    const pendingBadge = upload && !checked ? `<span style="font-size:0.68rem;font-weight:700;color:var(--pink);background:#FFF0F8;border-radius:99px;padding:2px 8px;margin-left:6px;">⏳ En attente</span>` : '';
+
     return `
-    <div class="check-item ${checked ? 'done' : ''} ${isBack && enabled ? 'clickable' : ''}" ${isBack && enabled ? `onclick="toggleDoc('${k}')"` : ''} style="${!enabled ? 'opacity:0.45;' : ''}">
-      <div class="check-box">${checked ? '✓' : ''}</div>
-      <div class="check-label" style="flex:1;">${DOCS_LABELS[k]}</div>
-      ${toggleBadge}
+    <div style="margin-bottom:8px;">
+      <div class="check-item ${checked ? 'done' : ''}" style="${!enabled ? 'opacity:0.45;' : ''}">
+        <div class="check-box">${checked ? '✓' : ''}</div>
+        <div class="check-label" style="flex:1;">${DOCS_LABELS[k]}${pendingBadge}</div>
+        ${toggleBadge}
+      </div>
+      ${uploadBlock}
     </div>`;
   }).join('');
 
@@ -881,6 +905,28 @@ async function toggleDoc(docKey) {
   c.onboarding.documents[docKey] = !c.onboarding.documents[docKey];
   const { error } = await sb.from('collaborateurs').update({ onboarding: c.onboarding }).eq('id', c.id);
   if (error) { c.onboarding.documents[docKey] = !c.onboarding.documents[docKey]; showToast('Erreur: ' + error.message); return; }
+  renderOnboarding();
+}
+
+async function validateUpload(docKey) {
+  const c = getCollab(currentCollabId);
+  c.onboarding.documents[docKey] = true;
+  const { error } = await sb.from('collaborateurs').update({ onboarding: c.onboarding }).eq('id', c.id);
+  if (error) { showToast('Erreur: ' + error.message); return; }
+  showToast('Document validé ✓');
+  renderOnboarding();
+}
+
+async function rejectUpload(docKey) {
+  if (!confirm('Rejeter ce document ? Le collaborateur devra en déposer un nouveau.')) return;
+  const c = getCollab(currentCollabId);
+  const upload = c.onboarding.uploads?.[docKey];
+  if (upload) await sb.storage.from('onboarding-docs').remove([upload.path]);
+  delete c.onboarding.uploads[docKey];
+  c.onboarding.documents[docKey] = false;
+  const { error } = await sb.from('collaborateurs').update({ onboarding: c.onboarding }).eq('id', c.id);
+  if (error) { showToast('Erreur: ' + error.message); return; }
+  showToast('Document rejeté — le collaborateur peut en déposer un nouveau.');
   renderOnboarding();
 }
 
