@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mon Espace — Hello Pomelo</title>
+  <script src="https://accounts.google.com/gsi/client" async></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap');
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --pink: #FF3285; --blue: #0000EA; --navy: #05056D;
+      --lavender: #CFD0E5; --lilac: #8F8FBC; --skyblue: #5BB6F4;
+      --white: #FFFFFF; --offwhite: #F8F7FC; --text: #05056D; --muted: #6B6B9A;
+      --green: #22C55E;
+    }
+    body { font-family: 'Quicksand', sans-serif; background: var(--offwhite); color: var(--text); min-height: 100vh; }
+
+    /* ── LOGIN ── */
+    .login-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 16px;
+      background: linear-gradient(135deg, #F0F0FF 0%, #FFF0F8 100%);
+    }
+    .login-card {
+      background: white;
+      border-radius: 24px;
+      padding: 52px 48px;
+      max-width: 440px;
+      width: 100%;
+      box-shadow: 0 12px 48px rgba(5,5,109,0.12);
+      text-align: center;
+    }
+    .login-logo { margin-bottom: 32px; }
+    .login-logo .brand { font-size: 1.1rem; font-weight: 700; color: var(--navy); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 12px; }
+    .login-logo .brand-sub { font-size: 0.75rem; color: var(--muted); font-weight: 600; letter-spacing: 0.06em; margin-top: 3px; }
+    .divider { height: 3px; background: linear-gradient(90deg, var(--pink), var(--blue), var(--skyblue)); border-radius: 99px; margin: 28px 0; }
+    .login-title { font-size: 1.3rem; font-weight: 700; color: var(--navy); margin-bottom: 8px; }
+    .login-sub { font-size: 0.85rem; color: var(--muted); margin-bottom: 32px; line-height: 1.6; }
+
+    .google-btn {
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      width: 100%; padding: 14px 24px; border-radius: 12px;
+      border: 2px solid var(--lavender); background: white;
+      font-family: inherit; font-size: 0.92rem; font-weight: 700;
+      color: var(--navy); cursor: pointer; transition: all 0.2s;
+      text-transform: none; letter-spacing: 0;
+    }
+    .google-btn:hover { border-color: var(--pink); box-shadow: 0 4px 16px rgba(255,50,133,0.15); transform: translateY(-1px); }
+    .google-btn svg { flex-shrink: 0; }
+
+    .login-note { font-size: 0.72rem; color: var(--lavender); margin-top: 20px; font-weight: 600; letter-spacing: 0.04em; }
+    .login-error { background: #FFF1F2; color: #881337; border-left: 4px solid #F43F5E; border-radius: 10px; padding: 12px 16px; font-size: 0.82rem; font-weight: 600; margin-top: 16px; display: none; }
+
+    /* ── APP ── */
+    .app-page { display: none; min-height: 100vh; }
+
+    /* TOP BAR */
+    .topbar {
+      background: var(--navy);
+      padding: 0 32px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky; top: 0; z-index: 50;
+    }
+    .topbar-brand { display: flex; align-items: center; gap: 12px; }
+    .topbar-brand .brand-name { color: white; font-weight: 700; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.08em; }
+    .topbar-brand .brand-tag { background: rgba(255,50,133,0.25); color: var(--pink); font-size: 0.65rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.06em; }
+    .topbar-user { display: flex; align-items: center; gap: 10px; }
+    .user-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,0.2); }
+    .user-avatar-init { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--pink), var(--blue)); display: flex; align-items: center; justify-content: center; color: white; font-size: 0.8rem; font-weight: 700; }
+    .user-name { color: rgba(255,255,255,0.85); font-size: 0.85rem; font-weight: 600; }
+    .btn-logout { background: transparent; border: 1.5px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.6); padding: 6px 12px; border-radius: 8px; font-family: inherit; font-size: 0.72rem; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; }
+    .btn-logout:hover { border-color: var(--pink); color: var(--pink); }
+
+    /* CONTENT */
+    .content { max-width: 860px; margin: 0 auto; padding: 36px 24px; }
+
+    .welcome-block { margin-bottom: 32px; }
+    .welcome-block h1 { font-size: 1.6rem; font-weight: 700; color: var(--navy); }
+    .welcome-block p { color: var(--muted); font-size: 0.9rem; margin-top: 4px; }
+    .divider-gradient { height: 3px; background: linear-gradient(90deg, var(--pink), var(--blue), var(--skyblue)); border-radius: 99px; margin: 20px 0 32px; }
+
+    /* TABS */
+    .tabs { display: flex; border-bottom: 2px solid var(--lavender); margin-bottom: 28px; overflow-x: auto; }
+    .tab-btn { padding: 12px 24px; border: none; background: transparent; font-family: inherit; font-size: 0.82rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 0.15s; white-space: nowrap; }
+    .tab-btn:hover { color: var(--navy); }
+    .tab-btn.active { color: var(--pink); border-bottom-color: var(--pink); }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* SECTION TITLE */
+    .section-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--pink); margin: 24px 0 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .section-title::after { content: ''; flex: 1; height: 1px; background: var(--lavender); }
+
+    /* CARDS */
+    .card { background: white; border-radius: 16px; padding: 24px; box-shadow: 0 4px 24px rgba(5,5,109,0.07); }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 640px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    /* INFO GRID */
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 560px) { .info-grid { grid-template-columns: 1fr; } }
+    .info-item { background: var(--offwhite); border-radius: 10px; padding: 12px 14px; }
+    .info-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin-bottom: 4px; }
+    .info-value { font-size: 0.9rem; font-weight: 600; color: var(--navy); }
+
+    /* PROFILE CARD */
+    .profile-card { background: linear-gradient(135deg, #F0F0FF, #FFF0F8); border-radius: 16px; padding: 24px; display: flex; align-items: center; gap: 20px; margin-bottom: 28px; border: 1.5px solid #E0D8FF; }
+    .profile-avatar { width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, var(--pink), var(--blue)); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.4rem; font-weight: 700; flex-shrink: 0; }
+    .profile-name { font-size: 1.2rem; font-weight: 700; color: var(--navy); }
+    .profile-poste { font-size: 0.85rem; color: var(--muted); margin-top: 2px; }
+    .profile-meta { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 8px; }
+    .profile-meta-item { font-size: 0.75rem; color: var(--muted); font-weight: 600; display: flex; align-items: center; gap: 4px; }
+    .profile-meta-item span { color: var(--navy); }
+
+    /* CHECKLIST */
+    .checklist { display: flex; flex-direction: column; gap: 8px; }
+    .check-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 10px; border: 1.5px solid var(--lavender); background: white; transition: all 0.15s; }
+    .check-item.done { background: #F0FDF4; border-color: #86EFAC; }
+    .check-item.upload-pending { border-color: var(--pink); background: #FFF5F9; }
+    .check-box { width: 22px; height: 22px; border-radius: 6px; border: 2px solid var(--lavender); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 0.85rem; background: white; }
+    .check-item.done .check-box { background: var(--green); border-color: var(--green); color: white; }
+    .check-label { flex: 1; font-size: 0.88rem; font-weight: 600; color: var(--navy); }
+    .check-item.done .check-label { color: #166534; }
+    .check-uploaded { font-size: 0.68rem; color: #166534; font-weight: 600; margin-top: 2px; }
+    .check-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+    /* UPLOAD BUTTON */
+    .btn-upload { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 8px; border: 1.5px solid var(--lavender); background: white; font-family: inherit; font-size: 0.7rem; font-weight: 700; color: var(--muted); cursor: pointer; text-transform: uppercase; letter-spacing: 0.04em; transition: all 0.15s; }
+    .btn-upload:hover { border-color: var(--pink); color: var(--pink); background: #FFF0F6; }
+    .btn-upload.uploaded { border-color: var(--green); color: #166534; background: #F0FDF4; }
+    input[type="file"].file-input { display: none; }
+
+    /* POINTS */
+    .point-card { background: var(--offwhite); border-radius: 12px; padding: 18px 20px; margin-bottom: 12px; border-left: 4px solid var(--skyblue); }
+    .point-card.semestriel { border-left-color: var(--pink); }
+    .point-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .point-type { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; }
+    .point-type.mensuel { color: var(--skyblue); }
+    .point-type.semestriel { color: var(--pink); }
+    .point-date { font-size: 0.75rem; color: var(--muted); font-weight: 600; }
+    .point-body { font-size: 0.88rem; color: var(--navy); line-height: 1.65; }
+    .point-actions { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--lavender); font-size: 0.8rem; color: var(--muted); white-space: pre-line; line-height: 1.6; }
+    .point-actions-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--navy); margin-bottom: 4px; }
+
+    /* OBJECTIFS */
+    .obj-card { background: white; border-radius: 12px; padding: 18px 20px; margin-bottom: 12px; box-shadow: 0 2px 12px rgba(5,5,109,0.07); border: 1.5px solid var(--lavender); }
+    .obj-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; gap: 12px; }
+    .obj-title { font-weight: 700; font-size: 0.95rem; color: var(--navy); }
+    .obj-desc { font-size: 0.82rem; color: var(--muted); margin-bottom: 12px; line-height: 1.55; }
+    .progress-wrap { background: var(--lavender); border-radius: 99px; height: 8px; overflow: hidden; margin-bottom: 6px; }
+    .progress-bar { height: 100%; border-radius: 99px; transition: width 0.6s ease; }
+    .obj-footer { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted); }
+    .badge { padding: 3px 10px; border-radius: 6px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+    .badge-green { background: #DCFCE7; color: #166534; }
+    .badge-blue { background: #EFF6FF; color: #1E40AF; }
+    .badge-orange { background: #FFF7ED; color: #9A3412; }
+    .badge-gray { background: var(--offwhite); color: var(--muted); }
+
+    /* EMPTY */
+    .empty-state { text-align: center; padding: 40px 24px; }
+    .empty-state .empty-icon { font-size: 2.5rem; margin-bottom: 10px; opacity: 0.35; }
+    .empty-state p { color: var(--muted); font-size: 0.85rem; }
+
+    /* TOAST */
+    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--navy); color: white; padding: 12px 20px; border-radius: 12px; font-size: 0.85rem; font-weight: 700; box-shadow: 0 8px 24px rgba(5,5,109,0.3); z-index: 500; transition: opacity 0.3s; }
+
+    /* CONFIG BANNER */
+    .config-banner { background: #FFF7ED; border: 1.5px solid #FCD34D; border-radius: 12px; padding: 14px 18px; margin-bottom: 24px; font-size: 0.82rem; color: #92400E; font-weight: 600; display: flex; align-items: flex-start; gap: 10px; }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     LOGIN PAGE
+═══════════════════════════════════════ -->
+<div id="loginPage" class="login-page">
+  <div class="login-card">
+
+    <div class="login-logo">
+      <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="14" fill="#05056D"/>
+        <circle cx="24" cy="18" r="7" fill="#FF3285"/>
+        <path d="M10 38c0-7.732 6.268-14 14-14s14 6.268 14 14" stroke="#5BB6F4" stroke-width="3" stroke-linecap="round"/>
+      </svg>
+      <div class="brand-name">Hello Pomelo</div>
+      <div class="brand-sub">Espace Collaborateur</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="login-title">Bienvenue 👋</div>
+    <div class="login-sub">Connectez-vous avec votre adresse Google professionnelle pour accéder à votre espace personnel.</div>
+
+    <!-- Google Sign-In button (rendered by GIS) -->
+    <div id="googleSignInBtn"></div>
+
+    <!-- Fallback manual Google button (shown if GIS not configured) -->
+    <button id="demoLoginBtn" class="google-btn hidden" onclick="demoLogin()">
+      <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Se connecter avec Google
+    </button>
+
+    <div id="loginError" class="login-error">
+      Aucun compte collaborateur trouvé pour cette adresse email. Contactez votre administrateur.
+    </div>
+
+    <div class="login-note">Accès réservé aux collaborateurs Hello Pomelo</div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     APP PAGE
+═══════════════════════════════════════ -->
+<div id="appPage" class="app-page">
+
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <svg width="28" height="28" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="14" fill="rgba(255,255,255,0.1)"/><circle cx="24" cy="18" r="7" fill="#FF3285"/><path d="M10 38c0-7.732 6.268-14 14-14s14 6.268 14 14" stroke="#5BB6F4" stroke-width="3" stroke-linecap="round"/></svg>
+      <span class="brand-name">Hello Pomelo</span>
+      <span class="brand-tag">Mon espace</span>
+    </div>
+    <div class="topbar-user">
+      <div id="topbarAvatar" class="user-avatar-init"></div>
+      <span id="topbarName" class="user-name"></span>
+      <button class="btn-logout" onclick="logout()">Déconnexion</button>
+    </div>
+  </header>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- Config banner (shown if no Google Client ID set) -->
+    <div id="configBanner" class="config-banner hidden">
+      ⚠️ <span>Mode démo actif — pour activer la vraie connexion Google, configurez votre <strong>Google Client ID</strong> dans le fichier <code>collaborateur.html</code> (variable <code>GOOGLE_CLIENT_ID</code>).</span>
+    </div>
+
+    <!-- Profile -->
+    <div id="profileCard" class="profile-card"></div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="showTab('onboarding')">📋 Mon dossier</button>
+      <button class="tab-btn" onclick="showTab('points')">🗓️ Points de suivi</button>
+      <button class="tab-btn" onclick="showTab('objectifs')">🎯 Mes objectifs</button>
+    </div>
+
+    <!-- ONBOARDING TAB -->
+    <div id="tab-onboarding" class="tab-pane active">
+      <div class="grid-2">
+        <div>
+          <div class="section-title">Mes documents</div>
+          <div class="card">
+            <p style="font-size:0.8rem;color:var(--muted);margin-bottom:16px;line-height:1.6;">Déposez vos documents ci-dessous. Votre responsable RH sera notifié(e).</p>
+            <div class="checklist" id="myDocs"></div>
+          </div>
+        </div>
+        <div>
+          <div class="section-title">Mes informations</div>
+          <div class="card" id="myInfos"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- POINTS TAB -->
+    <div id="tab-points" class="tab-pane">
+      <div class="section-title">Compte-rendus de mes entretiens</div>
+      <div id="myPoints"></div>
+    </div>
+
+    <!-- OBJECTIFS TAB -->
+    <div id="tab-objectifs" class="tab-pane">
+      <div id="myObjectifs"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────
+// ⚙️  CONFIGURATION — À personnaliser
+// ─────────────────────────────────────────
+// Pour activer Google Sign-In :
+// 1. Allez sur https://console.cloud.google.com/
+// 2. Créez un projet > APIs & Services > Credentials
+// 3. Créez un "OAuth 2.0 Client ID" de type "Web application"
+// 4. Ajoutez http://localhost:3000 dans "Authorized JavaScript origins"
+// 5. Collez le Client ID ci-dessous
+const GOOGLE_CLIENT_ID = ''; // ex: "123456789-abc.apps.googleusercontent.com"
+
+// ─────────────────────────────────────────
+// DATA
+// ─────────────────────────────────────────
+const DOCS_LABELS = {
+  contrat: 'Contrat de travail',
+  rib: 'RIB bancaire',
+  cni: 'Carte d\'identité / Passeport',
+  mutuelle: 'Adhésion mutuelle',
+  casierJudiciaire: 'Casier judiciaire',
+  attestationSecu: 'Attestation Sécurité Sociale',
+  dpae: 'DPAE',
+  fichePoste: 'Fiche de poste signée',
+};
+
+const STATUS_COLORS = { 'en-cours': 'badge-blue', 'atteint': 'badge-green', 'non-atteint': 'badge-orange', 'en-attente': 'badge-gray' };
+const STATUS_LABELS = { 'en-cours': 'En cours', 'atteint': 'Atteint ✓', 'non-atteint': 'Non atteint', 'en-attente': 'En attente' };
+const BAR_COLORS   = { 'en-cours': 'linear-gradient(90deg,var(--pink),var(--blue))', 'atteint': 'linear-gradient(90deg,#22C55E,#16A34A)', 'non-atteint': 'linear-gradient(90deg,#F97316,#EA580C)', 'en-attente': 'var(--lavender)' };
+
+function loadDB() {
+  const d = localStorage.getItem('hp_collabs_v1');
+  return d ? JSON.parse(d) : { collaborateurs: [] };
+}
+function saveDB(db) { localStorage.setItem('hp_collabs_v1', JSON.stringify(db)); }
+
+function getUploads() {
+  const d = localStorage.getItem('hp_collab_uploads');
+  return d ? JSON.parse(d) : {};
+}
+function saveUploads(u) { localStorage.setItem('hp_collab_uploads', JSON.stringify(u)); }
+
+function fmtDate(d) {
+  if (!d) return '—';
+  const [y, m, day] = d.split('-');
+  return `${day}/${m}/${y}`;
+}
+function initials(c) {
+  return ((c.prenom||'')[0]||'').toUpperCase() + ((c.nom||'')[0]||'').toUpperCase();
+}
+
+let currentCollab = null;
+let currentUser = null; // { name, email, picture }
+
+// ─────────────────────────────────────────
+// GOOGLE AUTH
+// ─────────────────────────────────────────
+window.addEventListener('load', () => {
+  // Check existing session
+  const session = sessionStorage.getItem('hp_collab_session');
+  if (session) {
+    const u = JSON.parse(session);
+    loginWithEmail(u.email, u.name, u.picture, false);
+    return;
+  }
+
+  if (GOOGLE_CLIENT_ID) {
+    // Real Google Sign-In
+    google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: handleGoogleResponse,
+      auto_select: false,
+    });
+    google.accounts.id.renderButton(
+      document.getElementById('googleSignInBtn'),
+      { theme: 'outline', size: 'large', width: 340, text: 'signin_with', shape: 'rectangular', locale: 'fr' }
+    );
+  } else {
+    // Demo mode: show manual button
+    document.getElementById('demoLoginBtn').classList.remove('hidden');
+  }
+});
+
+function handleGoogleResponse(response) {
+  // Decode JWT
+  const payload = JSON.parse(atob(response.credential.split('.')[1]));
+  loginWithEmail(payload.email, payload.name, payload.picture, true);
+}
+
+function demoLogin() {
+  // Demo: let user pick from existing collaborators
+  const db = loadDB();
+  if (!db.collaborateurs.length) {
+    showLoginError('Aucun collaborateur dans la base. Créez-en un dans l\'interface admin d\'abord.');
+    return;
+  }
+  // Show picker
+  const email = prompt(
+    'Mode démo — entrez l\'email du collaborateur :\n\n' +
+    db.collaborateurs.map(c => `• ${c.email || '(pas d\'email)'} → ${c.prenom} ${c.nom}`).join('\n')
+  );
+  if (!email) return;
+  loginWithEmail(email.trim(), null, null, false);
+}
+
+function loginWithEmail(email, name, picture, saveSession) {
+  const db = loadDB();
+  const collab = db.collaborateurs.find(c => c.email && c.email.toLowerCase() === email.toLowerCase());
+
+  if (!collab) {
+    showLoginError(`Aucun compte collaborateur trouvé pour "${email}". Contactez votre administrateur.`);
+    return;
+  }
+
+  currentCollab = collab;
+  currentUser = { email, name: name || collab.prenom + ' ' + collab.nom, picture };
+
+  if (saveSession || true) {
+    sessionStorage.setItem('hp_collab_session', JSON.stringify(currentUser));
+  }
+
+  showApp();
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('loginError');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function logout() {
+  sessionStorage.removeItem('hp_collab_session');
+  currentCollab = null;
+  currentUser = null;
+  document.getElementById('appPage').style.display = 'none';
+  document.getElementById('loginPage').style.display = 'flex';
+  if (GOOGLE_CLIENT_ID) google.accounts.id.disableAutoSelect();
+}
+
+// ─────────────────────────────────────────
+// APP
+// ─────────────────────────────────────────
+function showApp() {
+  document.getElementById('loginPage').style.display = 'none';
+  document.getElementById('appPage').style.display = 'block';
+
+  // Topbar
+  document.getElementById('topbarName').textContent = currentUser.name;
+  const avatarEl = document.getElementById('topbarAvatar');
+  if (currentUser.picture) {
+    avatarEl.outerHTML = `<img id="topbarAvatar" class="user-avatar" src="${currentUser.picture}" alt="" />`;
+  } else {
+    avatarEl.textContent = initials(currentCollab);
+  }
+
+  // Config banner
+  if (!GOOGLE_CLIENT_ID) document.getElementById('configBanner').classList.remove('hidden');
+
+  renderProfile();
+  showTab('onboarding');
+}
+
+function renderProfile() {
+  const c = currentCollab;
+  const db = loadDB();
+  const manager = c.managerId ? db.collaborateurs.find(x => x.id === c.managerId) : null;
+
+  document.getElementById('profileCard').innerHTML = `
+    <div class="profile-avatar">${initials(c)}</div>
+    <div>
+      <div class="profile-name">${c.prenom} ${c.nom}</div>
+      <div class="profile-poste">${c.poste}</div>
+      <div class="profile-meta">
+        ${c.email ? `<div class="profile-meta-item">✉️ <span>${c.email}</span></div>` : ''}
+        ${c.dateEntree ? `<div class="profile-meta-item">📅 Entrée le <span>${fmtDate(c.dateEntree)}</span></div>` : ''}
+        ${manager ? `<div class="profile-meta-item">👔 Manager : <span>${manager.prenom} ${manager.nom}</span></div>` : ''}
+      </div>
+    </div>`;
+}
+
+function showTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', ['onboarding','points','objectifs'][i] === tab);
+  });
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+
+  if (tab === 'onboarding') renderOnboarding();
+  else if (tab === 'points') renderPoints();
+  else if (tab === 'objectifs') renderObjectifs();
+}
+
+// ─────────────────────────────────────────
+// ONBOARDING
+// ─────────────────────────────────────────
+function renderOnboarding() {
+  const c = currentCollab;
+  const uploads = getUploads()[c.id] || {};
+  const docs = c.onboarding.documents;
+
+  // Documents
+  document.getElementById('myDocs').innerHTML = Object.keys(DOCS_LABELS).map(k => {
+    const adminDone = docs[k];
+    const uploaded = uploads[k];
+    return `
+      <div class="check-item ${adminDone ? 'done' : ''}" id="doc-item-${k}">
+        <div class="check-box">${adminDone ? '✓' : ''}</div>
+        <div style="flex:1;">
+          <div class="check-label">${DOCS_LABELS[k]}</div>
+          ${uploaded ? `<div class="check-uploaded">📎 ${uploaded.filename} — ${uploaded.date}</div>` : ''}
+        </div>
+        <div class="check-actions">
+          ${!adminDone ? `
+            <label class="btn-upload ${uploaded ? 'uploaded' : ''}" for="file-${k}">
+              ${uploaded ? '✓ Déposé' : '⬆ Déposer'}
+            </label>
+            <input type="file" class="file-input" id="file-${k}" onchange="uploadDoc('${k}', this)" />
+          ` : `<span style="font-size:0.7rem;color:#166534;font-weight:700;">Reçu ✓</span>`}
+        </div>
+      </div>`;
+  }).join('');
+
+  // Infos
+  const onb = c.onboarding;
+  document.getElementById('myInfos').innerHTML = `
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">Poste</div>
+        <div class="info-value">${c.poste || '—'}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Date d'entrée</div>
+        <div class="info-value">${fmtDate(c.dateEntree)}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Matériel fourni</div>
+        <div class="info-value">${onb.materiel || '—'}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Email</div>
+        <div class="info-value">${c.email || '—'}</div>
+      </div>
+    </div>
+    ${onb.acces ? `
+      <div style="margin-top:14px;">
+        <div class="info-label" style="margin-bottom:6px;">Accès créés</div>
+        <div style="background:var(--offwhite);border-radius:10px;padding:12px 14px;font-size:0.85rem;color:var(--navy);font-weight:600;line-height:1.6;">${onb.acces}</div>
+      </div>` : ''}
+    ${onb.notes ? `
+      <div style="margin-top:14px;">
+        <div class="info-label" style="margin-bottom:6px;">Notes de votre RH</div>
+        <div style="background:#FFF0F6;border-radius:10px;padding:12px 14px;font-size:0.85rem;color:var(--navy);line-height:1.6;border-left:3px solid var(--pink);">${onb.notes}</div>
+      </div>` : ''}`;
+}
+
+function uploadDoc(docKey, input) {
+  if (!input.files || !input.files[0]) return;
+  const file = input.files[0];
+  const MAX = 5 * 1024 * 1024; // 5 MB
+  if (file.size > MAX) { showToast('Fichier trop volumineux (max 5 Mo)'); return; }
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    const c = currentCollab;
+    const uploads = getUploads();
+    if (!uploads[c.id]) uploads[c.id] = {};
+    uploads[c.id][docKey] = {
+      filename: file.name,
+      date: new Date().toLocaleDateString('fr-FR'),
+      size: (file.size / 1024).toFixed(0) + ' Ko',
+      data: reader.result,
+    };
+    saveUploads(uploads);
+    showToast(`"${file.name}" déposé avec succès`);
+    renderOnboarding();
+  };
+  reader.readAsDataURL(file);
+}
+
+// ─────────────────────────────────────────
+// POINTS DE SUIVI
+// ─────────────────────────────────────────
+function renderPoints() {
+  const c = currentCollab;
+  const sorted = [...(c.pointsSuivi || [])].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  if (!sorted.length) {
+    document.getElementById('myPoints').innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><p>Aucun compte-rendu pour le moment.<br>Vos entretiens apparaîtront ici après chaque point avec votre manager.</p></div>`;
+    return;
+  }
+
+  document.getElementById('myPoints').innerHTML = sorted.map(p => `
+    <div class="point-card ${p.type}">
+      <div class="point-header">
+        <span class="point-type ${p.type}">${p.type === 'mensuel' ? '📅 Point mensuel' : '📊 Entretien semestriel'}</span>
+        <span class="point-date">${fmtDate(p.date)}</span>
+      </div>
+      <div class="point-body">${p.contenu}</div>
+      ${p.actions ? `
+        <div class="point-actions">
+          <div class="point-actions-label">Actions à mener</div>
+          ${p.actions}
+        </div>` : ''}
+    </div>`).join('');
+}
+
+// ─────────────────────────────────────────
+// OBJECTIFS
+// ─────────────────────────────────────────
+function renderObjectifs() {
+  const c = currentCollab;
+  const objs = c.objectifs || [];
+
+  if (!objs.length) {
+    document.getElementById('myObjectifs').innerHTML = `<div class="empty-state"><div class="empty-icon">🎯</div><p>Aucun objectif défini pour le moment.<br>Votre manager définira vos objectifs prochainement.</p></div>`;
+    return;
+  }
+
+  const total = objs.length;
+  const atteints = objs.filter(o => o.statut === 'atteint').length;
+  const avgProg = Math.round(objs.reduce((s, o) => s + (o.progression || 0), 0) / total);
+
+  document.getElementById('myObjectifs').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:28px;">
+      <div class="card" style="text-align:center;padding:16px;">
+        <div style="font-size:1.8rem;font-weight:700;color:var(--navy);">${total}</div>
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-top:4px;">Objectifs</div>
+      </div>
+      <div class="card" style="text-align:center;padding:16px;">
+        <div style="font-size:1.8rem;font-weight:700;color:var(--green);">${atteints}</div>
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-top:4px;">Atteints</div>
+      </div>
+      <div class="card" style="text-align:center;padding:16px;">
+        <div style="font-size:1.8rem;font-weight:700;color:var(--pink);">${avgProg}%</div>
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-top:4px;">Progression moy.</div>
+      </div>
+    </div>
+    ${objs.map(o => `
+      <div class="obj-card">
+        <div class="obj-header">
+          <div class="obj-title">${o.titre}</div>
+          <span class="badge ${STATUS_COLORS[o.statut] || 'badge-gray'}">${STATUS_LABELS[o.statut] || o.statut}</span>
+        </div>
+        ${o.description ? `<div class="obj-desc">${o.description}</div>` : ''}
+        <div class="progress-wrap">
+          <div class="progress-bar" style="width:${o.progression}%;background:${BAR_COLORS[o.statut]};"></div>
+        </div>
+        <div class="obj-footer">
+          <span>${o.progression}% accompli</span>
+          <span>Échéance : ${fmtDate(o.echeance)}</span>
+        </div>
+      </div>`).join('')}`;
+}
+
+// ─────────────────────────────────────────
+// TOAST
+// ─────────────────────────────────────────
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = '✓ ' + msg;
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 2800);
+}
+</script>
+</body>
+</html>
