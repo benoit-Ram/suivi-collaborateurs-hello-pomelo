@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Mon Espace — Hello Pomelo</title>
   <script src="https://accounts.google.com/gsi/client" async></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:wght@800;900&display=swap');
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -368,6 +369,32 @@
 const GOOGLE_CLIENT_ID = ''; // ex: "123456789-abc.apps.googleusercontent.com"
 
 // ─────────────────────────────────────────
+// SUPABASE
+// ─────────────────────────────────────────
+const SUPABASE_URL = 'https://mlhdghtqfpqhypxwpwjj.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_l5iAp3wWHsxcszBKoFhTeA_s8KazePI';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let COLLABS = []; // cache Supabase
+
+function collabFromRow(row) {
+  return {
+    id: row.id, prenom: row.prenom, nom: row.nom, poste: row.poste || '',
+    email: row.email || '', telephone: row.telephone || '',
+    dateEntree: row.date_entree || '', managerId: row.manager_id || null,
+    onboarding: row.onboarding || { notes:'', materiel:'', acces:'', documents:{} },
+    pointsSuivi: (row.points_suivi || []).map(p => ({ id:p.id, date:p.date, type:p.type, contenu:p.contenu, actions:p.actions||'' })),
+    objectifs: (row.objectifs || []).map(o => ({ id:o.id, titre:o.titre, description:o.description||'', echeance:o.echeance||'', statut:o.statut||'en-attente', progression:o.progression||0 }))
+  };
+}
+
+async function loadCollabsFromSupabase() {
+  const { data, error } = await sb.from('collaborateurs').select('*, points_suivi(*), objectifs(*)');
+  if (error) { console.error(error); return []; }
+  return data.map(collabFromRow);
+}
+
+// ─────────────────────────────────────────
 // DATA
 // ─────────────────────────────────────────
 const DOCS_LABELS = {
@@ -384,12 +411,6 @@ const DOCS_LABELS = {
 const STATUS_COLORS = { 'en-cours': 'badge-blue', 'atteint': 'badge-green', 'non-atteint': 'badge-orange', 'en-attente': 'badge-gray' };
 const STATUS_LABELS = { 'en-cours': 'En cours', 'atteint': 'Atteint ✓', 'non-atteint': 'Non atteint', 'en-attente': 'En attente' };
 const BAR_COLORS   = { 'en-cours': 'linear-gradient(90deg,var(--pink),var(--blue))', 'atteint': 'linear-gradient(90deg,#22C55E,#16A34A)', 'non-atteint': 'linear-gradient(90deg,#F97316,#EA580C)', 'en-attente': 'var(--lavender)' };
-
-function loadDB() {
-  const d = localStorage.getItem('hp_collabs_v1');
-  return d ? JSON.parse(d) : { collaborateurs: [] };
-}
-function saveDB(db) { localStorage.setItem('hp_collabs_v1', JSON.stringify(db)); }
 
 function getUploads() {
   const d = localStorage.getItem('hp_collab_uploads');
@@ -412,7 +433,10 @@ let currentUser = null; // { name, email, picture }
 // ─────────────────────────────────────────
 // GOOGLE AUTH
 // ─────────────────────────────────────────
-window.addEventListener('load', () => {
+window.addEventListener('load', async () => {
+  // Préchargement des collaborateurs depuis Supabase
+  COLLABS = await loadCollabsFromSupabase();
+
   // Check existing session
   const session = sessionStorage.getItem('hp_collab_session');
   if (session) {
@@ -422,7 +446,6 @@ window.addEventListener('load', () => {
   }
 
   if (GOOGLE_CLIENT_ID) {
-    // Real Google Sign-In
     google.accounts.id.initialize({
       client_id: GOOGLE_CLIENT_ID,
       callback: handleGoogleResponse,
@@ -433,7 +456,6 @@ window.addEventListener('load', () => {
       { theme: 'outline', size: 'large', width: 340, text: 'signin_with', shape: 'rectangular', locale: 'fr' }
     );
   } else {
-    // Demo mode: show manual button
     document.getElementById('demoLoginBtn').classList.remove('hidden');
   }
 });
@@ -445,18 +467,17 @@ function handleGoogleResponse(response) {
 }
 
 function demoLogin() {
-  const db = loadDB();
   const modal = document.getElementById('demoModal');
   const list  = document.getElementById('demoCollabList');
 
-  if (!db.collaborateurs.length) {
+  if (!COLLABS.length) {
     list.innerHTML = `
       <div class="modal-empty">
         <div class="modal-empty-icon">👤</div>
         <p>Aucun collaborateur dans la base.<br>Créez-en un depuis l'interface admin.</p>
       </div>`;
   } else {
-    list.innerHTML = db.collaborateurs.map(c => {
+    list.innerHTML = COLLABS.map(c => {
       const ini = ((c.prenom||'')[0]||'').toUpperCase() + ((c.nom||'')[0]||'').toUpperCase();
       const email = c.email || '(pas d\'email)';
       const poste = c.poste || '';
@@ -489,8 +510,7 @@ function closeDemoModal(event) {
 }
 
 function loginWithEmail(email, name, picture, saveSession) {
-  const db = loadDB();
-  const collab = db.collaborateurs.find(c => c.email && c.email.toLowerCase() === email.toLowerCase());
+  const collab = COLLABS.find(c => c.email && c.email.toLowerCase() === email.toLowerCase());
 
   if (!collab) {
     showLoginError(`Aucun compte collaborateur trouvé pour "${email}". Contactez votre administrateur.`);
@@ -547,8 +567,7 @@ function showApp() {
 
 function renderProfile() {
   const c = currentCollab;
-  const db = loadDB();
-  const manager = c.managerId ? db.collaborateurs.find(x => x.id === c.managerId) : null;
+  const manager = c.managerId ? COLLABS.find(x => x.id === c.managerId) : null;
 
   document.getElementById('profileCard').innerHTML = `
     <div class="profile-avatar">${initials(c)}</div>

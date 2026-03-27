@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Suivi Collaborateurs — Hello Pomelo</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap');
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -525,6 +526,13 @@
 
 <script>
 // ─────────────────────────────────────────
+// SUPABASE
+// ─────────────────────────────────────────
+const SUPABASE_URL = 'https://mlhdghtqfpqhypxwpwjj.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_l5iAp3wWHsxcszBKoFhTeA_s8KazePI';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ─────────────────────────────────────────
 // CONFIG
 // ─────────────────────────────────────────
 const PIN_CODE = '1234';
@@ -541,67 +549,39 @@ const DOCS_LABELS = {
 };
 
 // ─────────────────────────────────────────
-// DATA
+// DATA MAPPING
 // ─────────────────────────────────────────
-function loadData() {
-  const saved = localStorage.getItem('hp_collabs_v1');
-  if (saved) return JSON.parse(saved);
-  // Données de démonstration
+function defaultOnboarding() {
+  const docs = {};
+  Object.keys(DOCS_LABELS).forEach(k => docs[k] = false);
+  return { notes: '', materiel: '', acces: '', documents: docs };
+}
+
+function fromRow(row) {
   return {
-    collaborateurs: [
-      {
-        id: 'c1', prenom: 'Sophie', nom: 'Martin', poste: 'Chargée de recrutement',
-        email: 'sophie@hello-pomelo.fr', telephone: '06 12 34 56 78',
-        dateEntree: '2023-09-01', managerId: 'c3',
-        onboarding: {
-          notes: 'Très bonne intégration, à l\'aise rapidement.', materiel: 'MacBook Pro 14"', acces: 'Gmail, Notion, Slack, LinkedIn Recruiter',
-          documents: { contrat: true, rib: true, cni: true, mutuelle: false, casierJudiciaire: true, attestationSecu: false, dpae: true, fichePoste: true }
-        },
-        pointsSuivi: [
-          { id: 'p1', date: '2024-01-15', type: 'mensuel', contenu: 'Très bonnes performances ce mois-ci. Sophie a atteint ses objectifs de sourcing et maintient un excellent suivi des candidats.', actions: '- Continuer la prospection LinkedIn\n- Préparer la campagne Q2 recrutement' },
-          { id: 'p2', date: '2024-06-20', type: 'semestriel', contenu: 'Bilan S1 très positif. Montée en compétences notable sur les outils ATS. Excellente relation avec les clients.', actions: '- Formation avancée ATS\n- Prise de responsabilité sur un compte client stratégique' }
-        ],
-        objectifs: [
-          { id: 'o1', titre: 'Atteindre 80 placements en 2024', description: 'Objectif annuel de placement de candidats sur les différents secteurs', echeance: '2024-12-31', statut: 'en-cours', progression: 65 },
-          { id: 'o2', titre: 'Maîtriser la chasse Executive', description: 'Se former et pratiquer le recrutement de profils C-level et direction', echeance: '2024-09-30', statut: 'atteint', progression: 100 }
-        ]
-      },
-      {
-        id: 'c2', prenom: 'Lucas', nom: 'Bernard', poste: 'Business Developer',
-        email: 'lucas@hello-pomelo.fr', telephone: '06 98 76 54 32',
-        dateEntree: '2024-01-15', managerId: 'c3',
-        onboarding: {
-          notes: '', materiel: 'Dell XPS 15', acces: 'Gmail, HubSpot, Slack',
-          documents: { contrat: true, rib: true, cni: false, mutuelle: false, casierJudiciaire: false, attestationSecu: false, dpae: true, fichePoste: false }
-        },
-        pointsSuivi: [
-          { id: 'p3', date: '2024-02-10', type: 'mensuel', contenu: 'Bonne prise en main du portefeuille clients. Quelques ajustements nécessaires sur le pitch commercial.', actions: '- Retravailler le pitch deck\n- Identifier 20 nouveaux prospects B2B' }
-        ],
-        objectifs: [
-          { id: 'o3', titre: 'Signer 15 nouveaux comptes en 2024', description: 'Développement commercial B2B, secteurs tech et services', echeance: '2024-12-31', statut: 'en-cours', progression: 40 }
-        ]
-      },
-      {
-        id: 'c3', prenom: 'Marie', nom: 'Leclerc', poste: 'Directrice des Opérations',
-        email: 'marie@hello-pomelo.fr', telephone: '06 55 44 33 22',
-        dateEntree: '2022-03-01', managerId: null,
-        onboarding: {
-          notes: 'Profil senior, onboarding autonome et rapide.', materiel: 'MacBook Pro 16"', acces: 'Tous accès admin',
-          documents: { contrat: true, rib: true, cni: true, mutuelle: true, casierJudiciaire: true, attestationSecu: true, dpae: true, fichePoste: true }
-        },
-        pointsSuivi: [],
-        objectifs: [
-          { id: 'o4', titre: 'Structurer le pôle recrutement', description: 'Mise en place des process, outils et KPIs du pôle recrutement', echeance: '2024-06-30', statut: 'atteint', progression: 100 },
-          { id: 'o5', titre: 'Croissance CA de 30%', description: 'Objectif de croissance globale de l\'activité sur l\'exercice', echeance: '2024-12-31', statut: 'en-cours', progression: 55 }
-        ]
-      }
-    ]
+    id: row.id,
+    prenom: row.prenom,
+    nom: row.nom,
+    poste: row.poste,
+    email: row.email || '',
+    telephone: row.telephone || '',
+    dateEntree: row.date_entree || '',
+    managerId: row.manager_id || null,
+    onboarding: row.onboarding || defaultOnboarding(),
+    pointsSuivi: (row.points_suivi || []).map(p => ({
+      id: p.id, date: p.date, type: p.type, contenu: p.contenu, actions: p.actions || ''
+    })),
+    objectifs: (row.objectifs || []).map(o => ({
+      id: o.id, titre: o.titre, description: o.description || '',
+      echeance: o.echeance || '', statut: o.statut || 'en-attente', progression: o.progression || 0
+    }))
   };
 }
 
-function saveData() { localStorage.setItem('hp_collabs_v1', JSON.stringify(DB)); }
-
-let DB = loadData();
+// ─────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────
+let DB = { collaborateurs: [] };
 let currentMode = 'front';
 let currentView = 'dashboard';
 let currentCollabId = null;
@@ -612,9 +592,28 @@ let editingObjId = null;
 let pinBuffer = '';
 
 // ─────────────────────────────────────────
+// DB INIT (Supabase)
+// ─────────────────────────────────────────
+async function initDB() {
+  const loader = document.createElement('div');
+  loader.id = 'sb-loader';
+  loader.style.cssText = 'position:fixed;inset:0;background:rgba(5,5,109,0.7);z-index:999;display:flex;align-items:center;justify-content:center;color:white;font-family:Quicksand,sans-serif;font-size:1rem;font-weight:700;gap:12px;';
+  loader.innerHTML = '<div style="width:28px;height:28px;border:3px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 0.7s linear infinite;"></div> Connexion à la base de données…';
+  const style = document.createElement('style');
+  style.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+  document.head.appendChild(style);
+  document.body.appendChild(loader);
+
+  const { data, error } = await sb.from('collaborateurs').select('*, points_suivi(*), objectifs(*)');
+  loader.remove();
+  if (error) { alert('Erreur Supabase : ' + error.message); return; }
+  DB = { collaborateurs: data.map(fromRow) };
+  navigate('dashboard');
+}
+
+// ─────────────────────────────────────────
 // UTILS
 // ─────────────────────────────────────────
-function uid() { return '_' + Math.random().toString(36).substr(2, 9); }
 function getCollab(id) { return DB.collaborateurs.find(c => c.id === id); }
 function getManagerName(id) { const m = getCollab(id); return m ? m.prenom + ' ' + m.nom : '—'; }
 function initials(c) { return ((c.prenom||'')[0]||'').toUpperCase() + ((c.nom||'')[0]||'').toUpperCase(); }
@@ -853,20 +852,22 @@ function renderOnboarding() {
   });
 }
 
-function toggleDoc(docKey) {
+async function toggleDoc(docKey) {
   if (currentMode !== 'back') return;
   const c = getCollab(currentCollabId);
   c.onboarding.documents[docKey] = !c.onboarding.documents[docKey];
-  saveData();
+  const { error } = await sb.from('collaborateurs').update({ onboarding: c.onboarding }).eq('id', c.id);
+  if (error) { c.onboarding.documents[docKey] = !c.onboarding.documents[docKey]; showToast('Erreur: ' + error.message); return; }
   renderOnboarding();
 }
 
-function saveOnboarding() {
+async function saveOnboarding() {
   const c = getCollab(currentCollabId);
   c.onboarding.notes = document.getElementById('onboardingNotes').value;
   c.onboarding.materiel = document.getElementById('onboardingMateriel').value;
   c.onboarding.acces = document.getElementById('onboardingAcces').value;
-  saveData();
+  const { error } = await sb.from('collaborateurs').update({ onboarding: c.onboarding }).eq('id', c.id);
+  if (error) { showToast('Erreur: ' + error.message); return; }
   showToast('Informations enregistrées !');
 }
 
@@ -921,29 +922,38 @@ function openEditPoint(id) {
   openModal('modalPoint');
 }
 
-function savePoint() {
+async function savePoint() {
   const date = document.getElementById('pDate').value;
   const contenu = document.getElementById('pContenu').value.trim();
   if (!date || !contenu) { alert('Veuillez renseigner la date et le contenu.'); return; }
   const c = getCollab(currentCollabId);
-  const data = { id: editingPointId || uid(), date, type: document.getElementById('pType').value, contenu, actions: document.getElementById('pActions').value };
   if (!c.pointsSuivi) c.pointsSuivi = [];
+  const row = {
+    collaborateur_id: currentCollabId, date,
+    type: document.getElementById('pType').value,
+    contenu, actions: document.getElementById('pActions').value || null
+  };
   if (editingPointId) {
+    const { error } = await sb.from('points_suivi').update(row).eq('id', editingPointId);
+    if (error) { showToast('Erreur: ' + error.message); return; }
     const idx = c.pointsSuivi.findIndex(p => p.id === editingPointId);
-    c.pointsSuivi[idx] = data;
+    c.pointsSuivi[idx] = { id: editingPointId, date, type: row.type, contenu, actions: row.actions || '' };
   } else {
-    c.pointsSuivi.push(data);
+    const { data, error } = await sb.from('points_suivi').insert(row).select().single();
+    if (error) { showToast('Erreur: ' + error.message); return; }
+    c.pointsSuivi.push({ id: data.id, date, type: row.type, contenu, actions: row.actions || '' });
   }
-  saveData();
   closeModal('modalPoint');
   renderPoints();
+  showToast('Compte-rendu enregistré !');
 }
 
-function deletePoint(id) {
+async function deletePoint(id) {
   if (!confirm('Supprimer ce compte-rendu ?')) return;
+  const { error } = await sb.from('points_suivi').delete().eq('id', id);
+  if (error) { showToast('Erreur: ' + error.message); return; }
   const c = getCollab(currentCollabId);
   c.pointsSuivi = (c.pointsSuivi || []).filter(p => p.id !== id);
-  saveData();
   renderPoints();
 }
 
@@ -1007,35 +1017,39 @@ function openEditObj(id) {
   openModal('modalObj');
 }
 
-function saveObj() {
+async function saveObj() {
   const titre = document.getElementById('oTitre').value.trim();
   if (!titre) { alert('Veuillez renseigner le titre de l\'objectif.'); return; }
   const c = getCollab(currentCollabId);
   if (!c.objectifs) c.objectifs = [];
-  const data = {
-    id: editingObjId || uid(),
-    titre,
-    description: document.getElementById('oDesc').value,
-    echeance: document.getElementById('oEcheance').value,
+  const row = {
+    collaborateur_id: currentCollabId, titre,
+    description: document.getElementById('oDesc').value || null,
+    echeance: document.getElementById('oEcheance').value || null,
     statut: document.getElementById('oStatut').value,
     progression: parseInt(document.getElementById('oProg').value),
   };
   if (editingObjId) {
+    const { error } = await sb.from('objectifs').update(row).eq('id', editingObjId);
+    if (error) { showToast('Erreur: ' + error.message); return; }
     const idx = c.objectifs.findIndex(o => o.id === editingObjId);
-    c.objectifs[idx] = data;
+    c.objectifs[idx] = { id: editingObjId, titre, description: row.description || '', echeance: row.echeance || '', statut: row.statut, progression: row.progression };
   } else {
-    c.objectifs.push(data);
+    const { data, error } = await sb.from('objectifs').insert(row).select().single();
+    if (error) { showToast('Erreur: ' + error.message); return; }
+    c.objectifs.push({ id: data.id, titre, description: row.description || '', echeance: row.echeance || '', statut: row.statut, progression: row.progression });
   }
-  saveData();
   closeModal('modalObj');
   renderObjectifs();
+  showToast('Objectif enregistré !');
 }
 
-function deleteObj(id) {
+async function deleteObj(id) {
   if (!confirm('Supprimer cet objectif ?')) return;
+  const { error } = await sb.from('objectifs').delete().eq('id', id);
+  if (error) { showToast('Erreur: ' + error.message); return; }
   const c = getCollab(currentCollabId);
   c.objectifs = (c.objectifs || []).filter(o => o.id !== id);
-  saveData();
   renderObjectifs();
 }
 
@@ -1078,37 +1092,36 @@ function openEditCollab(id) {
   openModal('modalCollab');
 }
 
-function saveCollab() {
+async function saveCollab() {
   const prenom = document.getElementById('fPrenom').value.trim();
   const nom = document.getElementById('fNom').value.trim();
   const poste = document.getElementById('fPoste').value.trim();
   if (!prenom || !nom || !poste) { alert('Prénom, nom et poste sont obligatoires.'); return; }
 
+  const row = {
+    prenom, nom, poste,
+    email: document.getElementById('fEmail').value || null,
+    telephone: document.getElementById('fTel').value || null,
+    date_entree: document.getElementById('fDateEntree').value || null,
+    manager_id: document.getElementById('fManager').value || null,
+  };
+
   if (editingCollabId) {
+    const { error } = await sb.from('collaborateurs').update(row).eq('id', editingCollabId);
+    if (error) { showToast('Erreur: ' + error.message); return; }
     const c = getCollab(editingCollabId);
-    c.prenom = prenom; c.nom = nom; c.poste = poste;
-    c.email = document.getElementById('fEmail').value;
-    c.telephone = document.getElementById('fTel').value;
-    c.dateEntree = document.getElementById('fDateEntree').value;
-    c.managerId = document.getElementById('fManager').value || null;
+    Object.assign(c, { prenom, nom, poste, email: row.email || '', telephone: row.telephone || '', dateEntree: row.date_entree || '', managerId: row.manager_id || null });
   } else {
-    const docs = {};
-    Object.keys(DOCS_LABELS).forEach(k => docs[k] = false);
-    DB.collaborateurs.push({
-      id: uid(), prenom, nom, poste,
-      email: document.getElementById('fEmail').value,
-      telephone: document.getElementById('fTel').value,
-      dateEntree: document.getElementById('fDateEntree').value,
-      managerId: document.getElementById('fManager').value || null,
-      onboarding: { notes: '', materiel: '', acces: '', documents: docs },
-      pointsSuivi: [], objectifs: []
-    });
+    row.onboarding = defaultOnboarding();
+    const { data, error } = await sb.from('collaborateurs').insert(row).select().single();
+    if (error) { showToast('Erreur: ' + error.message); return; }
+    DB.collaborateurs.push(fromRow(data));
   }
-  saveData();
   closeModal('modalCollab');
   if (currentView === 'dashboard') renderDashboard();
   else if (currentView === 'bo-people') renderBoPeople();
   else if (currentView === 'collab') renderCollab();
+  showToast('Collaborateur enregistré !');
 }
 
 // ─────────────────────────────────────────
@@ -1149,12 +1162,13 @@ function renderBoPeople() {
   }).join('');
 }
 
-function deleteCollab(id) {
+async function deleteCollab(id) {
   const c = getCollab(id);
   if (!c || !confirm(`Supprimer ${c.prenom} ${c.nom} ? Cette action est irréversible.`)) return;
+  const { error } = await sb.from('collaborateurs').delete().eq('id', id);
+  if (error) { showToast('Erreur: ' + error.message); return; }
   DB.collaborateurs = DB.collaborateurs.filter(x => x.id !== id);
   DB.collaborateurs.forEach(x => { if (x.managerId === id) x.managerId = null; });
-  saveData();
   renderBoPeople();
 }
 
@@ -1196,13 +1210,14 @@ function renderOrgChart() {
     : '<p style="color:var(--muted);font-size:0.85rem;">Aucun collaborateur sans manager</p>';
 }
 
-function saveRelation() {
+async function saveRelation() {
   const collabId = document.getElementById('relCollab').value;
   const managerId = document.getElementById('relManager').value;
   if (!collabId) { alert('Choisissez un collaborateur.'); return; }
   if (collabId === managerId) { alert('Un collaborateur ne peut pas être son propre manager.'); return; }
+  const { error } = await sb.from('collaborateurs').update({ manager_id: managerId || null }).eq('id', collabId);
+  if (error) { showToast('Erreur: ' + error.message); return; }
   getCollab(collabId).managerId = managerId || null;
-  saveData();
   renderOrgChart();
   const alertEl = document.getElementById('relAlert');
   alertEl.classList.remove('hidden');
@@ -1232,7 +1247,7 @@ function showToast(msg) {
 // ─────────────────────────────────────────
 // INIT
 // ─────────────────────────────────────────
-navigate('dashboard');
+initDB();
 </script>
 </body>
 </html>
