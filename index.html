@@ -324,6 +324,10 @@
         <textarea id="pm_axeAmelioration" placeholder="Un point de progression prioritaire..." style="min-height:60px;"></textarea>
       </div>
     </div>
+    <div id="pmObjSection" style="display:none;margin-top:8px;border-top:1px dashed var(--lavender);padding-top:12px;">
+      <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--pink);margin-bottom:12px;">📊 Suivi des objectifs en cours</div>
+      <div id="pmObjFields"></div>
+    </div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
       <button class="btn btn-ghost" onclick="closeModal('modalPoint')">Annuler</button>
       <button class="btn btn-primary" onclick="saveManagerPoint()">Enregistrer</button>
@@ -348,10 +352,14 @@
         <textarea id="oDesc" placeholder="Détails, contexte, critères de succès..."></textarea>
       </div>
       <div class="form-field">
-        <label>Échéance</label>
-        <input id="oEcheance" type="date" />
+        <label>Date de début <span class="req">*</span></label>
+        <input id="oDateDebut" type="date" />
       </div>
       <div class="form-field">
+        <label>Date de fin <span class="req">*</span></label>
+        <input id="oDateFin" type="date" />
+      </div>
+      <div class="form-field full">
         <label>Statut</label>
         <select id="oStatut">
           <option value="en-cours">En cours</option>
@@ -360,11 +368,8 @@
           <option value="en-attente">En attente</option>
         </select>
       </div>
-      <div class="form-field full">
-        <label>Progression : <span id="oProgLabel">0%</span></label>
-        <input id="oProg" type="range" min="0" max="100" value="0" oninput="document.getElementById('oProgLabel').textContent=this.value+'%'" />
-      </div>
     </div>
+    <div style="font-size:0.75rem;color:var(--muted);margin-bottom:8px;" id="objCountInfo"></div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
       <button class="btn btn-ghost" onclick="closeModal('modalObj')">Annuler</button>
       <button class="btn btn-primary" onclick="saveObj()">Enregistrer</button>
@@ -572,9 +577,10 @@ function fromRow(row) {
       managerData: p.manager_data || {},
       collabData: p.collab_data || {}
     })),
-    objectifs: (row.objectifs || []).map(o => ({
-      id: o.id, titre: o.titre, description: o.description || '',
-      echeance: o.echeance || '', statut: o.statut || 'en-attente', progression: o.progression || 0
+    objectifs: (row.objectifs || []).sort((a,b)=> new Date(a.created_at)-new Date(b.created_at)).map((o,i) => ({
+      id: o.id, numero: i+1, titre: o.titre, description: o.description || '',
+      dateDebut: o.date_debut || '', dateFin: o.date_fin || '',
+      statut: o.statut || 'en-attente'
     }))
   };
 }
@@ -953,11 +959,31 @@ function renderManagerSection(md, readOnly, pid, isBack) {
     ['qualites', 'Qualités ce mois-ci'],
     ['axeAmelioration', 'Axe d\'amélioration'],
   ];
-  return fields.map(([k, label]) => `
+  let html = fields.map(([k, label]) => `
     <div style="margin-bottom:12px;">
       <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:4px;">${label}</div>
       <div style="background:var(--offwhite);border-radius:8px;padding:10px 12px;font-size:0.85rem;color:${md[k] ? 'var(--navy)' : 'var(--muted)'};line-height:1.6;min-height:36px;font-style:${md[k] ? 'normal' : 'italic'};">${md[k] || 'Non renseigné'}</div>
     </div>`).join('');
+
+  const objData = md.objectifs||{};
+  const c = getCollab(currentCollabId);
+  const activeObjs = (c&&c.objectifs||[]).filter(o=>o.statut==='en-cours');
+  if (activeObjs.length && Object.keys(objData).length) {
+    html += `<div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--lavender);">
+      <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--pink);margin-bottom:10px;">📊 Suivi objectifs</div>
+      ${activeObjs.map((o,i)=>{
+        const d=objData[o.id]||{};
+        return `<div style="margin-bottom:10px;background:var(--offwhite);border-radius:8px;padding:10px 12px;">
+          <div style="font-size:0.75rem;font-weight:700;color:var(--navy);margin-bottom:6px;">Objectif ${i+1} — ${o.titre}</div>
+          <div style="display:flex;justify-content:space-between;align-items:start;gap:10px;">
+            <div style="font-size:0.84rem;color:${d.commentaire?'var(--navy)':'var(--muted)'};flex:1;font-style:${d.commentaire?'normal':'italic'}">${d.commentaire||'Non renseigné'}</div>
+            ${d.note?`<div style="background:var(--pink);color:white;border-radius:8px;padding:2px 10px;font-size:0.8rem;font-weight:700;white-space:nowrap;">${d.note}/5</div>`:''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+  return html;
 }
 
 function renderCollabSectionAdmin(cd) {
@@ -972,11 +998,31 @@ function renderCollabSectionAdmin(cd) {
   ];
   const hasData = Object.keys(cd).length > 0 && Object.values(cd).some(v => v);
   if (!hasData) return `<div style="font-size:0.83rem;color:var(--muted);font-style:italic;padding:10px 0;">Le collaborateur n'a pas encore renseigné ses réponses.</div>`;
-  return fields.map(([k, label]) => `
+  let html = fields.map(([k, label]) => `
     <div style="margin-bottom:12px;">
       <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:4px;">${label}</div>
       <div style="background:var(--offwhite);border-radius:8px;padding:10px 12px;font-size:0.85rem;color:${cd[k] ? 'var(--navy)' : 'var(--muted)'};line-height:1.6;min-height:36px;font-style:${cd[k] ? 'normal' : 'italic'};">${cd[k] || 'Non renseigné'}</div>
     </div>`).join('');
+
+  const objData = cd.objectifs||{};
+  const c = getCollab(currentCollabId);
+  const activeObjs = (c&&c.objectifs||[]).filter(o=>o.statut==='en-cours');
+  if (activeObjs.length && Object.keys(objData).length) {
+    html += `<div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--lavender);">
+      <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--pink);margin-bottom:10px;">📊 Suivi objectifs (collaborateur)</div>
+      ${activeObjs.map((o,i)=>{
+        const d=objData[o.id]||{};
+        return `<div style="margin-bottom:10px;background:var(--offwhite);border-radius:8px;padding:10px 12px;">
+          <div style="font-size:0.75rem;font-weight:700;color:var(--navy);margin-bottom:6px;">Objectif ${i+1} — ${o.titre}</div>
+          <div style="display:flex;justify-content:space-between;align-items:start;gap:10px;">
+            <div style="font-size:0.84rem;color:${d.commentaire?'var(--navy)':'var(--muted)'};flex:1;font-style:${d.commentaire?'normal':'italic'}">${d.commentaire||'Non renseigné'}</div>
+            ${d.note?`<div style="background:var(--pink);color:white;border-radius:8px;padding:2px 10px;font-size:0.8rem;font-weight:700;white-space:nowrap;">${d.note}/5</div>`:''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+  return html;
 }
 
 function toggleAcc(id) {
@@ -997,6 +1043,7 @@ function openCurrentMonthPoint() {
   clearManagerForm();
   document.getElementById('modalPointTitle').textContent = '📅 Point mensuel — ' + moisLabel(cm);
   openModal('modalPoint');
+  injectObjFieldsInModal(null);
 }
 
 function openEditPoint(id) {
@@ -1011,6 +1058,31 @@ function openEditPoint(id) {
   document.getElementById('pm_axeAmelioration').value = md.axeAmelioration || '';
   document.getElementById('modalPointTitle').textContent = '📅 Point mensuel — ' + moisLabel(p.mois);
   openModal('modalPoint');
+  injectObjFieldsInModal(md);
+}
+
+function injectObjFieldsInModal(existingData) {
+  const c = getCollab(currentCollabId);
+  const activeObjs = (c.objectifs||[]).filter(o => o.statut === 'en-cours');
+  const section = document.getElementById('pmObjSection');
+  const fields = document.getElementById('pmObjFields');
+  if (!activeObjs.length) { section.style.display='none'; return; }
+  section.style.display='block';
+  const objData = (existingData||{}).objectifs||{};
+  fields.innerHTML = activeObjs.map((o,i) => `
+    <div style="margin-bottom:14px;background:var(--offwhite);border-radius:10px;padding:12px;">
+      <div style="font-size:0.8rem;font-weight:700;color:var(--navy);margin-bottom:8px;">Objectif ${i+1} — ${o.titre}</div>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start;">
+        <textarea id="pmObj_comment_${o.id}" placeholder="Commentaire sur cet objectif..." style="min-height:50px;border:1.5px solid var(--lavender);border-radius:8px;padding:8px;font-family:inherit;font-size:0.84rem;resize:vertical;">${(objData[o.id]||{}).commentaire||''}</textarea>
+        <div style="text-align:center;">
+          <div style="font-size:0.65rem;color:var(--muted);margin-bottom:4px;">Note</div>
+          <select id="pmObj_note_${o.id}" style="border:1.5px solid var(--lavender);border-radius:8px;padding:6px 4px;font-size:1rem;text-align:center;">
+            <option value="">-</option>
+            ${[1,2,3,4,5].map(n=>`<option value="${n}" ${(objData[o.id]||{}).note==n?'selected':''}>${n}/5</option>`).join('')}
+          </select>
+        </div>
+      </div>
+    </div>`).join('');
 }
 
 function clearManagerForm() {
@@ -1028,6 +1100,15 @@ async function saveManagerPoint() {
     qualites: document.getElementById('pm_qualites').value.trim(),
     axeAmelioration: document.getElementById('pm_axeAmelioration').value.trim(),
   };
+  const activeObjs = (c.objectifs||[]).filter(o=>o.statut==='en-cours');
+  if (activeObjs.length) {
+    managerData.objectifs = {};
+    activeObjs.forEach(o => {
+      const commentaire = document.getElementById('pmObj_comment_'+o.id)?.value.trim()||'';
+      const note = document.getElementById('pmObj_note_'+o.id)?.value||'';
+      if (commentaire||note) managerData.objectifs[o.id] = { commentaire, note: note ? parseInt(note) : null };
+    });
+  }
   if (!c.pointsSuivi) c.pointsSuivi = [];
 
   if (editingPointId) {
@@ -1083,30 +1164,33 @@ function renderObjectifs() {
     return;
   }
 
-  document.getElementById('objList').innerHTML = objs.map(o => `
+  document.getElementById('objList').innerHTML = objs.map((o,i) => `
     <div class="obj-card">
       <div class="obj-header">
-        <div class="obj-title">${o.titre}</div>
-        <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
-          <span class="badge ${STATUS_COLORS[o.statut] || 'badge-gray'}">${STATUS_LABELS[o.statut] || o.statut}</span>
-          ${isBack ? `<button class="btn btn-ghost btn-sm" onclick="openEditObj('${o.id}')">✏️</button><button class="btn btn-ghost btn-sm" onclick="deleteObj('${o.id}')">🗑️</button>` : ''}
-        </div>
+        <span class="obj-num" style="background:var(--pink);color:white;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;margin-right:8px;">${i+1}</span>
+        <span class="obj-titre">${o.titre}</span>
+        <span class="badge badge-${o.statut==='atteint'?'green':o.statut==='en-cours'?'pink':'gray'} obj-statut">${o.statut}</span>
+        ${isBack ? `<button class="btn btn-ghost btn-sm" onclick="openEditObj('${o.id}')">✏️</button><button class="btn btn-danger btn-sm" onclick="deleteObj('${o.id}')">🗑️</button>` : ''}
       </div>
       ${o.description ? `<div class="obj-desc">${o.description}</div>` : ''}
-      <div class="progress-wrap"><div class="progress-bar" style="width:${o.progression}%;background:${BAR_COLORS[o.statut]};"></div></div>
-      <div class="obj-footer"><span>${o.progression}% accompli</span><span>Échéance : ${fmtDate(o.echeance)}</span></div>
+      <div class="obj-footer">
+        <span>📅 Du ${fmtDate(o.dateDebut)} au ${fmtDate(o.dateFin)}</span>
+      </div>
     </div>`).join('');
 }
 
 function openAddObj() {
+  const c = getCollab(currentCollabId);
+  if ((c.objectifs||[]).length >= 5) { showToast('Maximum 5 objectifs par collaborateur.'); return; }
   editingObjId = null;
   document.getElementById('modalObjTitle').textContent = 'Nouvel objectif';
   document.getElementById('oTitre').value = '';
   document.getElementById('oDesc').value = '';
-  document.getElementById('oEcheance').value = '';
+  document.getElementById('oDateDebut').value = '';
+  document.getElementById('oDateFin').value = '';
   document.getElementById('oStatut').value = 'en-cours';
-  document.getElementById('oProg').value = 0;
-  document.getElementById('oProgLabel').textContent = '0%';
+  const count = (c.objectifs||[]).length;
+  document.getElementById('objCountInfo').textContent = `Objectif ${count+1}/5`;
   openModal('modalObj');
 }
 
@@ -1118,10 +1202,10 @@ function openEditObj(id) {
   document.getElementById('modalObjTitle').textContent = 'Modifier l\'objectif';
   document.getElementById('oTitre').value = o.titre;
   document.getElementById('oDesc').value = o.description || '';
-  document.getElementById('oEcheance').value = o.echeance || '';
+  document.getElementById('oDateDebut').value = o.dateDebut || '';
+  document.getElementById('oDateFin').value = o.dateFin || '';
   document.getElementById('oStatut').value = o.statut || 'en-cours';
-  document.getElementById('oProg').value = o.progression || 0;
-  document.getElementById('oProgLabel').textContent = (o.progression || 0) + '%';
+  document.getElementById('objCountInfo').textContent = `Objectif ${o.numero}/5`;
   openModal('modalObj');
 }
 
@@ -1133,19 +1217,21 @@ async function saveObj() {
   const row = {
     collaborateur_id: currentCollabId, titre,
     description: document.getElementById('oDesc').value || null,
-    echeance: document.getElementById('oEcheance').value || null,
+    date_debut: document.getElementById('oDateDebut').value || null,
+    date_fin: document.getElementById('oDateFin').value || null,
     statut: document.getElementById('oStatut').value,
-    progression: parseInt(document.getElementById('oProg').value),
   };
+  if (!row.date_debut || !row.date_fin) { alert('Veuillez définir une date de début et de fin.'); return; }
   if (editingObjId) {
     const { error } = await sb.from('objectifs').update(row).eq('id', editingObjId);
     if (error) { showToast('Erreur: ' + error.message); return; }
     const idx = c.objectifs.findIndex(o => o.id === editingObjId);
-    c.objectifs[idx] = { id: editingObjId, titre, description: row.description || '', echeance: row.echeance || '', statut: row.statut, progression: row.progression };
+    const existing = c.objectifs[idx];
+    c.objectifs[idx] = { id: editingObjId, numero: existing.numero, titre, description: row.description || '', dateDebut: row.date_debut||'', dateFin: row.date_fin||'', statut: row.statut };
   } else {
     const { data, error } = await sb.from('objectifs').insert(row).select().single();
     if (error) { showToast('Erreur: ' + error.message); return; }
-    c.objectifs.push({ id: data.id, titre, description: row.description || '', echeance: row.echeance || '', statut: row.statut, progression: row.progression });
+    c.objectifs.push({ id: data.id, numero: c.objectifs.length+1, titre, description: row.description || '', dateDebut: row.date_debut||'', dateFin: row.date_fin||'', statut: row.statut });
   }
   closeModal('modalObj');
   renderObjectifs();

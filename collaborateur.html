@@ -321,6 +321,7 @@
       <button class="tab-btn active" onclick="showTab('onboarding')">📋 Mon dossier</button>
       <button class="tab-btn" onclick="showTab('points')">🗓️ Points de suivi</button>
       <button class="tab-btn" onclick="showTab('objectifs')">🎯 Mes objectifs</button>
+      <button id="btnTabEquipe" class="tab-btn hidden" onclick="showTab('equipe')">👥 Mon équipe</button>
     </div>
 
     <!-- ONBOARDING TAB -->
@@ -349,6 +350,11 @@
     <!-- OBJECTIFS TAB -->
     <div id="tab-objectifs" class="tab-pane">
       <div id="myObjectifs"></div>
+    </div>
+
+    <!-- EQUIPE TAB -->
+    <div id="tab-equipe" class="tab-pane">
+      <div id="teamList"></div>
     </div>
 
   </div>
@@ -386,7 +392,7 @@ function collabFromRow(row) {
       managerData: p.manager_data || {},
       collabData: p.collab_data || {}
     })),
-    objectifs: (row.objectifs || []).map(o => ({ id:o.id, titre:o.titre, description:o.description||'', echeance:o.echeance||'', statut:o.statut||'en-attente', progression:o.progression||0 }))
+    objectifs: (row.objectifs || []).sort((a,b)=> new Date(a.created_at)-new Date(b.created_at)).map((o,i) => ({ id:o.id, numero:i+1, titre:o.titre, description:o.description||'', dateDebut:o.date_debut||'', dateFin:o.date_fin||'', statut:o.statut||'en-attente' }))
   };
 }
 
@@ -428,6 +434,7 @@ function initials(c) {
 
 let currentCollab = null;
 let currentUser = null; // { name, email, picture }
+let myTeam = []; // membres de l'équipe si l'utilisateur est manager
 
 // ─────────────────────────────────────────
 // GOOGLE AUTH
@@ -523,6 +530,12 @@ function loginWithEmail(email, name, picture, saveSession) {
     sessionStorage.setItem('hp_collab_session', JSON.stringify(currentUser));
   }
 
+  // Détecter si l'utilisateur est manager
+  myTeam = COLLABS.filter(c => c.managerId === currentCollab.id);
+  if (myTeam.length > 0) {
+    document.getElementById('btnTabEquipe').classList.remove('hidden');
+  }
+
   showApp();
 }
 
@@ -582,8 +595,9 @@ function renderProfile() {
 }
 
 function showTab(tab) {
-  document.querySelectorAll('.tab-btn').forEach((b, i) => {
-    b.classList.toggle('active', ['onboarding','points','objectifs'][i] === tab);
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    const tabName = b.getAttribute('onclick').match(/showTab\('(\w+)'\)/)?.[1];
+    b.classList.toggle('active', tabName === tab);
   });
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
@@ -591,6 +605,7 @@ function showTab(tab) {
   if (tab === 'onboarding') renderOnboarding();
   else if (tab === 'points') renderPoints();
   else if (tab === 'objectifs') renderObjectifs();
+  else if (tab === 'equipe') renderTeam();
 }
 
 // ─────────────────────────────────────────
@@ -838,7 +853,7 @@ function renderObjectifs() {
 
   const total = objs.length;
   const atteints = objs.filter(o => o.statut === 'atteint').length;
-  const avgProg = Math.round(objs.reduce((s, o) => s + (o.progression || 0), 0) / total);
+  const enCours = objs.filter(o => o.statut === 'en-cours').length;
 
   document.getElementById('myObjectifs').innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:28px;">
@@ -851,25 +866,203 @@ function renderObjectifs() {
         <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-top:4px;">Atteints</div>
       </div>
       <div class="card" style="text-align:center;padding:16px;">
-        <div style="font-size:1.8rem;font-weight:700;color:var(--pink);">${avgProg}%</div>
-        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-top:4px;">Progression moy.</div>
+        <div style="font-size:1.8rem;font-weight:700;color:var(--pink);">${enCours}</div>
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-top:4px;">En cours</div>
       </div>
     </div>
-    ${objs.map(o => `
+    ${objs.map((o,i) => `
       <div class="obj-card">
         <div class="obj-header">
-          <div class="obj-title">${o.titre}</div>
+          <span style="background:var(--pink);color:white;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;margin-right:8px;flex-shrink:0;">${i+1}</span>
+          <div class="obj-title" style="flex:1;">${o.titre}</div>
           <span class="badge ${STATUS_COLORS[o.statut] || 'badge-gray'}">${STATUS_LABELS[o.statut] || o.statut}</span>
         </div>
         ${o.description ? `<div class="obj-desc">${o.description}</div>` : ''}
-        <div class="progress-wrap">
-          <div class="progress-bar" style="width:${o.progression}%;background:${BAR_COLORS[o.statut]};"></div>
-        </div>
         <div class="obj-footer">
-          <span>${o.progression}% accompli</span>
-          <span>Échéance : ${fmtDate(o.echeance)}</span>
+          <span>📅 Du ${fmtDate(o.dateDebut)} au ${fmtDate(o.dateFin)}</span>
         </div>
       </div>`).join('')}`;
+}
+
+// ─────────────────────────────────────────
+// MON ÉQUIPE (vue manager)
+// ─────────────────────────────────────────
+
+function renderTeam() {
+  const container = document.getElementById('teamList');
+
+  if (!myTeam.length) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">👥</div><p>Vous n'avez pas de collaborateurs directs.</p></div>`;
+    return;
+  }
+
+  container.innerHTML = myTeam.map(member => `
+    <div class="card" style="margin-bottom:20px;" id="team-card-${member.id}">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;">
+        <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--pink),var(--blue));display:flex;align-items:center;justify-content:center;color:white;font-size:1rem;font-weight:700;flex-shrink:0;">${initials(member)}</div>
+        <div style="flex:1;">
+          <div style="font-size:1.05rem;font-weight:700;color:var(--navy);">${member.prenom} ${member.nom}</div>
+          <div style="font-size:0.82rem;color:var(--muted);margin-top:2px;">${member.poste || '—'}</div>
+        </div>
+      </div>
+      <div class="section-title">Points de suivi</div>
+      <div id="team-points-${member.id}">
+        ${renderTeamMemberPoints(member)}
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderTeamMemberPoints(member) {
+  const cm = currentMois();
+  const sorted = [...(member.pointsSuivi || [])].sort((a, b) => (b.mois || b.date) > (a.mois || a.date) ? 1 : -1);
+
+  const hasCurrent = sorted.some(p => p.mois === cm);
+
+  const managerFields = [
+    ['retoursMissions', 'Retours sur les missions'],
+    ['tauxStaffing', 'Taux de staffing / Satisfaction client'],
+    ['qualites', 'Qualités ce mois-ci'],
+    ['axeAmelioration', "Axe d'amélioration"],
+  ];
+  const collabFields = [
+    ['ressenti', 'Ressenti au travail'],
+    ['reussites', 'Réussites'],
+    ['objectifsAtteints', 'Objectifs M-1 atteints ?'],
+    ['suggestions', 'Suggestions / commentaires'],
+    ['objectifsMoisSuivant', 'Objectifs mois suivant'],
+    ['autresSujets', 'Autres sujets'],
+    ['axeAmeliorationSoi', "Axe d'amélioration personnel"],
+  ];
+
+  let html = '';
+
+  if (!hasCurrent) {
+    html += `
+      <div style="margin-bottom:12px;">
+        <button class="btn btn-primary" onclick="createTeamPoint('${member.id}')">+ Créer le point de ${moisLabel(cm)}</button>
+      </div>`;
+  }
+
+  if (!sorted.length) {
+    html += `<div class="empty-state" style="padding:20px 0;"><div class="empty-icon" style="font-size:1.5rem;">📋</div><p>Aucun point mensuel pour ce collaborateur.</p></div>`;
+    return html;
+  }
+
+  html += sorted.map((p, i) => {
+    const locked = isPointLocked(p.mois || cm);
+    const md = p.managerData || {};
+    const cd = p.collabData || {};
+    const label = moisLabel(p.mois || p.date);
+    const isFirst = i === 0;
+    const accId = `team-acc-${member.id}-${p.id}`;
+    const iconId = `team-acc-icon-${member.id}-${p.id}`;
+
+    const collabReadHtml = collabFields.map(([k, lbl]) => `
+      <div style="margin-bottom:10px;">
+        <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:4px;">${lbl}</div>
+        <div style="background:var(--offwhite);border-radius:8px;padding:10px 12px;font-size:0.85rem;color:${cd[k] ? 'var(--navy)' : 'var(--muted)'};line-height:1.6;min-height:34px;font-style:${cd[k] ? 'normal' : 'italic'};">${cd[k] || 'Non renseigné'}</div>
+      </div>`).join('');
+
+    const managerEditHtml = locked
+      ? managerFields.map(([k, lbl]) => `
+        <div style="margin-bottom:10px;">
+          <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:4px;">${lbl}</div>
+          <div style="background:var(--offwhite);border-radius:8px;padding:10px 12px;font-size:0.85rem;color:${md[k] ? 'var(--navy)' : 'var(--muted)'};line-height:1.6;min-height:34px;font-style:${md[k] ? 'normal' : 'italic'};">${md[k] || 'Non renseigné'}</div>
+        </div>`).join('')
+      : managerFields.map(([k, lbl]) => `
+        <div style="margin-bottom:10px;">
+          <label style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--pink);margin-bottom:4px;display:block;">${lbl}</label>
+          <textarea id="tmf_${member.id}_${p.id}_${k}" style="width:100%;border:1.5px solid var(--lavender);border-radius:8px;padding:10px 12px;font-size:0.85rem;font-family:inherit;color:var(--navy);min-height:60px;resize:vertical;outline:none;" placeholder="Votre retour...">${md[k] || ''}</textarea>
+        </div>`).join('');
+
+    return `
+    <div style="margin-bottom:10px;border-radius:12px;border:1.5px solid var(--lavender);overflow:hidden;background:white;">
+      <div onclick="toggleTeamAcc('${accId}','${iconId}')" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;cursor:pointer;background:${isFirst && !locked ? 'linear-gradient(135deg,#F0F0FF,#FFF0F8)' : 'white'};">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:0.92rem;font-weight:700;color:var(--navy);">📅 ${label}</span>
+          ${locked ? `<span style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);background:var(--lavender);padding:2px 7px;border-radius:99px;">🔒 Verrouillé</span>` : `<span style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--pink);background:#FFF0F8;padding:2px 7px;border-radius:99px;">✏️ En cours</span>`}
+        </div>
+        <span style="color:var(--muted);font-size:0.95rem;" id="${iconId}">${isFirst ? '▲' : '▼'}</span>
+      </div>
+      <div id="${accId}" style="display:${isFirst ? 'block' : 'none'};padding:0 16px 16px;border-top:1.5px solid var(--lavender);">
+
+        <!-- Réponses du collaborateur (lecture seule) -->
+        <div style="margin-top:14px;">
+          <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--pink);margin-bottom:10px;">✏️ Réponses de ${member.prenom}</div>
+          ${collabReadHtml}
+        </div>
+
+        <!-- Section manager (éditable si non verrouillé) -->
+        <div style="margin-top:16px;padding-top:14px;border-top:1px dashed var(--lavender);">
+          <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--skyblue);margin-bottom:${locked ? 10 : 4}px;">👔 Vos retours manager</div>
+          ${locked ? '' : `<div style="font-size:0.78rem;color:var(--muted);margin-bottom:12px;line-height:1.5;">Ce point est encore modifiable jusqu'à la fin du mois.</div>`}
+          ${managerEditHtml}
+          ${!locked ? `<div style="display:flex;justify-content:flex-end;margin-top:8px;"><button class="btn btn-primary" onclick="saveTeamManagerPoint('${member.id}','${p.id}')">💾 Enregistrer mes retours</button></div>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  return html;
+}
+
+function toggleTeamAcc(accId, iconId) {
+  const el = document.getElementById(accId);
+  const icon = document.getElementById(iconId);
+  const open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : 'block';
+  if (icon) icon.textContent = open ? '▼' : '▲';
+}
+
+async function createTeamPoint(memberId) {
+  const cm = currentMois();
+  const { data, error } = await sb.from('points_suivi').insert({
+    collaborateur_id: memberId,
+    type: 'mensuel',
+    mois: cm,
+    date: new Date().toISOString().split('T')[0],
+    manager_data: {},
+    collab_data: {},
+  }).select().single();
+
+  if (error) { showToast('Erreur : ' + error.message); return; }
+
+  // Mettre à jour le cache local
+  const member = myTeam.find(c => c.id === memberId);
+  if (member) {
+    member.pointsSuivi = member.pointsSuivi || [];
+    member.pointsSuivi.push({
+      id: data.id, date: data.date, type: data.type, mois: data.mois,
+      managerData: {}, collabData: {}
+    });
+  }
+
+  showToast(`Point de ${moisLabel(cm)} créé pour ${member ? member.prenom : ''} !`);
+  // Rafraîchir l'affichage du membre
+  const pointsDiv = document.getElementById(`team-points-${memberId}`);
+  if (pointsDiv && member) pointsDiv.innerHTML = renderTeamMemberPoints(member);
+}
+
+async function saveTeamManagerPoint(memberId, pointId) {
+  const member = myTeam.find(c => c.id === memberId);
+  if (!member) return;
+  const p = (member.pointsSuivi || []).find(x => x.id === pointId);
+  if (!p) return;
+  if (isPointLocked(p.mois)) { showToast('Ce point est verrouillé.'); return; }
+
+  const fields = ['retoursMissions', 'tauxStaffing', 'qualites', 'axeAmelioration'];
+  const managerData = {};
+  fields.forEach(k => {
+    const el = document.getElementById(`tmf_${memberId}_${pointId}_${k}`);
+    if (el) managerData[k] = el.value.trim();
+  });
+
+  const { error } = await sb.from('points_suivi').update({ manager_data: managerData }).eq('id', pointId);
+  if (error) { showToast('Erreur : ' + error.message); return; }
+
+  p.managerData = managerData;
+  showToast('Retours manager enregistrés !');
 }
 
 // ─────────────────────────────────────────
