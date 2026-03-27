@@ -6,7 +6,7 @@
   <title>Mon Espace — Hello Pomelo</title>
   <script src="https://accounts.google.com/gsi/client" async></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:wght@800;900&display=swap');
     * { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --pink: #FF3285; --blue: #0000EA; --navy: #05056D;
@@ -35,8 +35,17 @@
       text-align: center;
     }
     .login-logo { margin-bottom: 32px; }
-    .login-logo .brand { font-size: 1.1rem; font-weight: 700; color: var(--navy); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 12px; }
-    .login-logo .brand-sub { font-size: 0.75rem; color: var(--muted); font-weight: 600; letter-spacing: 0.06em; margin-top: 3px; }
+    .login-logo .hp-wordmark {
+      font-family: 'Nunito', sans-serif;
+      font-weight: 900;
+      color: #0000EA;
+      font-size: 2.05rem;
+      line-height: 1.08;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      text-align: center;
+    }
+    .login-logo .brand-sub { font-size: 0.75rem; color: var(--muted); font-weight: 600; letter-spacing: 0.06em; margin-top: 10px; }
     .divider { height: 3px; background: linear-gradient(90deg, var(--pink), var(--blue), var(--skyblue)); border-radius: 99px; margin: 28px 0; }
     .login-title { font-size: 1.3rem; font-weight: 700; color: var(--navy); margin-bottom: 8px; }
     .login-sub { font-size: 0.85rem; color: var(--muted); margin-bottom: 32px; line-height: 1.6; }
@@ -232,12 +241,10 @@
   <div class="login-card">
 
     <div class="login-logo">
-      <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect width="48" height="48" rx="14" fill="#05056D"/>
-        <circle cx="24" cy="18" r="7" fill="#FF3285"/>
-        <path d="M10 38c0-7.732 6.268-14 14-14s14 6.268 14 14" stroke="#5BB6F4" stroke-width="3" stroke-linecap="round"/>
-      </svg>
-      <div class="brand-name">Hello Pomelo</div>
+      <div class="hp-wordmark">
+        <div>HELLO</div>
+        <div>POMELO</div>
+      </div>
       <div class="brand-sub">Espace Collaborateur</div>
     </div>
 
