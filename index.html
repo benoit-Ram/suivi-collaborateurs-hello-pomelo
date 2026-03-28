@@ -703,9 +703,10 @@
             <th>Valideur</th>
             <th>Solde initial</th>
             <th>Acquisition/mois</th>
-            <th>Acquis depuis entrée</th>
-            <th>Pris (approuvés)</th>
-            <th>Solde restant</th>
+            <th>Acquis</th>
+            <th>Pris</th>
+            <th>Solde</th>
+            <th></th>
           </tr>
         </thead>
         <tbody id="soldesTable"></tbody>
@@ -2099,25 +2100,71 @@ function renderBoAbsences() {
     const s = getSoldeConges(c);
     const soldeColor = s.solde <= 0 ? 'var(--red)' : s.solde <= 5 ? 'var(--orange)' : 'var(--green)';
     const valideur = getValideurName(c);
+    const editing = soldeEditingId === c.id;
+    if (editing) {
+      return `<tr style="background:#FFF0F6;">
+        <td><strong>${c.prenom} ${c.nom}</strong></td>
+        <td>
+          <select id="seValideur_${c.id}" style="width:100%;border:1.5px solid var(--pink);border-radius:6px;padding:4px 6px;font-family:inherit;font-size:0.78rem;">
+            <option value="">Manager par défaut</option>
+            ${DB.collaborateurs.filter(x=>x.id!==c.id).map(x=>`<option value="${x.id}" ${(c.valideurCongesId||'')=== x.id?'selected':''}>${x.prenom} ${x.nom}</option>`).join('')}
+          </select>
+        </td>
+        <td><input id="seSolde_${c.id}" type="number" step="0.5" value="${s.soldeInitial}" style="width:60px;border:1.5px solid var(--pink);border-radius:6px;padding:4px 6px;font-family:inherit;font-size:0.82rem;text-align:center;" /></td>
+        <td><input id="seAcq_${c.id}" type="number" step="0.1" value="${s.acquisition}" style="width:60px;border:1.5px solid var(--pink);border-radius:6px;padding:4px 6px;font-family:inherit;font-size:0.82rem;text-align:center;" /></td>
+        <td>${s.acquis}j</td>
+        <td>${s.pris}j</td>
+        <td style="font-weight:700;color:${soldeColor};">${s.solde}j</td>
+        <td>
+          <div style="display:flex;gap:4px;">
+            <button class="btn btn-sm" style="background:var(--green);color:white;padding:4px 10px;" onclick="saveSoldeEdit('${c.id}')">✓</button>
+            <button class="btn btn-ghost btn-sm" style="padding:4px 10px;" onclick="cancelSoldeEdit()">✕</button>
+          </div>
+        </td>
+      </tr>`;
+    }
     return `<tr>
       <td><strong>${c.prenom} ${c.nom}</strong></td>
       <td style="font-size:0.82rem;">${valideur}</td>
-      <td><input type="number" step="0.5" value="${s.soldeInitial}" style="width:60px;border:1.5px solid var(--lavender);border-radius:6px;padding:4px 6px;font-family:inherit;font-size:0.82rem;text-align:center;" onchange="updateSoldeConges('${c.id}','solde_conges',this.value)" /></td>
-      <td><input type="number" step="0.1" value="${s.acquisition}" style="width:60px;border:1.5px solid var(--lavender);border-radius:6px;padding:4px 6px;font-family:inherit;font-size:0.82rem;text-align:center;" onchange="updateSoldeConges('${c.id}','acquisition_conges',this.value)" /></td>
+      <td>${s.soldeInitial}j</td>
+      <td>${s.acquisition}j/mois</td>
       <td>${s.acquis}j (${s.moisAcquis} mois)</td>
       <td>${s.pris}j</td>
       <td style="font-weight:700;color:${soldeColor};">${s.solde}j</td>
+      <td><button class="btn btn-ghost btn-sm" style="padding:4px 10px;" onclick="startSoldeEdit('${c.id}')">✏️</button></td>
     </tr>`;
   }).join('');
 }
 
-async function updateSoldeConges(collabId, field, value) {
-  const val = parseFloat(value) || 0;
-  const { error } = await sb.from('collaborateurs').update({ [field]: val }).eq('id', collabId);
+let soldeEditingId = null;
+
+function startSoldeEdit(id) {
+  soldeEditingId = id;
+  renderBoAbsences();
+}
+
+function cancelSoldeEdit() {
+  soldeEditingId = null;
+  renderBoAbsences();
+}
+
+async function saveSoldeEdit(id) {
+  const solde = parseFloat(document.getElementById('seSolde_'+id).value) || 0;
+  const acq = parseFloat(document.getElementById('seAcq_'+id).value) || 2.08;
+  const valideur = document.getElementById('seValideur_'+id).value || null;
+
+  const { error } = await sb.from('collaborateurs').update({
+    solde_conges: solde,
+    acquisition_conges: acq,
+    valideur_conges_id: valideur
+  }).eq('id', id);
   if (error) { showToast('Erreur: ' + error.message); return; }
-  const c = getCollab(collabId);
-  if (field === 'solde_conges') c.soldeConges = val;
-  else if (field === 'acquisition_conges') c.acquisitionConges = val;
+
+  const c = getCollab(id);
+  c.soldeConges = solde;
+  c.acquisitionConges = acq;
+  c.valideurCongesId = valideur;
+  soldeEditingId = null;
   renderBoAbsences();
   showToast('Congés mis à jour ✓');
 }
