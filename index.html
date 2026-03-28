@@ -842,7 +842,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 // ─────────────────────────────────────────
 // CONFIG
 // ─────────────────────────────────────────
-// DOCS_LABELS, TOGGLABLE_DOCS, STATUS_COLORS, STATUS_LABELS, BAR_COLORS sont dans utils.js
+// DOCS_LABELS, STATUS_COLORS, STATUS_LABELS, BAR_COLORS, ABS_* sont dans utils.js
 
 // ─────────────────────────────────────────
 // DATA MAPPING
@@ -2143,14 +2143,6 @@ function populateManagerSelect(selectId, selected, excludeId) {
     if (c.id === selected) o.selected = true;
     sel.appendChild(o);
   });
-}
-
-function renderDocsCheckboxes(selected) {
-  document.getElementById('fDocsCheckboxes').innerHTML = Object.entries(DOCS_LABELS).map(([k, label]) => `
-    <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;border:1.5px solid var(--lavender);cursor:pointer;font-size:0.82rem;background:white;">
-      <input type="checkbox" id="fdoc_${k}" value="${k}" ${selected.includes(k) ? 'checked' : ''} style="accent-color:var(--pink);width:16px;height:16px;" />
-      ${label}
-    </label>`).join('');
 }
 
 function openAddCollab() {

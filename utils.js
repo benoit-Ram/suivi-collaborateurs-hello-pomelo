@@ -12,8 +12,6 @@ const DOCS_LABELS = {
   fichePoste: 'Fiche de poste signée',
   lettreObjectif: 'Lettre d\'objectif signée',
 };
-const TOGGLABLE_DOCS = ['fichePoste', 'lettreObjectif', 'contrat'];
-
 const STATUS_COLORS = { 'en-cours': 'badge-blue', 'atteint': 'badge-green', 'non-atteint': 'badge-orange', 'en-attente': 'badge-gray' };
 const STATUS_LABELS = { 'en-cours': 'En cours', 'atteint': 'Atteint ✓', 'non-atteint': 'Non atteint', 'en-attente': 'En attente' };
 const BAR_COLORS = { 'en-cours': 'linear-gradient(90deg,var(--pink),var(--blue))', 'atteint': 'linear-gradient(90deg,#22C55E,#16A34A)', 'non-atteint': 'linear-gradient(90deg,#F97316,#EA580C)', 'en-attente': 'var(--lavender)' };
