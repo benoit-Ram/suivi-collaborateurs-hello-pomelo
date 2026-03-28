@@ -76,6 +76,23 @@ function daysFromNow(dateStr) {
   return daysBetween(new Date().toISOString().split('T')[0], dateStr);
 }
 
+// ── ABSENCES CONSTANTS ──
+const ABS_TYPES = { conge:'Congé', sans_solde:'Sans solde' };
+const ABS_STATUTS = { en_attente:'En attente', approuve:'Approuvé', refuse:'Refusé' };
+const ABS_STATUT_BADGE = { en_attente:'badge-orange', approuve:'badge-green', refuse:'badge-pink' };
+
+// ── DEBOUNCE ──
+function debounce(fn, delay) {
+  let timer;
+  return function(...args) { clearTimeout(timer); timer = setTimeout(() => fn.apply(this, args), delay); };
+}
+
+// ── TEXT ESCAPE (anti-XSS) ──
+function escHTML(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
 // ── JOURS FÉRIÉS FRANÇAIS ──
 const JOURS_FERIES_FIXES = [
   { m: 1, d: 1 }, { m: 5, d: 1 }, { m: 5, d: 8 }, { m: 7, d: 14 },

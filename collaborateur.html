@@ -521,9 +521,7 @@ function loginWithEmail(email, name, picture, saveSession) {
   currentCollab = collab;
   currentUser = { email, name: name || collab.prenom + ' ' + collab.nom, picture };
 
-  if (saveSession || true) {
-    sessionStorage.setItem('hp_collab_session', JSON.stringify(currentUser));
-  }
+  sessionStorage.setItem('hp_collab_session', JSON.stringify(currentUser));
 
   // Détecter si l'utilisateur est manager
   myTeam = COLLABS.filter(c => c.managerId === currentCollab.id);
@@ -1082,9 +1080,7 @@ async function saveTeamManagerPoint(memberId, pointId) {
 // ─────────────────────────────────────────
 // MES CONGÉS
 // ─────────────────────────────────────────
-const ABS_TYPES = { conge:'Congé', sans_solde:'Sans solde' };
-const ABS_STATUTS = { en_attente:'En attente', approuve:'Approuvé', refuse:'Refusé' };
-const ABS_STATUT_BADGE = { en_attente:'badge-orange', approuve:'badge-green', refuse:'badge-pink' };
+// ABS_TYPES, ABS_STATUTS, ABS_STATUT_BADGE sont dans utils.js
 
 let myAbsences = [];
 
@@ -1198,7 +1194,7 @@ async function renderConges() {
           <div style="font-weight:700;font-size:0.9rem;color:var(--navy);">${ABS_TYPES[a.type]||a.type}</div>
           <div style="font-size:0.78rem;color:var(--muted);margin-top:2px;">Du ${fmtDate(a.dateDebut)} au ${fmtDate(a.dateFin)} · ${jours} jour${jours>1?'s':''}</div>
           ${a.commentaire ? `<div style="font-size:0.78rem;color:var(--muted);margin-top:4px;font-style:italic;">${a.commentaire}</div>` : ''}
-          ${a.statut === 'refuse' && a.motifRefus ? `<div style="font-size:0.78rem;color:#881337;margin-top:4px;background:#FFF1F2;padding:6px 10px;border-radius:6px;border-left:3px solid #F43F5E;">Motif du refus : ${a.motifRefus}</div>` : ''}
+          ${a.statut === 'refuse' && a.motifRefus ? `<div style="font-size:0.78rem;color:#881337;margin-top:4px;background:#FFF1F2;padding:6px 10px;border-radius:6px;border-left:3px solid #F43F5E;">Motif du refus : ${escHTML(a.motifRefus)}</div>` : ''}
         </div>
         <span class="badge ${ABS_STATUT_BADGE[a.statut]||'badge-gray'}">${ABS_STATUTS[a.statut]||a.statut}</span>
         ${a.statut === 'en_attente' ? `<button class="btn btn-danger btn-sm" onclick="cancelAbsence('${a.id}')">Annuler</button>` : ''}

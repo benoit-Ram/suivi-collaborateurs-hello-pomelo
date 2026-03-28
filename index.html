@@ -519,7 +519,7 @@
 
     <!-- SEARCH + FILTERS + EXPORT -->
     <div class="search-bar">
-      <input class="search-input" id="searchInput" type="text" placeholder="Rechercher un collaborateur..." oninput="filterCollabs()" />
+      <input class="search-input" id="searchInput" type="text" placeholder="Rechercher un collaborateur..." oninput="debouncedFilter()" />
       <button id="searchClear" style="background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--muted);padding:4px 8px;display:none;" onclick="document.getElementById('searchInput').value='';filterCollabs();" title="Effacer">✕</button>
       <span id="resultCount" class="result-count"></span>
       <button class="btn btn-navy btn-sm" onclick="exportCollabsCSV()" title="Exporter en CSV">📥 Export CSV</button>
@@ -887,7 +887,7 @@ async function initDB() {
     sb.from('absences').select('*').order('date_debut', { ascending: false })
   ]);
   loader.remove();
-  if (collabRes.error) { alert('Erreur Supabase : ' + collabRes.error.message); return; }
+  if (collabRes.error) { showToast('Erreur Supabase : ' + collabRes.error.message); return; }
   DB = {
     collaborateurs: collabRes.data.map(fromRow),
     absences: (absencesRes.data || []).map(a => ({
@@ -1127,6 +1127,8 @@ function filterCollabs() {
   renderCollabGrid(filtered);
 }
 
+const debouncedFilter = debounce(filterCollabs, 200);
+
 function renderCollabGrid(list) {
   const grid = document.getElementById('collabGrid');
   const pagRow = document.getElementById('paginationRow');
@@ -1205,9 +1207,9 @@ function renderCollab() {
           ${c.typePoste ? `<div class="profile-meta-item">🏷️ Type de poste : <span>${c.typePoste}</span></div>` : ''}
           ${manager ? `<div class="profile-meta-item">👔 Manager : <span>${manager}</span></div>` : ''}
           ${c.dateFinEssai ? `<div class="profile-meta-item">⏰ Fin période d'essai : <span>${fmtDate(c.dateFinEssai)}</span></div>` : ''}
-          ${c.googleDrive ? `<div class="profile-meta-item">📁 <a href="${c.googleDrive}" target="_blank" style="color:var(--blue);text-decoration:underline;font-weight:700;">Google Drive</a></div>` : ''}
+          ${c.googleDrive ? `<div class="profile-meta-item">📁 <a href="${escHTML(c.googleDrive)}" target="_blank" style="color:var(--blue);text-decoration:underline;font-weight:700;">Google Drive</a></div>` : ''}
         </div>
-        ${c.notes ? `<div style="margin-top:10px;padding:10px 14px;background:#FFF7ED;border-radius:10px;border-left:3px solid var(--orange);font-size:0.82rem;color:#9A3412;"><strong>Notes RH :</strong> ${c.notes}</div>` : ''}
+        ${c.notes ? `<div style="margin-top:10px;padding:10px 14px;background:#FFF7ED;border-radius:10px;border-left:3px solid var(--orange);font-size:0.82rem;color:#9A3412;"><strong>Notes RH :</strong> ${escHTML(c.notes)}</div>` : ''}
       </div>
       <div style="display:flex;flex-direction:column;gap:8px;">
         <button class="btn btn-ghost btn-sm" onclick="openEditCollab('${c.id}')">✏️ Modifier</button>
@@ -1225,7 +1227,7 @@ function renderCollab() {
   document.getElementById('btnAddObj').classList.remove('hidden');
   document.getElementById('btnSaveOnboarding').classList.remove('hidden');
 
-  renderOnboarding();
+  showTab('onboarding');
 }
 
 function showTab(tab) {
@@ -1671,7 +1673,7 @@ function openEditObj(id) {
 
 async function saveObj() {
   const titre = document.getElementById('oTitre').value.trim();
-  if (!titre) { alert('Veuillez renseigner le titre de l\'objectif.'); return; }
+  if (!titre) { showToast('Veuillez renseigner le titre de l\'objectif.'); return; }
   const c = getCollab(currentCollabId);
   if (!c.objectifs) c.objectifs = [];
   const progression = parseInt(document.getElementById('oProgression').value) || 0;
@@ -1683,7 +1685,7 @@ async function saveObj() {
     statut: document.getElementById('oStatut').value,
     progression,
   };
-  if (!row.date_debut || !row.date_fin) { alert('Veuillez définir une date de début et de fin.'); return; }
+  if (!row.date_debut || !row.date_fin) { showToast('Veuillez définir une date de début et de fin.'); return; }
   if (editingObjId) {
     const { error } = await sb.from('objectifs').update(row).eq('id', editingObjId);
     if (error) { showToast('Erreur: ' + error.message); return; }
@@ -1837,7 +1839,7 @@ async function saveCollab() {
   const prenom = document.getElementById('fPrenom').value.trim();
   const nom = document.getElementById('fNom').value.trim();
   const poste = document.getElementById('fPoste').value.trim();
-  if (!prenom || !nom || !poste) { alert('Prénom, nom et poste sont obligatoires.'); return; }
+  if (!prenom || !nom || !poste) { showToast('Prénom, nom et poste sont obligatoires.'); return; }
 
   const row = {
     prenom, nom, poste,
@@ -1962,40 +1964,23 @@ function renderBoManagers() {
   document.getElementById('relManager').value = '';
 }
 
-function filterRelCollab() {
-  const q = document.getElementById('relCollabSearch').value.trim().toLowerCase();
-  const list = document.getElementById('relCollabList');
-  const hidden = document.getElementById('relCollab');
+function filterRelSearch(searchId, listId, hiddenId) {
+  const q = document.getElementById(searchId).value.trim().toLowerCase();
+  const list = document.getElementById(listId);
+  const hidden = document.getElementById(hiddenId);
   hidden.value = '';
   if (q.length < 3) { list.innerHTML = ''; return; }
   const matches = DB.collaborateurs.filter(c =>
     (c.prenom.toLowerCase().startsWith(q) || c.nom.toLowerCase().startsWith(q) || (c.prenom + ' ' + c.nom).toLowerCase().includes(q))
   );
   list.innerHTML = matches.map(c => `<option value="${c.prenom} ${c.nom}" data-id="${c.id}">${c.prenom} ${c.nom} — ${c.poste}</option>`).join('');
-  // Auto-select if exact match
-  const exact = matches.find(c => (c.prenom + ' ' + c.nom).toLowerCase() === q);
-  if (exact) hidden.value = exact.id;
-  else {
-    const inputVal = document.getElementById('relCollabSearch').value;
-    const match = matches.find(c => (c.prenom + ' ' + c.nom) === inputVal);
-    if (match) hidden.value = match.id;
-  }
-}
-
-function filterRelManager() {
-  const q = document.getElementById('relManagerSearch').value.trim().toLowerCase();
-  const list = document.getElementById('relManagerList');
-  const hidden = document.getElementById('relManager');
-  hidden.value = '';
-  if (q.length < 3) { list.innerHTML = ''; return; }
-  const matches = DB.collaborateurs.filter(c =>
-    (c.prenom.toLowerCase().startsWith(q) || c.nom.toLowerCase().startsWith(q) || (c.prenom + ' ' + c.nom).toLowerCase().includes(q))
-  );
-  list.innerHTML = matches.map(c => `<option value="${c.prenom} ${c.nom}" data-id="${c.id}">${c.prenom} ${c.nom} — ${c.poste}</option>`).join('');
-  const inputVal = document.getElementById('relManagerSearch').value;
-  const match = matches.find(c => (c.prenom + ' ' + c.nom) === inputVal);
+  const inputVal = document.getElementById(searchId).value;
+  const match = matches.find(c => (c.prenom + ' ' + c.nom).toLowerCase() === inputVal.toLowerCase() || (c.prenom + ' ' + c.nom) === inputVal);
   if (match) hidden.value = match.id;
 }
+
+function filterRelCollab() { filterRelSearch('relCollabSearch', 'relCollabList', 'relCollab'); }
+function filterRelManager() { filterRelSearch('relManagerSearch', 'relManagerList', 'relManager'); }
 
 function renderOrgChart() {
   // Build children lookup map once → O(n) instead of O(n²) filtering per node
@@ -2037,8 +2022,8 @@ function resolveCollabId(searchId, hiddenId) {
 async function saveRelation() {
   const collabId = resolveCollabId('relCollabSearch', 'relCollab');
   const managerId = resolveCollabId('relManagerSearch', 'relManager');
-  if (!collabId) { alert('Choisissez un collaborateur (tapez au moins 3 lettres).'); return; }
-  if (collabId === managerId) { alert('Un collaborateur ne peut pas être son propre manager.'); return; }
+  if (!collabId) { showToast('Choisissez un collaborateur (tapez au moins 3 lettres).'); return; }
+  if (collabId === managerId) { showToast('Un collaborateur ne peut pas être son propre manager.'); return; }
   const { error } = await sb.from('collaborateurs').update({ manager_id: managerId || null }).eq('id', collabId);
   if (error) { showToast('Erreur: ' + error.message); return; }
   getCollab(collabId).managerId = managerId || null;
@@ -2051,9 +2036,7 @@ async function saveRelation() {
 // ─────────────────────────────────────────
 // CONGÉS & ABSENCES
 // ─────────────────────────────────────────
-const ABS_TYPES = { conge:'Congé', sans_solde:'Sans solde' };
-const ABS_STATUTS = { en_attente:'En attente', approuve:'Approuvé', refuse:'Refusé' };
-const ABS_STATUT_BADGE = { en_attente:'badge-orange', approuve:'badge-green', refuse:'badge-pink' };
+// ABS_TYPES, ABS_STATUTS, ABS_STATUT_BADGE sont dans utils.js
 
 // countWorkDays est dans utils.js (exclut weekends + jours fériés FR)
 
@@ -2117,7 +2100,7 @@ function renderBoAbsences() {
         <td style="font-size:0.82rem;">${valideur}</td>
         <td>
           <span class="badge ${ABS_STATUT_BADGE[a.statut]||'badge-gray'}">${ABS_STATUTS[a.statut]||a.statut}</span>
-          ${a.statut === 'refuse' && a.motifRefus ? `<div style="font-size:0.72rem;color:#881337;margin-top:4px;font-style:italic;">Motif : ${a.motifRefus}</div>` : ''}
+          ${a.statut === 'refuse' && a.motifRefus ? `<div style="font-size:0.72rem;color:#881337;margin-top:4px;font-style:italic;">Motif : ${escHTML(a.motifRefus)}</div>` : ''}
         </td>
         <td>
           <div style="display:flex;gap:6px;">
@@ -2367,7 +2350,7 @@ function exportCollabPDF() {
   const html = `
     <h1>${c.prenom} ${c.nom}</h1>
     <div class="meta">${c.poste} · Manager : ${manager} · Entrée le ${fmtDate(c.dateEntree)}${c.bureau?' · Bureau : '+c.bureau:''}${c.equipe?' · Équipe : '+c.equipe:''}</div>
-    ${c.notes ? `<div class="field"><div class="field-label">Notes RH</div><div class="field-value">${c.notes}</div></div>` : ''}
+    ${c.notes ? `<div class="field"><div class="field-label">Notes RH</div><div class="field-value">${escHTML(c.notes)}</div></div>` : ''}
     <h2>Objectifs</h2>
     ${objs || '<p>Aucun objectif</p>'}
     <h2>Derniers points mensuels</h2>
