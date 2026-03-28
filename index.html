@@ -2233,7 +2233,7 @@ function renderOrgChart() {
     const children = childrenMap[c.id] || [];
     return `
       <div style="margin-left:${depth * 22}px;${depth ? 'border-left:2px solid var(--lavender);padding-left:14px;' : ''}margin-top:8px;">
-        <div class="tree-item">
+        <div class="tree-item" style="cursor:pointer;" onclick="navigate('collab','${c.id}')">
           <div class="tree-avatar">${initials(c)}</div>
           <div>
             <div class="tree-name">${c.prenom} ${c.nom}</div>
