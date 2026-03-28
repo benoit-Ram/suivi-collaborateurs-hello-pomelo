@@ -611,7 +611,8 @@
       <p>Ajouter, modifier ou supprimer des membres de l'équipe</p>
     </div>
     <div class="divider"></div>
-    <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px;">
+      <input id="peopleSearch" type="text" class="search-input" placeholder="Rechercher un collaborateur..." oninput="renderBoPeople()" style="flex:1;max-width:400px;" />
       <button class="btn btn-primary" onclick="openAddCollab()">+ Ajouter un collaborateur</button>
     </div>
     <div class="card">
@@ -2130,7 +2131,11 @@ function renderBoPeople() {
     return;
   }
 
-  let list = [...DB.collaborateurs];
+  const searchEl = document.getElementById('peopleSearch');
+  const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
+  let list = DB.collaborateurs.filter(c =>
+    !q || (c.prenom + ' ' + c.nom + ' ' + c.poste + ' ' + c.email).toLowerCase().includes(q)
+  );
   if (peopleSortKey) {
     list.sort((a, b) => {
       let va, vb;
