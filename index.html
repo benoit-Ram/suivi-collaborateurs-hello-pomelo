@@ -669,11 +669,7 @@
       </select>
       <select id="absFilterType" class="settings-input" style="flex:none;width:180px;padding:8px 12px;font-size:0.82rem;" onchange="renderBoAbsences()">
         <option value="">Tous les types</option>
-        <option value="conge_paye">Congé payé</option>
-        <option value="rtt">RTT</option>
-        <option value="maladie">Maladie</option>
-        <option value="teletravail">Télétravail</option>
-        <option value="formation">Formation</option>
+        <option value="conge">Congé</option>
         <option value="sans_solde">Sans solde</option>
       </select>
       <select id="absFilterCollab" class="settings-input" style="flex:none;width:200px;padding:8px 12px;font-size:0.82rem;" onchange="renderBoAbsences()">
@@ -2015,7 +2011,7 @@ async function saveRelation() {
 // ─────────────────────────────────────────
 // CONGÉS & ABSENCES
 // ─────────────────────────────────────────
-const ABS_TYPES = { conge_paye:'Congé payé', rtt:'RTT', maladie:'Maladie', teletravail:'Télétravail', formation:'Formation', sans_solde:'Sans solde' };
+const ABS_TYPES = { conge:'Congé', sans_solde:'Sans solde' };
 const ABS_STATUTS = { en_attente:'En attente', approuve:'Approuvé', refuse:'Refusé' };
 const ABS_STATUT_BADGE = { en_attente:'badge-orange', approuve:'badge-green', refuse:'badge-pink' };
 
@@ -2034,7 +2030,7 @@ function getSoldeConges(c) {
   const acquis = Math.round(moisAcquis * acquisition * 100) / 100;
   // Jours pris (absences approuvées de type congé payé ou RTT)
   const pris = (DB.absences || [])
-    .filter(a => a.collaborateurId === c.id && a.statut === 'approuve' && ['conge_paye','rtt'].includes(a.type))
+    .filter(a => a.collaborateurId === c.id && a.statut === 'approuve' && a.type === 'conge')
     .reduce((sum, a) => sum + countWorkDays(a.dateDebut, a.dateFin), 0);
   const solde = Math.round((soldeInitial + acquis - pris) * 100) / 100;
   return { soldeInitial, acquisition, moisAcquis, acquis, pris, solde };

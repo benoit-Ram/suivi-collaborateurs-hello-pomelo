@@ -1063,7 +1063,7 @@ async function saveTeamManagerPoint(memberId, pointId) {
 // ─────────────────────────────────────────
 // MES CONGÉS
 // ─────────────────────────────────────────
-const ABS_TYPES = { conge_paye:'Congé payé', rtt:'RTT', maladie:'Maladie', teletravail:'Télétravail', formation:'Formation', sans_solde:'Sans solde' };
+const ABS_TYPES = { conge:'Congé', sans_solde:'Sans solde' };
 const ABS_STATUTS = { en_attente:'En attente', approuve:'Approuvé', refuse:'Refusé' };
 const ABS_STATUT_BADGE = { en_attente:'badge-orange', approuve:'badge-green', refuse:'badge-pink' };
 
@@ -1083,10 +1083,10 @@ function getMySolde() {
   }
   const acquis = Math.round(moisAcquis * acquisition * 100) / 100;
   const pris = myAbsences
-    .filter(a => a.statut === 'approuve' && ['conge_paye','rtt'].includes(a.type))
+    .filter(a => a.statut === 'approuve' && a.type === 'conge')
     .reduce((sum, a) => sum + countWorkDays(a.dateDebut, a.dateFin), 0);
   const enAttente = myAbsences
-    .filter(a => a.statut === 'en_attente' && ['conge_paye','rtt'].includes(a.type))
+    .filter(a => a.statut === 'en_attente' && a.type === 'conge')
     .reduce((sum, a) => sum + countWorkDays(a.dateDebut, a.dateFin), 0);
   const solde = Math.round((soldeInitial + acquis - pris) * 100) / 100;
   return { soldeInitial, acquis, pris, enAttente, solde };
