@@ -419,6 +419,17 @@ window.addEventListener('load', async () => {
   // Préchargement des collaborateurs depuis Supabase
   COLLABS = await loadCollabsFromSupabase();
 
+  // Admin impersonation via URL parameter
+  const urlParams = new URLSearchParams(window.location.search);
+  const impersonate = urlParams.get('admin_impersonate');
+  if (impersonate) {
+    try {
+      const u = JSON.parse(decodeURIComponent(impersonate));
+      loginWithEmail(u.email, u.name, u.picture, false);
+      return;
+    } catch(e) {}
+  }
+
   // Check existing session
   const session = sessionStorage.getItem('hp_collab_session');
   if (session) {
