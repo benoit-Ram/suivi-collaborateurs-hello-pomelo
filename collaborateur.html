@@ -434,15 +434,15 @@ window.addEventListener('load', async () => {
     settingsData.data.forEach(row => { COLLAB_SETTINGS[row.key] = row.value; });
   }
 
-  // Admin impersonation via URL parameter
+  // Admin impersonation via URL parameter (by ID)
   const urlParams = new URLSearchParams(window.location.search);
-  const impersonate = urlParams.get('admin_impersonate');
-  if (impersonate) {
-    try {
-      const u = JSON.parse(decodeURIComponent(impersonate));
-      loginWithEmail(u.email, u.name, u.picture, false);
+  const impersonateId = urlParams.get('admin_impersonate_id');
+  if (impersonateId) {
+    const collab = COLLABS.find(c => c.id === impersonateId);
+    if (collab) {
+      loginWithId(collab);
       return;
-    } catch(e) {}
+    }
   }
 
   // Check existing session
@@ -515,6 +515,15 @@ function closeDemoModal(event) {
   if (event.target.id === 'demoModal') {
     document.getElementById('demoModal').classList.add('hidden');
   }
+}
+
+function loginWithId(collab) {
+  currentCollab = collab;
+  currentUser = { email: collab.email, name: collab.prenom + ' ' + collab.nom, picture: null };
+  sessionStorage.setItem('hp_collab_session', JSON.stringify(currentUser));
+  myTeam = COLLABS.filter(c => c.managerId === currentCollab.id);
+  if (myTeam.length > 0) document.getElementById('btnTabEquipe').classList.remove('hidden');
+  showApp();
 }
 
 function loginWithEmail(email, name, picture, saveSession) {

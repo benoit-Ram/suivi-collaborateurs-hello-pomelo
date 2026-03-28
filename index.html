@@ -1309,7 +1309,7 @@ function renderCollab() {
       <div style="display:flex;flex-direction:column;gap:8px;">
         <button class="btn btn-ghost btn-sm" onclick="openEditCollab('${c.id}')">✏️ Modifier</button>
         <button class="btn btn-navy btn-sm" onclick="exportCollabPDF()">📄 Export PDF</button>
-        ${c.email ? `<button class="btn btn-sm" style="background:linear-gradient(135deg,var(--skyblue),var(--blue));color:white;" onclick="voirCommeCollab('${c.email}','${(c.prenom+' '+c.nom).replace(/'/g,"\\'")}')">👁 Voir comme ${c.prenom}</button>` : ''}
+        `<button class="btn btn-sm" style="background:linear-gradient(135deg,var(--skyblue),var(--blue));color:white;" onclick="voirCommeCollab('${c.id}')">👁 Voir comme ${escHTML(c.prenom)}</button>`
       </div>
     </div>`;
 
@@ -2611,10 +2611,8 @@ document.querySelectorAll('.modal-overlay').forEach(o => {
 // ─────────────────────────────────────────
 // VOIR COMME COLLABORATEUR
 // ─────────────────────────────────────────
-function voirCommeCollab(email, name) {
-  // Ouvre l'espace collaborateur dans un nouvel onglet avec une session simulée
-  const session = JSON.stringify({ email, name, picture: null });
-  const url = 'collaborateur.html?admin_impersonate=' + encodeURIComponent(session);
+function voirCommeCollab(collabId) {
+  const url = 'collaborateur.html?admin_impersonate_id=' + encodeURIComponent(collabId);
   window.open(url, '_blank');
 }
 
