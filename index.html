@@ -621,9 +621,9 @@
           <tr>
             <th style="cursor:pointer;" onclick="sortPeople('nom')">Collaborateur <span id="sortIcon_nom">↕</span></th>
             <th style="cursor:pointer;" onclick="sortPeople('poste')">Poste <span id="sortIcon_poste">↕</span></th>
+            <th style="cursor:pointer;" onclick="sortPeople('equipe')">Équipe <span id="sortIcon_equipe">↕</span></th>
             <th style="cursor:pointer;" onclick="sortPeople('manager')">Manager <span id="sortIcon_manager">↕</span></th>
             <th style="cursor:pointer;" onclick="sortPeople('dateEntree')">Date d'entrée <span id="sortIcon_dateEntree">↕</span></th>
-            <th>Dossier</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -804,6 +804,26 @@
             <input id="newQCollabOpts" type="text" placeholder="Options séparées par des virgules" class="settings-input" />
           </div>
           <button class="btn btn-primary" onclick="addQuestion('collab')">+ Ajouter</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- OBJECTIFS D'ÉQUIPE -->
+    <div class="section-title" style="margin-top:28px;">Objectifs d'équipe</div>
+    <div id="teamObjEquipeSelect" style="margin-bottom:16px;">
+      <select id="teamObjEquipe" class="settings-input" style="width:220px;padding:8px 12px;font-size:0.82rem;" onchange="renderTeamObjectifs()">
+        <option value="">— Choisir une équipe —</option>
+      </select>
+    </div>
+    <div id="teamObjList"></div>
+    <div id="teamObjForm" style="display:none;margin-top:12px;">
+      <div class="card">
+        <div style="display:flex;gap:8px;align-items:end;">
+          <div style="flex:1;">
+            <label style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:5px;">Titre de l'objectif d'équipe</label>
+            <input id="newTeamObjTitre" type="text" placeholder="Ex : Augmenter le NPS de 10 points" class="settings-input" style="width:100%;" />
+          </div>
+          <button class="btn btn-primary" onclick="addTeamObjectif()">+ Ajouter</button>
         </div>
       </div>
     </div>
@@ -1885,14 +1905,28 @@ function renderBoSettings() {
     if (!el) return;
     const items = SETTINGS[key] || [];
     el.innerHTML = items.length
-      ? items.map(v => `
+      ? items.map(v => {
+          const used = isSettingValueUsed(key, v);
+          return `
           <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border:1.5px solid var(--lavender);border-radius:10px;margin-bottom:8px;background:white;">
-            <span style="font-weight:600;color:var(--navy);">${v}</span>
-            <button class="btn btn-danger btn-sm" onclick="removeSettingItem('${key}','${encodeURIComponent(v)}')">✕</button>
-          </div>`).join('')
+            <span style="font-weight:600;color:var(--navy);">${escHTML(v)}</span>
+            <div style="display:flex;gap:4px;">
+              <button class="btn btn-ghost btn-sm" style="padding:4px 8px;" onclick="renameSettingItem('${key}','${encodeURIComponent(v)}')">✏️</button>
+              ${used ? `<span title="Utilisé par au moins un collaborateur" style="color:var(--muted);font-size:0.72rem;padding:4px 8px;cursor:help;">🔒</span>` : `<button class="btn btn-danger btn-sm" style="padding:4px 8px;" onclick="removeSettingItem('${key}','${encodeURIComponent(v)}')">✕</button>`}
+            </div>
+          </div>`;
+        }).join('')
       : `<p style="color:var(--muted);font-size:0.85rem;font-style:italic;">Aucun élément.</p>`;
   });
   renderQuestionsList();
+
+  // Populate team objectives equipe select
+  const teamObjSel = document.getElementById('teamObjEquipe');
+  const curTeam = teamObjSel.value;
+  const equipes = SETTINGS.equipes || [];
+  teamObjSel.innerHTML = '<option value="">— Choisir une équipe —</option>' +
+    equipes.map(e => `<option value="${escHTML(e)}" ${e === curTeam ? 'selected' : ''}>${escHTML(e)}</option>`).join('');
+  renderTeamObjectifs();
 
   // Toggle QCM options fields
   document.getElementById('newQManagerType').onchange = function() {
@@ -1988,6 +2022,62 @@ async function saveSettingKey(key, value) {
   if (error) showToast('Erreur: ' + error.message);
 }
 
+// ── OBJECTIFS D'ÉQUIPE ──
+function renderTeamObjectifs() {
+  const equipe = document.getElementById('teamObjEquipe').value;
+  const form = document.getElementById('teamObjForm');
+  const list = document.getElementById('teamObjList');
+  if (!equipe) { form.style.display = 'none'; list.innerHTML = ''; return; }
+  form.style.display = 'block';
+  const objs = SETTINGS['team_objectifs_' + equipe] || [];
+  if (!objs.length) {
+    list.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;font-style:italic;">Aucun objectif d\'équipe pour cette BU.</p>';
+    return;
+  }
+  list.innerHTML = objs.map((o, i) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid var(--lavender);border-radius:10px;margin-bottom:8px;background:white;">
+      <span style="background:var(--blue);color:white;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;flex-shrink:0;">${i+1}</span>
+      <span style="flex:1;font-weight:600;color:var(--navy);font-size:0.88rem;">${escHTML(o)}</span>
+      <button class="btn btn-ghost btn-sm" onclick="editTeamObjectif('${equipe}',${i})">✏️</button>
+      <button class="btn btn-danger btn-sm" onclick="removeTeamObjectif('${equipe}',${i})">✕</button>
+    </div>`).join('');
+}
+
+async function addTeamObjectif() {
+  const equipe = document.getElementById('teamObjEquipe').value;
+  const titre = document.getElementById('newTeamObjTitre').value.trim();
+  if (!titre) { showToast('Veuillez saisir un titre.'); return; }
+  const key = 'team_objectifs_' + equipe;
+  const list = [...(SETTINGS[key] || []), titre];
+  await saveSettingKey(key, list);
+  SETTINGS[key] = list;
+  document.getElementById('newTeamObjTitre').value = '';
+  renderTeamObjectifs();
+  showToast('Objectif d\'équipe ajouté !');
+}
+
+async function removeTeamObjectif(equipe, index) {
+  if (!confirm('Supprimer cet objectif d\'équipe ?')) return;
+  const key = 'team_objectifs_' + equipe;
+  const list = [...(SETTINGS[key] || [])];
+  list.splice(index, 1);
+  await saveSettingKey(key, list);
+  SETTINGS[key] = list;
+  renderTeamObjectifs();
+}
+
+function editTeamObjectif(equipe, index) {
+  const key = 'team_objectifs_' + equipe;
+  const list = SETTINGS[key] || [];
+  const newVal = prompt('Modifier l\'objectif :', list[index]);
+  if (newVal === null || !newVal.trim()) return;
+  list[index] = newVal.trim();
+  saveSettingKey(key, list);
+  SETTINGS[key] = list;
+  renderTeamObjectifs();
+  showToast('Objectif modifié !');
+}
+
 async function addSettingItem(key) {
   const input = document.getElementById('newVal_' + key);
   const val = input.value.trim();
@@ -2000,6 +2090,35 @@ async function addSettingItem(key) {
   input.value = '';
   renderBoSettings();
   showToast(`"${val}" ajouté !`);
+}
+
+function isSettingValueUsed(key, val) {
+  const fieldMap = { equipes: 'equipe', bureaux: 'bureau', contrats: 'contrat', typePostes: 'typePoste' };
+  const field = fieldMap[key];
+  if (!field) return false;
+  return DB.collaborateurs.some(c => c[field] === val);
+}
+
+async function renameSettingItem(key, encodedVal) {
+  const oldVal = decodeURIComponent(encodedVal);
+  const newVal = prompt(`Renommer "${oldVal}" en :`, oldVal);
+  if (!newVal || !newVal.trim() || newVal.trim() === oldVal) return;
+  const trimmed = newVal.trim();
+  // Update setting list
+  const newList = (SETTINGS[key] || []).map(v => v === oldVal ? trimmed : v);
+  const { error } = await sb.from('settings').update({ value: newList }).eq('key', key);
+  if (error) { showToast('Erreur : ' + error.message); return; }
+  SETTINGS[key] = newList;
+  // Update all collaborateurs using the old value
+  const fieldMap = { equipes: 'equipe', bureaux: 'bureau', contrats: 'contrat', typePostes: 'type_poste' };
+  const dbField = fieldMap[key];
+  if (dbField) {
+    await sb.from('collaborateurs').update({ [dbField]: trimmed }).eq(dbField, oldVal);
+    const jsField = { equipes: 'equipe', bureaux: 'bureau', contrats: 'contrat', typePostes: 'typePoste' }[key];
+    DB.collaborateurs.forEach(c => { if (c[jsField] === oldVal) c[jsField] = trimmed; });
+  }
+  renderBoSettings();
+  showToast(`"${oldVal}" renommé en "${trimmed}"`);
 }
 
 async function removeSettingItem(key, encodedVal) {
@@ -2147,14 +2266,14 @@ function renderBoPeople() {
       let va, vb;
       if (peopleSortKey === 'nom') { va = (a.nom + ' ' + a.prenom).toLowerCase(); vb = (b.nom + ' ' + b.prenom).toLowerCase(); }
       else if (peopleSortKey === 'poste') { va = (a.poste||'').toLowerCase(); vb = (b.poste||'').toLowerCase(); }
+      else if (peopleSortKey === 'equipe') { va = (a.equipe||'zzz').toLowerCase(); vb = (b.equipe||'zzz').toLowerCase(); }
       else if (peopleSortKey === 'manager') { va = a.managerId ? getManagerName(a.managerId).toLowerCase() : 'zzz'; vb = b.managerId ? getManagerName(b.managerId).toLowerCase() : 'zzz'; }
       else if (peopleSortKey === 'dateEntree') { va = a.dateEntree || '9999'; vb = b.dateEntree || '9999'; }
       if (va < vb) return peopleSortAsc ? -1 : 1;
       if (va > vb) return peopleSortAsc ? 1 : -1;
       return 0;
     });
-    // Update sort icons
-    ['nom','poste','manager','dateEntree'].forEach(k => {
+    ['nom','poste','equipe','manager','dateEntree'].forEach(k => {
       const icon = document.getElementById('sortIcon_' + k);
       if (icon) icon.textContent = k === peopleSortKey ? (peopleSortAsc ? '▲' : '▼') : '↕';
     });
@@ -2174,9 +2293,9 @@ function renderBoPeople() {
           </div>
         </td>
         <td>${c.poste}</td>
+        <td>${c.equipe || '<span style="color:var(--muted)">—</span>'}</td>
         <td>${c.managerId ? getManagerName(c.managerId) : '<span style="color:var(--muted)">—</span>'}</td>
         <td>${fmtDate(c.dateEntree)}</td>
-        <td>${badge}</td>
         <td>
           <div style="display:flex;gap:6px;">
             <button class="btn btn-ghost btn-sm" onclick="navigate('collab','${c.id}')">Voir</button>
