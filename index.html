@@ -2019,16 +2019,7 @@ const ABS_TYPES = { conge_paye:'Congé payé', rtt:'RTT', maladie:'Maladie', tel
 const ABS_STATUTS = { en_attente:'En attente', approuve:'Approuvé', refuse:'Refusé' };
 const ABS_STATUT_BADGE = { en_attente:'badge-orange', approuve:'badge-green', refuse:'badge-pink' };
 
-function countWorkDays(d1, d2) {
-  let count = 0;
-  const start = new Date(d1);
-  const end = new Date(d2);
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const dow = d.getDay();
-    if (dow !== 0 && dow !== 6) count++;
-  }
-  return count;
-}
+// countWorkDays est dans utils.js (exclut weekends + jours fériés FR)
 
 function getSoldeConges(c) {
   const soldeInitial = c.soldeConges || 0;
