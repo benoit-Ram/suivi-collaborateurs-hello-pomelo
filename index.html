@@ -608,10 +608,10 @@
       <table>
         <thead>
           <tr>
-            <th>Collaborateur</th>
-            <th>Poste</th>
-            <th>Manager</th>
-            <th>Date d'entrée</th>
+            <th style="cursor:pointer;" onclick="sortPeople('nom')">Collaborateur <span id="sortIcon_nom">↕</span></th>
+            <th style="cursor:pointer;" onclick="sortPeople('poste')">Poste <span id="sortIcon_poste">↕</span></th>
+            <th style="cursor:pointer;" onclick="sortPeople('manager')">Manager <span id="sortIcon_manager">↕</span></th>
+            <th style="cursor:pointer;" onclick="sortPeople('dateEntree')">Date d'entrée <span id="sortIcon_dateEntree">↕</span></th>
             <th>Dossier</th>
             <th>Actions</th>
           </tr>
@@ -1841,13 +1841,41 @@ async function saveCollab() {
 // ─────────────────────────────────────────
 // BO: PEOPLE TABLE
 // ─────────────────────────────────────────
+let peopleSortKey = null;
+let peopleSortAsc = true;
+
+function sortPeople(key) {
+  if (peopleSortKey === key) { peopleSortAsc = !peopleSortAsc; }
+  else { peopleSortKey = key; peopleSortAsc = true; }
+  renderBoPeople();
+}
+
 function renderBoPeople() {
   const tbody = document.getElementById('peopleTable');
   if (!DB.collaborateurs.length) {
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px;">Aucun collaborateur — cliquez sur "+ Ajouter"</td></tr>';
     return;
   }
-  tbody.innerHTML = DB.collaborateurs.map(c => {
+
+  let list = [...DB.collaborateurs];
+  if (peopleSortKey) {
+    list.sort((a, b) => {
+      let va, vb;
+      if (peopleSortKey === 'nom') { va = (a.nom + ' ' + a.prenom).toLowerCase(); vb = (b.nom + ' ' + b.prenom).toLowerCase(); }
+      else if (peopleSortKey === 'poste') { va = (a.poste||'').toLowerCase(); vb = (b.poste||'').toLowerCase(); }
+      else if (peopleSortKey === 'manager') { va = a.managerId ? getManagerName(a.managerId).toLowerCase() : 'zzz'; vb = b.managerId ? getManagerName(b.managerId).toLowerCase() : 'zzz'; }
+      else if (peopleSortKey === 'dateEntree') { va = a.dateEntree || '9999'; vb = b.dateEntree || '9999'; }
+      if (va < vb) return peopleSortAsc ? -1 : 1;
+      if (va > vb) return peopleSortAsc ? 1 : -1;
+      return 0;
+    });
+    // Update sort icons
+    ['nom','poste','manager','dateEntree'].forEach(k => {
+      const icon = document.getElementById('sortIcon_' + k);
+      if (icon) icon.textContent = k === peopleSortKey ? (peopleSortAsc ? '▲' : '▼') : '↕';
+    });
+  }
+  tbody.innerHTML = list.map(c => {
     const score = onboardingScore(c);
     const badge = score.pct === 100 ? '<span class="badge badge-green">Complet</span>' : `<span class="badge badge-orange">${score.done}/${score.total}</span>`;
     return `
