@@ -925,6 +925,9 @@ async function initDB() {
     settingsRes.data.forEach(row => { SETTINGS[row.key] = row.value; });
   }
 
+  // Pré-remplir les questions par défaut si pas encore configurées
+  await initDefaultQuestions();
+
   // Auto-création des points mensuels manquants pour le mois en cours
   await autoCreateMonthlyPoints();
 
@@ -949,6 +952,32 @@ async function autoCreateMonthlyPoints() {
       c.pointsSuivi.push({ id: row.id, date: row.date, type: 'mensuel', mois: row.mois, managerData: {}, collabData: {} });
     }
   });
+}
+
+async function initDefaultQuestions() {
+  const defaultManager = [
+    { label: 'Retours sur les missions', type: 'texte' },
+    { label: 'Taux de staffing / Satisfaction client', type: 'texte' },
+    { label: 'Tes qualités ce mois-ci', type: 'texte' },
+    { label: 'Un axe d\'amélioration', type: 'texte' },
+  ];
+  const defaultCollab = [
+    { label: 'Comment t\'es-tu senti(e) au travail ce mois-ci ?', type: 'texte' },
+    { label: 'Quelles sont tes réussites ce mois-ci ?', type: 'texte' },
+    { label: 'Quels étaient tes objectifs M-1, les as-tu atteints ?', type: 'texte' },
+    { label: 'Commentaires ou suggestions pour améliorer les process ?', type: 'texte' },
+    { label: 'Objectifs et priorités pour le mois à venir ?', type: 'texte' },
+    { label: 'Souhaites-tu t\'investir dans d\'autres sujets au sein de HP ?', type: 'texte' },
+    { label: '1 axe d\'amélioration pour le mois à venir pour toi ?', type: 'texte' },
+  ];
+  if (!SETTINGS['questions_manager'] || !SETTINGS['questions_manager'].length) {
+    await saveSettingKey('questions_manager', defaultManager);
+    SETTINGS['questions_manager'] = defaultManager;
+  }
+  if (!SETTINGS['questions_collab'] || !SETTINGS['questions_collab'].length) {
+    await saveSettingKey('questions_collab', defaultCollab);
+    SETTINGS['questions_collab'] = defaultCollab;
+  }
 }
 
 // ─────────────────────────────────────────
