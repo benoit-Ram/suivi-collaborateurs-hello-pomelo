@@ -913,7 +913,9 @@ async function initDB() {
     sb.from('absences').select('*').order('date_debut', { ascending: false })
   ]);
   loader.remove();
-  if (collabRes.error) { showToast('Erreur Supabase : ' + collabRes.error.message); return; }
+  if (collabRes.error) { console.error('Supabase collabs:', collabRes.error); showToast('Erreur Supabase : ' + collabRes.error.message); return; }
+  if (absencesRes.error) { console.warn('Supabase absences:', absencesRes.error); }
+  console.log('Loaded:', collabRes.data?.length, 'collaborateurs');
   DB = {
     collaborateurs: collabRes.data.map(fromRow),
     absences: (absencesRes.data || []).map(a => ({
@@ -928,10 +930,10 @@ async function initDB() {
   }
 
   // Pré-remplir les questions par défaut si pas encore configurées
-  await initDefaultQuestions();
+  try { await initDefaultQuestions(); } catch(e) { console.warn('initDefaultQuestions:', e); }
 
   // Auto-création des points mensuels manquants pour le mois en cours
-  await autoCreateMonthlyPoints();
+  try { await autoCreateMonthlyPoints(); } catch(e) { console.warn('autoCreateMonthlyPoints:', e); }
 
   navigate('dashboard');
 }
