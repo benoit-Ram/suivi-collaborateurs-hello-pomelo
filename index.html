@@ -202,6 +202,31 @@
 
     .hidden { display: none !important; }
 
+    /* UX: transitions & animations */
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .view { animation: fadeIn 0.2s ease; }
+    .collab-card { transition: all 0.2s ease; }
+    .obj-card { transition: all 0.15s ease; }
+    .obj-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(5,5,109,0.12); }
+    tr { transition: background 0.1s ease; }
+    .btn { transition: all 0.15s ease; }
+    .btn:active { transform: scale(0.97); }
+    .btn.loading { opacity: 0.7; pointer-events: none; }
+    .btn.loading::after { content: '…'; }
+
+    /* UX: sticky table headers */
+    thead th { position: sticky; top: 0; background: white; z-index: 2; }
+
+    /* UX: search improvements */
+    .search-bar { position: relative; }
+    .search-clear { position: absolute; right: 220px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 1rem; cursor: pointer; color: var(--muted); padding: 4px; display: none; }
+    .search-clear:hover { color: var(--pink); }
+    .result-count { font-size: 0.78rem; color: var(--muted); font-weight: 600; margin-left: 4px; }
+
+    /* UX: better modal animation */
+    .modal-overlay.open .modal { animation: modalSlideIn 0.25s cubic-bezier(.34,1.56,.64,1); }
+    @keyframes modalSlideIn { from { transform: scale(0.9) translateY(10px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
+
     @media (max-width: 768px) {
       :root { --sidebar-w: 60px; }
       .sidebar-logo .logo-title, .sidebar-logo .logo-sub, .nav-item span, .nav-section, .sidebar-footer p { display: none; }
@@ -495,6 +520,8 @@
     <!-- SEARCH + FILTERS + EXPORT -->
     <div class="search-bar">
       <input class="search-input" id="searchInput" type="text" placeholder="Rechercher un collaborateur..." oninput="filterCollabs()" />
+      <button id="searchClear" style="background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--muted);padding:4px 8px;display:none;" onclick="document.getElementById('searchInput').value='';filterCollabs();" title="Effacer">✕</button>
+      <span id="resultCount" class="result-count"></span>
       <button class="btn btn-navy btn-sm" onclick="exportCollabsCSV()" title="Exporter en CSV">📥 Export CSV</button>
       <button class="btn btn-primary hidden" id="btnAddCollabDash" onclick="openAddCollab()">+ Ajouter</button>
     </div>
@@ -928,7 +955,8 @@ function navigate(view, collabId) {
   if (collabId) currentCollabId = collabId;
   document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
   const el = document.getElementById('view-' + view);
-  if (el) el.classList.remove('hidden');
+  if (el) { el.classList.remove('hidden'); el.style.animation = 'fadeIn 0.2s ease'; }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
   renderSidebar();
   if (view === 'dashboard') renderDashboard();
   else if (view === 'collab') { currentTab = 'onboarding'; renderCollab(); }
@@ -1078,6 +1106,10 @@ function filterCollabs() {
   const fManager = document.getElementById('filterManager').value;
   const fContrat = document.getElementById('filterContrat').value;
 
+  // Show/hide clear button
+  const clearBtn = document.getElementById('searchClear');
+  if (clearBtn) clearBtn.style.display = q ? 'inline' : 'none';
+
   const filtered = DB.collaborateurs.filter(c => {
     if (q && !(c.prenom + ' ' + c.nom + ' ' + c.poste).toLowerCase().includes(q)) return false;
     if (fEquipe && c.equipe !== fEquipe) return false;
@@ -1086,6 +1118,12 @@ function filterCollabs() {
     if (fContrat && c.contrat !== fContrat) return false;
     return true;
   });
+
+  // Show result count when filtering
+  const countEl = document.getElementById('resultCount');
+  const isFiltering = q || fEquipe || fBureau || fManager || fContrat;
+  if (countEl) countEl.textContent = isFiltering ? `${filtered.length} résultat${filtered.length > 1 ? 's' : ''}` : '';
+
   renderCollabGrid(filtered);
 }
 
@@ -1128,7 +1166,7 @@ function renderCollabGrid(list) {
   pagRow.innerHTML = pagHTML;
 }
 
-function goPage(p) { currentPage = p; filterCollabs(); }
+function goPage(p) { currentPage = p; filterCollabs(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
 
 // ── EXPORT CSV ──
 function exportCollabsCSV() {
