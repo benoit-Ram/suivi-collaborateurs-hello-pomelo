@@ -424,8 +424,15 @@ let myTeam = []; // membres de l'équipe si l'utilisateur est manager
 // GOOGLE AUTH
 // ─────────────────────────────────────────
 window.addEventListener('load', async () => {
-  // Préchargement des collaborateurs depuis Supabase
-  COLLABS = await loadCollabsFromSupabase();
+  // Préchargement des collaborateurs et settings depuis Supabase
+  const [collabsData, settingsData] = await Promise.all([
+    loadCollabsFromSupabase(),
+    sb.from('settings').select('*')
+  ]);
+  COLLABS = collabsData;
+  if (settingsData.data) {
+    settingsData.data.forEach(row => { COLLAB_SETTINGS[row.key] = row.value; });
+  }
 
   // Admin impersonation via URL parameter
   const urlParams = new URLSearchParams(window.location.search);
@@ -735,6 +742,60 @@ async function uploadDoc(docKey, input) {
 // ─────────────────────────────────────────
 // POINTS MENSUELS
 // ─────────────────────────────────────────
+let COLLAB_SETTINGS = {};
+
+const DEFAULT_MANAGER_Q = [
+  { key: 'retoursMissions', label: 'Retours sur les missions', type: 'texte' },
+  { key: 'tauxStaffing', label: 'Taux de staffing / Satisfaction client', type: 'texte' },
+  { key: 'qualites', label: 'Tes qualités ce mois-ci', type: 'texte' },
+  { key: 'axeAmelioration', label: 'Un axe d\'amélioration', type: 'texte' },
+];
+const DEFAULT_COLLAB_Q = [
+  { key: 'ressenti', label: 'Comment t\'es-tu senti(e) au travail ce mois-ci ?', type: 'texte' },
+  { key: 'reussites', label: 'Quelles sont tes réussites ce mois-ci ?', type: 'texte' },
+  { key: 'objectifsAtteints', label: 'Quels étaient tes objectifs M-1, les as-tu atteints ?', type: 'texte' },
+  { key: 'suggestions', label: 'Commentaires ou suggestions pour améliorer les process ?', type: 'texte' },
+  { key: 'objectifsMoisSuivant', label: 'Objectifs et priorités pour le mois à venir ?', type: 'texte' },
+  { key: 'autresSujets', label: 'Souhaites-tu t\'investir dans d\'autres sujets au sein de HP ?', type: 'texte' },
+  { key: 'axeAmeliorationSoi', label: '1 axe d\'amélioration pour le mois à venir pour toi ?', type: 'texte' },
+];
+
+function getActiveManagerQuestions() {
+  const custom = COLLAB_SETTINGS['questions_manager'] || [];
+  return custom.length ? custom.map((q, i) => ({ key: 'q' + i, label: q.label, type: q.type, options: q.options })) : DEFAULT_MANAGER_Q;
+}
+
+function getActiveCollabQuestions() {
+  const custom = COLLAB_SETTINGS['questions_collab'] || [];
+  return custom.length ? custom.map((q, i) => ({ key: 'cq' + i, label: q.label, type: q.type, options: q.options })) : DEFAULT_COLLAB_Q;
+}
+
+function renderCollabField(q, pointId, value) {
+  const id = `cf_${pointId}_${q.key}`;
+  if (q.type === 'notation') {
+    return `<div style="margin-bottom:12px;">
+      <label style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--pink);margin-bottom:4px;display:block;">${escHTML(q.label)}</label>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <input id="${id}" type="range" min="1" max="5" value="${value||3}" oninput="document.getElementById('${id}_val').textContent=this.value+'/5'" style="flex:1;" />
+        <span id="${id}_val" style="font-weight:700;color:var(--navy);">${value||3}/5</span>
+      </div>
+    </div>`;
+  }
+  if (q.type === 'qcm' && q.options) {
+    return `<div style="margin-bottom:12px;">
+      <label style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--pink);margin-bottom:4px;display:block;">${escHTML(q.label)}</label>
+      <select id="${id}" style="width:100%;border:1.5px solid var(--lavender);border-radius:8px;padding:10px 12px;font-size:0.85rem;font-family:inherit;color:var(--navy);">
+        <option value="">— Choisir —</option>
+        ${q.options.map(o => `<option value="${escHTML(o)}" ${value === o ? 'selected' : ''}>${escHTML(o)}</option>`).join('')}
+      </select>
+    </div>`;
+  }
+  return `<div style="margin-bottom:12px;">
+    <label style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--pink);margin-bottom:4px;display:block;">${escHTML(q.label)}</label>
+    <textarea id="${id}" style="width:100%;border:1.5px solid var(--lavender);border-radius:8px;padding:10px 12px;font-size:0.85rem;font-family:inherit;color:var(--navy);min-height:64px;resize:vertical;outline:none;" placeholder="Votre réponse...">${escHTML(value||'')}</textarea>
+  </div>`;
+}
+
 function renderPoints() {
   const c = currentCollab;
   const sorted = [...(c.pointsSuivi || [])].sort((a, b) => (b.mois || b.date) > (a.mois || a.date) ? 1 : -1);
@@ -752,42 +813,29 @@ function renderPoints() {
     const label = moisLabel(p.mois || p.date);
     const isFirst = i === 0;
 
-    // Manager fields (read-only)
-    const managerFields = [
-      ['retoursMissions', 'Retours sur les missions'],
-      ['tauxStaffing', 'Taux de staffing / Satisfaction client'],
-      ['qualites', 'Tes qualités ce mois-ci'],
-      ['axeAmelioration', 'Axe d\'amélioration'],
-    ];
+    // Dynamic questions from settings (or defaults)
+    const mgrQuestions = getActiveManagerQuestions();
+    const collabQuestions = getActiveCollabQuestions();
 
-    // Collab fields
-    const collabFields = [
-      ['ressenti', 'Comment t\'es-tu senti(e) au travail ce mois-ci ?'],
-      ['reussites', 'Quelles sont tes réussites ce mois-ci ?'],
-      ['objectifsAtteints', 'Quels étaient tes objectifs M-1, les as-tu atteints ?'],
-      ['suggestions', 'Commentaires ou suggestions pour améliorer les process ?'],
-      ['objectifsMoisSuivant', 'Objectifs et priorités pour le mois à venir ?'],
-      ['autresSujets', 'Souhaites-tu t\'investir dans d\'autres sujets au sein de HP ?'],
-      ['axeAmeliorationSoi', '1 axe d\'amélioration pour le mois à venir pour toi ?'],
-    ];
-
-    const managerHtml = managerFields.map(([k, lbl]) => `
-      <div style="margin-bottom:12px;">
-        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:4px;">${lbl}</div>
-        <div style="background:var(--offwhite);border-radius:8px;padding:10px 12px;font-size:0.85rem;color:${md[k] ? 'var(--navy)' : 'var(--muted)'};line-height:1.6;min-height:36px;font-style:${md[k] ? 'normal' : 'italic'};">${md[k] || 'Non renseigné par votre manager'}</div>
-      </div>`).join('');
+    const managerHtml = mgrQuestions.map(q => {
+      const val = md[q.key];
+      const display = q.type === 'notation' && val ? val + '/5' : (val || 'Non renseigné par votre manager');
+      return `<div style="margin-bottom:12px;">
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:4px;">${escHTML(q.label)}</div>
+        <div style="background:var(--offwhite);border-radius:8px;padding:10px 12px;font-size:0.85rem;color:${val ? 'var(--navy)' : 'var(--muted)'};line-height:1.6;min-height:36px;font-style:${val ? 'normal' : 'italic'};">${escHTML(display)}</div>
+      </div>`;
+    }).join('');
 
     const collabHtml = locked
-      ? collabFields.map(([k, lbl]) => `
-        <div style="margin-bottom:12px;">
-          <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:4px;">${lbl}</div>
-          <div style="background:var(--offwhite);border-radius:8px;padding:10px 12px;font-size:0.85rem;color:${cd[k] ? 'var(--navy)' : 'var(--muted)'};line-height:1.6;min-height:36px;font-style:${cd[k] ? 'normal' : 'italic'};">${cd[k] || 'Non renseigné'}</div>
-        </div>`).join('')
-      : collabFields.map(([k, lbl]) => `
-        <div style="margin-bottom:12px;">
-          <label style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--pink);margin-bottom:4px;display:block;">${lbl}</label>
-          <textarea id="cf_${p.id}_${k}" style="width:100%;border:1.5px solid var(--lavender);border-radius:8px;padding:10px 12px;font-size:0.85rem;font-family:inherit;color:var(--navy);min-height:64px;resize:vertical;outline:none;" placeholder="Votre réponse...">${cd[k] || ''}</textarea>
-        </div>`).join('');
+      ? collabQuestions.map(q => {
+          const val = cd[q.key];
+          const display = q.type === 'notation' && val ? val + '/5' : (val || 'Non renseigné');
+          return `<div style="margin-bottom:12px;">
+            <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:4px;">${escHTML(q.label)}</div>
+            <div style="background:var(--offwhite);border-radius:8px;padding:10px 12px;font-size:0.85rem;color:${val ? 'var(--navy)' : 'var(--muted)'};line-height:1.6;min-height:36px;font-style:${val ? 'normal' : 'italic'};">${escHTML(display)}</div>
+          </div>`;
+        }).join('')
+      : collabQuestions.map(q => renderCollabField(q, p.id, cd[q.key] || '')).join('');
 
     return `
     <div style="margin-bottom:12px;border-radius:14px;border:1.5px solid var(--lavender);overflow:hidden;background:white;">
@@ -823,14 +871,15 @@ async function saveCollabPoint(pointId) {
   const p = (c.pointsSuivi || []).find(x => x.id === pointId);
   if (!p || isPointLocked(p.mois)) { showToast('Ce point est verrouillé.'); return; }
 
+  const questions = getActiveCollabQuestions();
   const collabData = {};
-  COLLAB_FIELDS.forEach(k => {
-    const el = document.getElementById(`cf_${pointId}_${k}`);
-    if (el) collabData[k] = el.value.trim();
+  questions.forEach(q => {
+    const el = document.getElementById(`cf_${pointId}_${q.key}`);
+    collabData[q.key] = el ? (q.type === 'notation' ? el.value : el.value.trim()) : '';
   });
 
   // Validation champs obligatoires
-  const emptyFields = COLLAB_FIELDS.filter(k => !collabData[k]);
+  const emptyFields = questions.filter(q => !collabData[q.key]);
   if (emptyFields.length) { showToast(`Veuillez remplir tous les champs (${emptyFields.length} manquant${emptyFields.length > 1 ? 's' : ''}).`); return; }
 
   const { error } = await sb.from('points_suivi').update({ collab_data: collabData }).eq('id', pointId);

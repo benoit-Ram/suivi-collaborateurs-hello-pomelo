@@ -340,24 +340,7 @@
       <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--navy);margin-bottom:4px;">👔 Section Manager</div>
       <div style="font-size:0.78rem;color:var(--muted);">Ces informations sont visibles par le collaborateur.</div>
     </div>
-    <div class="form-grid">
-      <div class="form-field full">
-        <label>Retours sur les missions</label>
-        <textarea id="pm_retoursMissions" placeholder="Qualité du travail fourni, implication sur les missions..." style="min-height:80px;"></textarea>
-      </div>
-      <div class="form-field full">
-        <label>Taux de staffing / Satisfaction client</label>
-        <textarea id="pm_tauxStaffing" placeholder="Taux de staffing, retours clients..." style="min-height:60px;"></textarea>
-      </div>
-      <div class="form-field full">
-        <label>Tes qualités ce mois-ci</label>
-        <textarea id="pm_qualites" placeholder="Points forts observés ce mois..." style="min-height:60px;"></textarea>
-      </div>
-      <div class="form-field full">
-        <label>Un axe d'amélioration</label>
-        <textarea id="pm_axeAmelioration" placeholder="Un point de progression prioritaire..." style="min-height:60px;"></textarea>
-      </div>
-    </div>
+    <div id="pmDynamicFields"></div>
     <div id="pmObjSection" style="display:none;margin-top:8px;border-top:1px dashed var(--lavender);padding-top:12px;">
       <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--pink);margin-bottom:12px;">📊 Suivi des objectifs en cours</div>
       <div id="pmObjFields"></div>
@@ -779,6 +762,47 @@
         <div style="display:flex;gap:8px;">
           <input id="newVal_typePostes" type="text" placeholder="Ex : Senior, Lead..." class="settings-input" onkeydown="if(event.key==='Enter')addSettingItem('typePostes')" />
           <button class="btn btn-primary" onclick="addSettingItem('typePostes')">+ Ajouter</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- QUESTIONS MENSUELLES -->
+    <div class="section-title" style="margin-top:28px;">Questions du point mensuel</div>
+    <div class="grid-2" style="gap:20px;">
+      <div class="card">
+        <div class="section-title" style="margin-top:0;">👔 Questions Manager</div>
+        <div id="questionsManagerList"></div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--lavender);">
+          <div style="display:flex;gap:8px;margin-bottom:8px;">
+            <input id="newQManager" type="text" placeholder="Nouvelle question..." class="settings-input" style="flex:1;" />
+            <select id="newQManagerType" class="settings-input" style="flex:none;width:120px;">
+              <option value="texte">Texte</option>
+              <option value="notation">Notation /5</option>
+              <option value="qcm">QCM</option>
+            </select>
+          </div>
+          <div id="newQManagerOptions" style="display:none;margin-bottom:8px;">
+            <input id="newQManagerOpts" type="text" placeholder="Options séparées par des virgules (ex: Oui, Non, Parfois)" class="settings-input" />
+          </div>
+          <button class="btn btn-primary" onclick="addQuestion('manager')">+ Ajouter</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-title" style="margin-top:0;">👤 Questions Collaborateur</div>
+        <div id="questionsCollabList"></div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--lavender);">
+          <div style="display:flex;gap:8px;margin-bottom:8px;">
+            <input id="newQCollab" type="text" placeholder="Nouvelle question..." class="settings-input" style="flex:1;" />
+            <select id="newQCollabType" class="settings-input" style="flex:none;width:120px;">
+              <option value="texte">Texte</option>
+              <option value="notation">Notation /5</option>
+              <option value="qcm">QCM</option>
+            </select>
+          </div>
+          <div id="newQCollabOptions" style="display:none;margin-bottom:8px;">
+            <input id="newQCollabOpts" type="text" placeholder="Options séparées par des virgules" class="settings-input" />
+          </div>
+          <button class="btn btn-primary" onclick="addQuestion('collab')">+ Ajouter</button>
         </div>
       </div>
     </div>
@@ -1441,17 +1465,15 @@ function renderPoints() {
 }
 
 function renderManagerSection(md, readOnly, pid) {
-  const fields = [
-    ['retoursMissions', 'Retours sur les missions'],
-    ['tauxStaffing', 'Taux de staffing / Satisfaction client'],
-    ['qualites', 'Qualités ce mois-ci'],
-    ['axeAmelioration', 'Axe d\'amélioration'],
-  ];
-  let html = fields.map(([k, label]) => `
-    <div style="margin-bottom:12px;">
-      <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:4px;">${label}</div>
-      <div style="background:var(--offwhite);border-radius:8px;padding:10px 12px;font-size:0.85rem;color:${md[k] ? 'var(--navy)' : 'var(--muted)'};line-height:1.6;min-height:36px;font-style:${md[k] ? 'normal' : 'italic'};">${md[k] || 'Non renseigné'}</div>
-    </div>`).join('');
+  const questions = getActiveManagerQuestions();
+  let html = questions.map(q => {
+    const val = md[q.key];
+    const display = q.type === 'notation' && val ? val + '/5' : (val || 'Non renseigné');
+    return `<div style="margin-bottom:12px;">
+      <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:4px;">${escHTML(q.label)}</div>
+      <div style="background:var(--offwhite);border-radius:8px;padding:10px 12px;font-size:0.85rem;color:${val ? 'var(--navy)' : 'var(--muted)'};line-height:1.6;min-height:36px;font-style:${val ? 'normal' : 'italic'};">${escHTML(display)}</div>
+    </div>`;
+  }).join('');
 
   const objData = md.objectifs||{};
   const c = getCollab(currentCollabId);
@@ -1513,13 +1535,52 @@ function renderCollabSectionAdmin(cd) {
   return html;
 }
 
+// ── DEFAULT QUESTIONS (fallback si pas configurées) ──
+const DEFAULT_MANAGER_Q = [
+  { key: 'retoursMissions', label: 'Retours sur les missions', type: 'texte' },
+  { key: 'tauxStaffing', label: 'Taux de staffing / Satisfaction client', type: 'texte' },
+  { key: 'qualites', label: 'Tes qualités ce mois-ci', type: 'texte' },
+  { key: 'axeAmelioration', label: 'Un axe d\'amélioration', type: 'texte' },
+];
+
+function getActiveManagerQuestions() {
+  const custom = getQuestions('manager');
+  return custom.length ? custom.map((q, i) => ({ key: 'q' + i, label: q.label, type: q.type, options: q.options })) : DEFAULT_MANAGER_Q;
+}
+
+function renderQuestionField(q, prefix, value) {
+  const id = prefix + '_' + q.key;
+  if (q.type === 'notation') {
+    return `<div class="form-field full">
+      <label>${escHTML(q.label)}</label>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <input id="${id}" type="range" min="1" max="5" value="${value||3}" oninput="document.getElementById('${id}_val').textContent=this.value+'/5'" style="flex:1;" />
+        <span id="${id}_val" style="font-weight:700;color:var(--navy);min-width:30px;">${value||3}/5</span>
+      </div>
+    </div>`;
+  }
+  if (q.type === 'qcm' && q.options) {
+    return `<div class="form-field full">
+      <label>${escHTML(q.label)}</label>
+      <select id="${id}" style="border:1.5px solid var(--lavender);border-radius:10px;padding:10px 14px;font-family:inherit;font-size:0.9rem;color:var(--navy);background:var(--offwhite);width:100%;">
+        <option value="">— Choisir —</option>
+        ${q.options.map(o => `<option value="${escHTML(o)}" ${value === o ? 'selected' : ''}>${escHTML(o)}</option>`).join('')}
+      </select>
+    </div>`;
+  }
+  return `<div class="form-field full">
+    <label>${escHTML(q.label)}</label>
+    <textarea id="${id}" placeholder="Votre réponse..." style="min-height:70px;">${escHTML(value||'')}</textarea>
+  </div>`;
+}
+
 function openCurrentMonthPoint() {
   const c = getCollab(currentCollabId);
   const cm = currentMois();
   const existing = (c.pointsSuivi || []).find(p => p.mois === cm);
   if (existing) { openEditPoint(existing.id); return; }
   editingPointId = null;
-  clearManagerForm();
+  renderManagerModalFields({});
   document.getElementById('modalPointTitle').textContent = '📅 Point mensuel — ' + moisLabel(cm);
   openModal('modalPoint');
   injectObjFieldsInModal(null);
@@ -1531,13 +1592,17 @@ function openEditPoint(id) {
   if (!p) return;
   editingPointId = id;
   const md = p.managerData || {};
-  document.getElementById('pm_retoursMissions').value = md.retoursMissions || '';
-  document.getElementById('pm_tauxStaffing').value = md.tauxStaffing || '';
-  document.getElementById('pm_qualites').value = md.qualites || '';
-  document.getElementById('pm_axeAmelioration').value = md.axeAmelioration || '';
+  renderManagerModalFields(md);
   document.getElementById('modalPointTitle').textContent = '📅 Point mensuel — ' + moisLabel(p.mois);
   openModal('modalPoint');
   injectObjFieldsInModal(md);
+}
+
+function renderManagerModalFields(existingData) {
+  const questions = getActiveManagerQuestions();
+  document.getElementById('pmDynamicFields').innerHTML = '<div class="form-grid">' +
+    questions.map(q => renderQuestionField(q, 'pm', existingData[q.key] || '')).join('') +
+    '</div>';
 }
 
 function injectObjFieldsInModal(existingData) {
@@ -1564,23 +1629,17 @@ function injectObjFieldsInModal(existingData) {
     </div>`).join('');
 }
 
-function clearManagerForm() {
-  ['pm_retoursMissions','pm_tauxStaffing','pm_qualites','pm_axeAmelioration'].forEach(id => {
-    document.getElementById(id).value = '';
-  });
-}
-
 async function saveManagerPoint() {
   const c = getCollab(currentCollabId);
   const cm = currentMois();
-  const managerData = {
-    retoursMissions: document.getElementById('pm_retoursMissions').value.trim(),
-    tauxStaffing: document.getElementById('pm_tauxStaffing').value.trim(),
-    qualites: document.getElementById('pm_qualites').value.trim(),
-    axeAmelioration: document.getElementById('pm_axeAmelioration').value.trim(),
-  };
+  const questions = getActiveManagerQuestions();
+  const managerData = {};
+  questions.forEach(q => {
+    const el = document.getElementById('pm_' + q.key);
+    managerData[q.key] = el ? (q.type === 'notation' ? el.value : el.value.trim()) : '';
+  });
   // Validation champs obligatoires
-  const emptyFields = MANAGER_FIELDS.filter(k => !managerData[k]);
+  const emptyFields = questions.filter(q => !managerData[q.key]);
   if (emptyFields.length) { showToast('Veuillez remplir tous les champs avant d\'enregistrer.'); return; }
   const activeObjs = (c.objectifs||[]).filter(o=>o.statut==='en-cours');
   if (activeObjs.length) {
@@ -1797,6 +1856,100 @@ function renderBoSettings() {
           </div>`).join('')
       : `<p style="color:var(--muted);font-size:0.85rem;font-style:italic;">Aucun élément.</p>`;
   });
+  renderQuestionsList();
+
+  // Toggle QCM options fields
+  document.getElementById('newQManagerType').onchange = function() {
+    document.getElementById('newQManagerOptions').style.display = this.value === 'qcm' ? 'block' : 'none';
+  };
+  document.getElementById('newQCollabType').onchange = function() {
+    document.getElementById('newQCollabOptions').style.display = this.value === 'qcm' ? 'block' : 'none';
+  };
+}
+
+// ── QUESTIONS CONFIGURABLES ──
+const TYPE_LABELS = { texte: 'Texte', notation: 'Notation /5', qcm: 'QCM' };
+const TYPE_BADGES = { texte: 'badge-blue', notation: 'badge-orange', qcm: 'badge-green' };
+
+function getQuestions(side) {
+  return SETTINGS['questions_' + side] || [];
+}
+
+function renderQuestionsList() {
+  ['manager', 'collab'].forEach(side => {
+    const el = document.getElementById('questions' + (side === 'manager' ? 'Manager' : 'Collab') + 'List');
+    const questions = getQuestions(side);
+    if (!questions.length) {
+      el.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;font-style:italic;">Questions par défaut utilisées.</p>';
+      return;
+    }
+    el.innerHTML = questions.map((q, i) => `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid var(--lavender);border-radius:10px;margin-bottom:8px;background:white;">
+        <div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0;">
+          <button class="btn btn-ghost btn-sm" style="padding:1px 6px;line-height:1;" onclick="moveQuestion('${side}',${i},-1)" ${i===0?'disabled':''}>▲</button>
+          <button class="btn btn-ghost btn-sm" style="padding:1px 6px;line-height:1;" onclick="moveQuestion('${side}',${i},1)" ${i===questions.length-1?'disabled':''}>▼</button>
+        </div>
+        <div style="flex:1;">
+          <div style="font-weight:600;color:var(--navy);font-size:0.88rem;">${escHTML(q.label)}</div>
+          ${q.type === 'qcm' && q.options ? `<div style="font-size:0.72rem;color:var(--muted);margin-top:2px;">Options : ${q.options.map(o => escHTML(o)).join(', ')}</div>` : ''}
+        </div>
+        <span class="badge ${TYPE_BADGES[q.type]||'badge-gray'}">${TYPE_LABELS[q.type]||q.type}</span>
+        <button class="btn btn-danger btn-sm" onclick="removeQuestion('${side}',${i})">✕</button>
+      </div>`).join('');
+  });
+}
+
+async function addQuestion(side) {
+  const inputId = side === 'manager' ? 'newQManager' : 'newQCollab';
+  const typeId = side === 'manager' ? 'newQManagerType' : 'newQCollabType';
+  const optsId = side === 'manager' ? 'newQManagerOpts' : 'newQCollabOpts';
+  const label = document.getElementById(inputId).value.trim();
+  const type = document.getElementById(typeId).value;
+  if (!label) { showToast('Veuillez saisir une question.'); return; }
+  const question = { label, type };
+  if (type === 'qcm') {
+    const optsRaw = document.getElementById(optsId).value.trim();
+    if (!optsRaw) { showToast('Veuillez saisir les options du QCM.'); return; }
+    question.options = optsRaw.split(',').map(o => o.trim()).filter(Boolean);
+  }
+  const key = 'questions_' + side;
+  const list = [...(SETTINGS[key] || []), question];
+  await saveSettingKey(key, list);
+  SETTINGS[key] = list;
+  document.getElementById(inputId).value = '';
+  document.getElementById(optsId).value = '';
+  renderQuestionsList();
+  showToast('Question ajoutée !');
+}
+
+async function removeQuestion(side, index) {
+  if (!confirm('Supprimer cette question ?')) return;
+  const key = 'questions_' + side;
+  const list = [...(SETTINGS[key] || [])];
+  list.splice(index, 1);
+  await saveSettingKey(key, list);
+  SETTINGS[key] = list;
+  renderQuestionsList();
+}
+
+async function moveQuestion(side, index, direction) {
+  const key = 'questions_' + side;
+  const list = [...(SETTINGS[key] || [])];
+  const newIdx = index + direction;
+  if (newIdx < 0 || newIdx >= list.length) return;
+  [list[index], list[newIdx]] = [list[newIdx], list[index]];
+  await saveSettingKey(key, list);
+  SETTINGS[key] = list;
+  renderQuestionsList();
+}
+
+async function saveSettingKey(key, value) {
+  // Upsert : try update, if no rows affected, insert
+  const { data, error } = await sb.from('settings').update({ value }).eq('key', key).select();
+  if (!error && data && data.length === 0) {
+    await sb.from('settings').insert({ key, value });
+  }
+  if (error) showToast('Erreur: ' + error.message);
 }
 
 async function addSettingItem(key) {

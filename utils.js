@@ -45,9 +45,13 @@ const COLLAB_FIELDS = ['ressenti','reussites','objectifsAtteints','suggestions',
 function getPointStatus(point) {
   const md = point.managerData || {};
   const cd = point.collabData || {};
-  const managerDone = MANAGER_FIELDS.every(k => md[k] && String(md[k]).trim());
-  const collabDone = COLLAB_FIELDS.every(k => cd[k] && String(cd[k]).trim());
-  if (managerDone && collabDone) return 'complet';
+  const mdKeys = Object.keys(md).filter(k => k !== 'objectifs');
+  const cdKeys = Object.keys(cd).filter(k => k !== 'objectifs');
+  const managerDone = mdKeys.length > 0 && mdKeys.some(k => md[k] && String(md[k]).trim());
+  const collabDone = cdKeys.length > 0 && cdKeys.some(k => cd[k] && String(cd[k]).trim());
+  const managerFull = mdKeys.length > 0 && mdKeys.every(k => md[k] && String(md[k]).trim());
+  const collabFull = cdKeys.length > 0 && cdKeys.every(k => cd[k] && String(cd[k]).trim());
+  if (managerFull && collabFull) return 'complet';
   if (managerDone || collabDone) return 'partiel';
   return 'vide';
 }
