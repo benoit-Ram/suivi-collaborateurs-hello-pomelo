@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Suivi Collaborateurs — Hello Pomelo</title>
-  <script src="https://accounts.google.com/gsi/client" async></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="utils.js"></script>
   <style>
@@ -452,21 +451,6 @@
       <button class="btn btn-ghost" onclick="closeModal('modalEntretien')">Annuler</button>
       <button class="btn btn-primary" onclick="saveEntretien()">Enregistrer</button>
     </div>
-  </div>
-</div>
-
-<!-- ADMIN LOGIN GATE -->
-<div id="adminLogin" style="position:fixed;inset:0;background:linear-gradient(135deg,#F0F0FF,#FFF0F8);z-index:1000;display:flex;align-items:center;justify-content:center;">
-  <div style="background:white;border-radius:24px;padding:48px;max-width:420px;width:100%;box-shadow:0 12px 48px rgba(5,5,109,0.12);text-align:center;">
-    <div style="font-size:1.3rem;font-weight:700;color:var(--navy);margin-bottom:8px;">Suivi Collaborateurs</div>
-    <div style="font-size:0.85rem;color:var(--muted);margin-bottom:24px;">Connectez-vous avec votre compte administrateur</div>
-    <div class="divider"></div>
-    <div id="adminGoogleBtn" style="display:flex;justify-content:center;margin:24px 0;">
-      <div style="color:var(--muted);font-size:0.85rem;">Chargement de Google Sign-In...</div>
-    </div>
-    <div id="adminLoginError" style="display:none;background:#FFF1F2;color:#881337;border-left:4px solid #F43F5E;border-radius:10px;padding:12px 16px;font-size:0.82rem;font-weight:600;margin-top:16px;"></div>
-    <div style="font-size:0.72rem;color:var(--lavender);margin-top:16px;font-weight:600;">Accès réservé aux administrateurs</div>
-    <a href="collaborateur.html" style="display:block;text-align:center;margin-top:12px;font-size:0.75rem;color:var(--muted);text-decoration:none;font-weight:600;">→ Espace collaborateur</a>
   </div>
 </div>
 
@@ -2634,71 +2618,9 @@ function voirCommeCollab(collabId) {
 }
 
 // ─────────────────────────────────────────
-// ADMIN AUTH
-// ─────────────────────────────────────────
-const SUPER_ADMINS = ['benoit@hello-pomelo.com'];
-const ADMIN_CLIENT_ID = '583500042273-qg3a9puk3prhl3hbqfr2jbbtljcgorco.apps.googleusercontent.com';
-
-function handleAdminGoogleResponse(response) {
-  const payload = JSON.parse(atob(response.credential.split('.')[1]));
-  if (SUPER_ADMINS.includes(payload.email.toLowerCase())) {
-    sessionStorage.setItem('hp_admin_session', JSON.stringify({ email: payload.email, name: payload.name, picture: payload.picture }));
-    document.getElementById('adminLogin').style.display = 'none';
-    initDB();
-  } else {
-    const err = document.getElementById('adminLoginError');
-    err.textContent = `"${payload.email}" n'est pas autorisé comme administrateur.`;
-    err.style.display = 'block';
-  }
-}
-
-// ─────────────────────────────────────────
 // INIT
 // ─────────────────────────────────────────
-function initAdminAuth() {
-  // Check existing admin session
-  const session = sessionStorage.getItem('hp_admin_session');
-  if (session) {
-    document.getElementById('adminLogin').style.display = 'none';
-    initDB();
-    return;
-  }
-
-  // Wait for Google lib to load (poll every 300ms, max 15s)
-  let attempts = 0;
-  function tryRenderGoogleBtn() {
-    attempts++;
-    if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
-      google.accounts.id.initialize({
-        client_id: ADMIN_CLIENT_ID,
-        callback: handleAdminGoogleResponse,
-        auto_select: false,
-      });
-      document.getElementById('adminGoogleBtn').innerHTML = '';
-      google.accounts.id.renderButton(
-        document.getElementById('adminGoogleBtn'),
-        { theme: 'outline', size: 'large', width: 300, text: 'signin_with', shape: 'rectangular', locale: 'fr' }
-      );
-    } else if (attempts < 50) {
-      setTimeout(tryRenderGoogleBtn, 300);
-    } else {
-      // Google lib failed to load — show manual fallback
-      document.getElementById('adminGoogleBtn').innerHTML = `
-        <div style="text-align:center;">
-          <p style="color:var(--muted);font-size:0.82rem;margin-bottom:12px;">Google Sign-In n'a pas pu se charger.</p>
-          <button class="btn btn-primary" onclick="document.getElementById('adminLogin').style.display='none';initDB();">Accès sans connexion (démo)</button>
-        </div>`;
-    }
-  }
-  tryRenderGoogleBtn();
-}
-
-// Start
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initAdminAuth);
-} else {
-  initAdminAuth();
-}
+initDB();
 </script>
 </body>
 </html>
