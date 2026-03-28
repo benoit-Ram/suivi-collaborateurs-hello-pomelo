@@ -637,15 +637,15 @@
         <div class="section-title">Modifier une relation</div>
         <div class="form-field" style="margin-bottom:14px;">
           <label>Collaborateur</label>
-          <select id="relCollab">
-            <option value="">— Choisir —</option>
-          </select>
+          <input id="relCollabSearch" type="text" list="relCollabList" placeholder="Taper 3 lettres pour rechercher..." oninput="filterRelCollab()" autocomplete="off" style="border:1.5px solid var(--lavender);border-radius:10px;padding:10px 14px;font-family:inherit;font-size:0.9rem;color:var(--navy);background:var(--offwhite);outline:none;width:100%;" />
+          <datalist id="relCollabList"></datalist>
+          <input type="hidden" id="relCollab" />
         </div>
         <div class="form-field" style="margin-bottom:20px;">
           <label>Manager</label>
-          <select id="relManager">
-            <option value="">— Aucun manager —</option>
-          </select>
+          <input id="relManagerSearch" type="text" list="relManagerList" placeholder="Taper 3 lettres pour rechercher..." oninput="filterRelManager()" autocomplete="off" style="border:1.5px solid var(--lavender);border-radius:10px;padding:10px 14px;font-family:inherit;font-size:0.9rem;color:var(--navy);background:var(--offwhite);outline:none;width:100%;" />
+          <datalist id="relManagerList"></datalist>
+          <input type="hidden" id="relManager" />
         </div>
         <button class="btn btn-primary" onclick="saveRelation()" style="width:100%;">Enregistrer la relation</button>
         <div id="relAlert" class="alert alert-success hidden" style="margin-top:12px;">Relation enregistrée !</div>
@@ -1891,16 +1891,45 @@ async function deleteCollab(id) {
 // ─────────────────────────────────────────
 function renderBoManagers() {
   renderOrgChart();
-  // Populate selects
-  const relCollab = document.getElementById('relCollab');
-  relCollab.innerHTML = '<option value="">— Choisir —</option>';
-  DB.collaborateurs.forEach(c => {
-    const o = document.createElement('option');
-    o.value = c.id;
-    o.textContent = c.prenom + ' ' + c.nom;
-    relCollab.appendChild(o);
-  });
-  populateManagerSelect('relManager', null);
+  document.getElementById('relCollabSearch').value = '';
+  document.getElementById('relCollab').value = '';
+  document.getElementById('relManagerSearch').value = '';
+  document.getElementById('relManager').value = '';
+}
+
+function filterRelCollab() {
+  const q = document.getElementById('relCollabSearch').value.trim().toLowerCase();
+  const list = document.getElementById('relCollabList');
+  const hidden = document.getElementById('relCollab');
+  hidden.value = '';
+  if (q.length < 3) { list.innerHTML = ''; return; }
+  const matches = DB.collaborateurs.filter(c =>
+    (c.prenom.toLowerCase().startsWith(q) || c.nom.toLowerCase().startsWith(q) || (c.prenom + ' ' + c.nom).toLowerCase().includes(q))
+  );
+  list.innerHTML = matches.map(c => `<option value="${c.prenom} ${c.nom}" data-id="${c.id}">${c.prenom} ${c.nom} — ${c.poste}</option>`).join('');
+  // Auto-select if exact match
+  const exact = matches.find(c => (c.prenom + ' ' + c.nom).toLowerCase() === q);
+  if (exact) hidden.value = exact.id;
+  else {
+    const inputVal = document.getElementById('relCollabSearch').value;
+    const match = matches.find(c => (c.prenom + ' ' + c.nom) === inputVal);
+    if (match) hidden.value = match.id;
+  }
+}
+
+function filterRelManager() {
+  const q = document.getElementById('relManagerSearch').value.trim().toLowerCase();
+  const list = document.getElementById('relManagerList');
+  const hidden = document.getElementById('relManager');
+  hidden.value = '';
+  if (q.length < 3) { list.innerHTML = ''; return; }
+  const matches = DB.collaborateurs.filter(c =>
+    (c.prenom.toLowerCase().startsWith(q) || c.nom.toLowerCase().startsWith(q) || (c.prenom + ' ' + c.nom).toLowerCase().includes(q))
+  );
+  list.innerHTML = matches.map(c => `<option value="${c.prenom} ${c.nom}" data-id="${c.id}">${c.prenom} ${c.nom} — ${c.poste}</option>`).join('');
+  const inputVal = document.getElementById('relManagerSearch').value;
+  const match = matches.find(c => (c.prenom + ' ' + c.nom) === inputVal);
+  if (match) hidden.value = match.id;
 }
 
 function renderOrgChart() {
@@ -1931,10 +1960,19 @@ function renderOrgChart() {
     : '<p style="color:var(--muted);font-size:0.85rem;">Aucun collaborateur sans manager</p>';
 }
 
+function resolveCollabId(searchId, hiddenId) {
+  let id = document.getElementById(hiddenId).value;
+  if (id) return id;
+  const name = document.getElementById(searchId).value.trim().toLowerCase();
+  const match = DB.collaborateurs.find(c => (c.prenom + ' ' + c.nom).toLowerCase() === name);
+  if (match) { document.getElementById(hiddenId).value = match.id; return match.id; }
+  return '';
+}
+
 async function saveRelation() {
-  const collabId = document.getElementById('relCollab').value;
-  const managerId = document.getElementById('relManager').value;
-  if (!collabId) { alert('Choisissez un collaborateur.'); return; }
+  const collabId = resolveCollabId('relCollabSearch', 'relCollab');
+  const managerId = resolveCollabId('relManagerSearch', 'relManager');
+  if (!collabId) { alert('Choisissez un collaborateur (tapez au moins 3 lettres).'); return; }
   if (collabId === managerId) { alert('Un collaborateur ne peut pas être son propre manager.'); return; }
   const { error } = await sb.from('collaborateurs').update({ manager_id: managerId || null }).eq('id', collabId);
   if (error) { showToast('Erreur: ' + error.message); return; }
