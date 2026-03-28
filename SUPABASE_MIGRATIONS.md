@@ -69,4 +69,7 @@ ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS valideur_conges_id uuid REFE
 
 -- Motif de refus des absences
 ALTER TABLE absences ADD COLUMN IF NOT EXISTS motif_refus text;
+
+-- Photo de profil (récupérée automatiquement depuis Google)
+ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS photo_url text;
 ```

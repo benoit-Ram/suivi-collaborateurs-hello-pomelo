@@ -848,6 +848,7 @@ function fromRow(row) {
     acquisitionConges: row.acquisition_conges ?? 2.08,
     valideurCongesId: row.valideur_conges_id || null,
     googleDrive: row.google_drive || '',
+    photoUrl: row.photo_url || '',
     managerId: row.manager_id || null,
     bureau: row.bureau || '',
     equipe: row.equipe || '',
@@ -1247,7 +1248,7 @@ function renderCollabGrid(list) {
       : `<span class="badge badge-orange">${score.done}/${score.total} docs</span>`;
     return `
       <div class="collab-card" onclick="navigate('collab','${c.id}')">
-        <div class="collab-avatar">${initials(c)}</div>
+        ${avatarHTML(c, 52)}
         <div class="collab-name">${c.prenom} ${c.nom}</div>
         <div class="collab-poste">${c.poste}</div>
         ${manager ? `<div class="collab-manager">👔 ${manager}</div>` : ''}
@@ -1288,7 +1289,7 @@ function renderCollab() {
 
   document.getElementById('profileHeader').innerHTML = `
     <div class="profile-header">
-      <div class="profile-avatar-big">${initials(c)}</div>
+      ${avatarHTML(c, 72)}
       <div class="profile-info">
         <div class="profile-name">${c.prenom} ${c.nom}</div>
         <div class="profile-poste">${c.poste}</div>
@@ -2160,7 +2161,7 @@ function renderBoPeople() {
       <tr>
         <td>
           <div style="display:flex;align-items:center;gap:10px;">
-            <div class="tree-avatar">${initials(c)}</div>
+            ${avatarHTML(c, 32)}
             <div>
               <div style="font-weight:700;">${c.prenom} ${c.nom}</div>
               <div style="font-size:0.72rem;color:var(--muted);">${c.email || ''}</div>
@@ -2234,7 +2235,7 @@ function renderOrgChart() {
     return `
       <div style="margin-left:${depth * 22}px;${depth ? 'border-left:2px solid var(--lavender);padding-left:14px;' : ''}margin-top:8px;">
         <div class="tree-item" style="cursor:pointer;" onclick="navigate('collab','${c.id}')">
-          <div class="tree-avatar">${initials(c)}</div>
+          ${avatarHTML(c, 32)}
           <div>
             <div class="tree-name">${c.prenom} ${c.nom}</div>
             <div class="tree-poste">${c.poste}</div>

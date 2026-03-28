@@ -29,6 +29,13 @@ function initials(c) {
   return ((c.prenom||'')[0]||'').toUpperCase() + ((c.nom||'')[0]||'').toUpperCase();
 }
 
+function avatarHTML(c, size) {
+  size = size || 52;
+  if (c.photoUrl) return `<img src="${c.photoUrl}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;flex-shrink:0;" />`;
+  const fs = size < 40 ? '0.7rem' : size < 60 ? '1.2rem' : '1.6rem';
+  return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,#FF3285,#0000EA);display:flex;align-items:center;justify-content:center;color:white;font-size:${fs};font-weight:700;flex-shrink:0;">${initials(c)}</div>`;
+}
+
 function currentMois() {
   const n = new Date();
   return n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0');

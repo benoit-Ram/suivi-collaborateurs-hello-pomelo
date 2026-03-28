@@ -391,7 +391,7 @@ function collabFromRow(row) {
     id: row.id, prenom: row.prenom, nom: row.nom, poste: row.poste || '',
     email: row.email || '', telephone: row.telephone || '',
     dateEntree: row.date_entree || '', managerId: row.manager_id || null,
-    bureau: row.bureau || '', equipe: row.equipe || '',
+    bureau: row.bureau || '', equipe: row.equipe || '', photoUrl: row.photo_url || '',
     soldeConges: row.solde_conges ?? 0, acquisitionConges: row.acquisition_conges ?? 2.08, valideurCongesId: row.valideur_conges_id || null,
     onboarding: row.onboarding || { notes:'', materiel:'', acces:'', documents:{} },
     pointsSuivi: (row.points_suivi || []).map(p => ({
@@ -537,6 +537,12 @@ function loginWithEmail(email, name, picture, saveSession) {
   currentCollab = collab;
   currentUser = { email, name: name || collab.prenom + ' ' + collab.nom, picture };
 
+  // Sauvegarder la photo Google en base si disponible
+  if (picture && picture !== collab.photoUrl) {
+    sb.from('collaborateurs').update({ photo_url: picture }).eq('id', collab.id);
+    collab.photoUrl = picture;
+  }
+
   sessionStorage.setItem('hp_collab_session', JSON.stringify(currentUser));
 
   // Détecter si l'utilisateur est manager
@@ -597,7 +603,7 @@ function renderProfile() {
   const manager = c.managerId ? COLLABS.find(x => x.id === c.managerId) : null;
 
   document.getElementById('profileCard').innerHTML = `
-    <div class="profile-avatar">${initials(c)}</div>
+    ${c.photoUrl ? `<img src="${c.photoUrl}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;flex-shrink:0;" />` : `<div class="profile-avatar">${initials(c)}</div>`}
     <div>
       <div class="profile-name">${c.prenom} ${c.nom}</div>
       <div class="profile-poste">${c.poste}</div>
@@ -967,7 +973,7 @@ function renderTeam() {
   container.innerHTML = myTeam.map(member => `
     <div class="card" style="margin-bottom:20px;" id="team-card-${member.id}">
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;">
-        <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--pink),var(--blue));display:flex;align-items:center;justify-content:center;color:white;font-size:1rem;font-weight:700;flex-shrink:0;">${initials(member)}</div>
+        ${avatarHTML(member, 48)}
         <div style="flex:1;">
           <div style="font-size:1.05rem;font-weight:700;color:var(--navy);">${member.prenom} ${member.nom}</div>
           <div style="font-size:0.82rem;color:var(--muted);margin-top:2px;">${member.poste || '—'}</div>
