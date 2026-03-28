@@ -36,8 +36,23 @@ function currentMois() {
 
 function isPointLocked(mois) {
   const [year, month] = mois.split('-').map(Number);
-  return new Date() >= new Date(year, month, 1);
+  return new Date() >= new Date(year, month, 5); // verrouillé le 5 du mois suivant
 }
+
+const MANAGER_FIELDS = ['retoursMissions','tauxStaffing','qualites','axeAmelioration'];
+const COLLAB_FIELDS = ['ressenti','reussites','objectifsAtteints','suggestions','objectifsMoisSuivant','autresSujets','axeAmeliorationSoi'];
+
+function getPointStatus(point) {
+  const md = point.managerData || {};
+  const cd = point.collabData || {};
+  const managerDone = MANAGER_FIELDS.every(k => md[k] && String(md[k]).trim());
+  const collabDone = COLLAB_FIELDS.every(k => cd[k] && String(cd[k]).trim());
+  if (managerDone && collabDone) return 'complet';
+  if (managerDone || collabDone) return 'partiel';
+  return 'vide';
+}
+
+const POINT_STATUS_BADGE = { complet: { label: '✅ Complet', cls: 'badge-green' }, partiel: { label: '🟡 Partiel', cls: 'badge-orange' }, vide: { label: '🔴 Vide', cls: 'badge-pink' } };
 
 function moisLabel(mois) {
   if (!mois) return '—';

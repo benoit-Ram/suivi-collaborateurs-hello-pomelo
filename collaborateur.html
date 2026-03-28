@@ -741,7 +741,7 @@ function renderPoints() {
   const cm = currentMois();
 
   if (!sorted.length) {
-    document.getElementById('myPoints').innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><p>Aucun point mensuel pour le moment.<br>Votre manager créera votre premier point du mois prochainement.</p></div>`;
+    document.getElementById('myPoints').innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><p>Aucun point mensuel pour le moment.<br>Le point du mois sera créé automatiquement.</p></div>`;
     return;
   }
 
@@ -794,7 +794,7 @@ function renderPoints() {
       <div onclick="toggleAcc('acc-${p.id}')" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;cursor:pointer;background:${isFirst && !locked ? 'linear-gradient(135deg,#F0F0FF,#FFF0F8)' : 'white'};">
         <div style="display:flex;align-items:center;gap:10px;">
           <span style="font-size:0.95rem;font-weight:700;color:var(--navy);">📅 ${label}</span>
-          ${locked ? `<span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);background:var(--lavender);padding:2px 8px;border-radius:99px;">🔒 Verrouillé</span>` : `<span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--pink);background:#FFF0F8;padding:2px 8px;border-radius:99px;">✏️ À compléter</span>`}
+          ${(() => { if (locked) return `<span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);background:var(--lavender);padding:2px 8px;border-radius:99px;">🔒 Verrouillé</span>`; const st = getPointStatus(p); return `<span class="badge ${POINT_STATUS_BADGE[st].cls}" style="font-size:0.65rem;">${POINT_STATUS_BADGE[st].label}</span>`; })()}
         </div>
         <span style="color:var(--muted);font-size:1rem;" id="acc-icon-${p.id}">${isFirst ? '▲' : '▼'}</span>
       </div>
@@ -823,12 +823,15 @@ async function saveCollabPoint(pointId) {
   const p = (c.pointsSuivi || []).find(x => x.id === pointId);
   if (!p || isPointLocked(p.mois)) { showToast('Ce point est verrouillé.'); return; }
 
-  const fields = ['ressenti','reussites','objectifsAtteints','suggestions','objectifsMoisSuivant','autresSujets','axeAmeliorationSoi'];
   const collabData = {};
-  fields.forEach(k => {
+  COLLAB_FIELDS.forEach(k => {
     const el = document.getElementById(`cf_${pointId}_${k}`);
     if (el) collabData[k] = el.value.trim();
   });
+
+  // Validation champs obligatoires
+  const emptyFields = COLLAB_FIELDS.filter(k => !collabData[k]);
+  if (emptyFields.length) { showToast(`Veuillez remplir tous les champs (${emptyFields.length} manquant${emptyFields.length > 1 ? 's' : ''}).`); return; }
 
   const { error } = await sb.from('points_suivi').update({ collab_data: collabData }).eq('id', pointId);
   if (error) { showToast('Erreur: ' + error.message); return; }

@@ -900,7 +900,31 @@ async function initDB() {
   if (settingsRes.data) {
     settingsRes.data.forEach(row => { SETTINGS[row.key] = row.value; });
   }
+
+  // Auto-création des points mensuels manquants pour le mois en cours
+  await autoCreateMonthlyPoints();
+
   navigate('dashboard');
+}
+
+async function autoCreateMonthlyPoints() {
+  const cm = currentMois();
+  const missing = DB.collaborateurs.filter(c => !(c.pointsSuivi||[]).some(p => p.mois === cm));
+  if (!missing.length) return;
+  const rows = missing.map(c => ({
+    collaborateur_id: c.id, date: cm + '-01', type: 'mensuel', mois: cm,
+    manager_data: {}, collab_data: {}, contenu: 'Point mensuel ' + moisLabel(cm)
+  }));
+  const { data, error } = await sb.from('points_suivi').insert(rows).select();
+  if (error) { console.warn('Auto-création points:', error.message); return; }
+  // Mettre à jour le cache local
+  (data || []).forEach(row => {
+    const c = DB.collaborateurs.find(x => x.id === row.collaborateur_id);
+    if (c) {
+      if (!c.pointsSuivi) c.pointsSuivi = [];
+      c.pointsSuivi.push({ id: row.id, date: row.date, type: 'mensuel', mois: row.mois, managerData: {}, collabData: {} });
+    }
+  });
 }
 
 // ─────────────────────────────────────────
@@ -981,13 +1005,16 @@ function renderDashboard() {
   const managers = new Set(DB.collaborateurs.map(c => c.managerId).filter(Boolean)).size;
   const docsOk = DB.collaborateurs.filter(c => onboardingScore(c).pct === 100).length;
 
-  // Points mensuels complétés ce mois
-  const pointsCeMois = DB.collaborateurs.filter(c => (c.pointsSuivi||[]).some(p => p.mois === cm)).length;
+  // Points mensuels : compter les statuts
+  const pointsComplets = DB.collaborateurs.filter(c => {
+    const p = (c.pointsSuivi||[]).find(x => x.mois === cm);
+    return p && getPointStatus(p) === 'complet';
+  }).length;
 
   document.getElementById('statsRow').innerHTML = `
     <div class="stat-card pink"><div class="stat-num">${total}</div><div class="stat-label">Collaborateurs</div></div>
     <div class="stat-card blue"><div class="stat-num">${thisMonth}</div><div class="stat-label">Arrivées ce mois</div></div>
-    <div class="stat-card sky"><div class="stat-num">${pointsCeMois}/${total}</div><div class="stat-label">Points mensuels</div></div>
+    <div class="stat-card ${pointsComplets === total ? 'green' : 'sky'}"><div class="stat-num">${pointsComplets}/${total}</div><div class="stat-label">Points complets</div></div>
     <div class="stat-card green"><div class="stat-num">${docsOk}</div><div class="stat-label">Dossiers complets</div></div>`;
 
   document.getElementById('btnAddCollabDash').classList.remove('hidden');
@@ -1012,9 +1039,22 @@ function renderAlerts() {
   const alerts = [];
 
   DB.collaborateurs.forEach(c => {
-    // Points non remplis ce mois
-    const hasPoint = (c.pointsSuivi||[]).some(p => p.mois === cm);
-    if (!hasPoint) alerts.push({ type: 'warning', icon: '📋', text: `<strong>${c.prenom} ${c.nom}</strong> — Point mensuel de ${moisLabel(cm)} non créé`, collabId: c.id });
+    // Points mensuels — statut
+    const point = (c.pointsSuivi||[]).find(p => p.mois === cm);
+    if (point) {
+      const status = getPointStatus(point);
+      const md = point.managerData || {};
+      const cd = point.collabData || {};
+      const managerDone = MANAGER_FIELDS.every(k => md[k] && String(md[k]).trim());
+      const collabDone = COLLAB_FIELDS.every(k => cd[k] && String(cd[k]).trim());
+      if (status === 'vide') {
+        alerts.push({ type: 'danger', icon: '🔴', text: `<strong>${escHTML(c.prenom)} ${escHTML(c.nom)}</strong> — Point de ${moisLabel(cm)} vide (ni manager ni collaborateur)`, collabId: c.id, email: c.email, prenom: c.prenom });
+      } else if (!managerDone) {
+        alerts.push({ type: 'warning', icon: '🟡', text: `<strong>${escHTML(c.prenom)} ${escHTML(c.nom)}</strong> — Retours manager manquants pour ${moisLabel(cm)}`, collabId: c.id });
+      } else if (!collabDone) {
+        alerts.push({ type: 'warning', icon: '🟡', text: `<strong>${escHTML(c.prenom)} ${escHTML(c.nom)}</strong> — Réponses collaborateur manquantes pour ${moisLabel(cm)}`, collabId: c.id, email: c.email, prenom: c.prenom });
+      }
+    }
 
     // Documents en attente de validation
     const uploads = c.onboarding.uploads || {};
@@ -1043,11 +1083,12 @@ function renderAlerts() {
   const list = document.getElementById('alertsList');
   if (!alerts.length) { panel.classList.add('hidden'); return; }
   panel.classList.remove('hidden');
-  list.innerHTML = alerts.slice(0, 10).map(a => `
-    <div onclick="navigate('collab','${a.collabId}')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;margin-bottom:6px;font-size:0.82rem;font-weight:600;cursor:pointer;background:${a.type==='danger'?'#FFF1F2':a.type==='warning'?'#FFF7ED':'#EFF6FF'};color:${a.type==='danger'?'#881337':a.type==='warning'?'#9A3412':'#1E40AF'};">
+  list.innerHTML = alerts.slice(0, 15).map(a => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;margin-bottom:6px;font-size:0.82rem;font-weight:600;background:${a.type==='danger'?'#FFF1F2':a.type==='warning'?'#FFF7ED':'#EFF6FF'};color:${a.type==='danger'?'#881337':a.type==='warning'?'#9A3412':'#1E40AF'};">
       <span style="font-size:1rem;flex-shrink:0;">${a.icon}</span>
-      <span style="flex:1;">${a.text}</span>
-    </div>`).join('') + (alerts.length > 10 ? `<div style="font-size:0.78rem;color:var(--muted);text-align:center;margin-top:8px;">… et ${alerts.length - 10} autres alertes</div>` : '');
+      <span style="flex:1;cursor:pointer;" onclick="navigate('collab','${a.collabId}')">${a.text}</span>
+      ${a.email ? `<a href="mailto:${escHTML(a.email)}?subject=${encodeURIComponent('Rappel — Point de suivi mensuel ' + moisLabel(currentMois()))}&body=${encodeURIComponent('Bonjour ' + (a.prenom||'') + ',\n\nN\'oublie pas de compléter ton point de suivi de ' + moisLabel(currentMois()) + ' sur l\'outil Hello Pomelo avant le 5 du mois prochain.\n\nMerci !')}" onclick="event.stopPropagation()" class="btn btn-sm" style="background:var(--navy);color:white;padding:3px 8px;font-size:0.68rem;flex-shrink:0;">📧 Rappel</a>` : ''}
+    </div>`).join('') + (alerts.length > 15 ? `<div style="font-size:0.78rem;color:var(--muted);text-align:center;margin-top:8px;">… et ${alerts.length - 15} autres alertes</div>` : '');
 }
 
 // ── ANALYTICS ──
@@ -1345,13 +1386,17 @@ function renderPoints() {
   const cm = currentMois();
   const hasCurrent = sorted.some(p => p.mois === cm);
 
-  // Le bouton est toujours visible (front et back) pour permettre l'édition en cours de mois
+  // Bouton "Modifier le point du mois" (le point est auto-créé)
   const btn = document.getElementById('btnAddPoint');
-  btn.classList.remove('hidden');
-  document.getElementById('btnAddPointLabel').textContent = hasCurrent ? 'Modifier ' + moisLabel(cm) : '+ Point ' + moisLabel(cm);
+  if (hasCurrent) {
+    btn.classList.remove('hidden');
+    document.getElementById('btnAddPointLabel').textContent = 'Modifier ' + moisLabel(cm);
+  } else {
+    btn.classList.add('hidden');
+  }
 
   if (!sorted.length) {
-    document.getElementById('pointsList').innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><p>Aucun point mensuel créé pour ce collaborateur.</p><button class="btn btn-primary" onclick="openCurrentMonthPoint()" style="margin-top:8px;">+ Créer le point de ${moisLabel(cm)}</button></div>`;
+    document.getElementById('pointsList').innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><p>Aucun point mensuel pour ce collaborateur.</p></div>`;
     return;
   }
 
@@ -1361,13 +1406,17 @@ function renderPoints() {
     const cd = p.collabData || {};
     const label = moisLabel(p.mois || p.date);
     const isFirst = i === 0;
+    const status = locked ? null : getPointStatus(p);
+    const statusBadge = locked
+      ? `<span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);background:var(--lavender);padding:2px 8px;border-radius:99px;">🔒 Verrouillé</span>`
+      : `<span class="badge ${POINT_STATUS_BADGE[status].cls}" style="font-size:0.65rem;">${POINT_STATUS_BADGE[status].label}</span>`;
 
     return `
     <div class="point-accordion" style="margin-bottom:10px;border-radius:14px;border:1.5px solid var(--lavender);overflow:hidden;background:white;">
       <div onclick="toggleAcc('acc-${p.id}')" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;cursor:pointer;background:${isFirst && !locked ? 'linear-gradient(135deg,#F0F0FF,#FFF0F8)' : 'white'};">
         <div style="display:flex;align-items:center;gap:10px;">
           <span style="font-size:0.95rem;font-weight:700;color:var(--navy);">📅 ${label}</span>
-          ${locked ? `<span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);background:var(--lavender);padding:2px 8px;border-radius:99px;">🔒 Verrouillé</span>` : `<span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--pink);background:#FFF0F8;padding:2px 8px;border-radius:99px;">En cours</span>`}
+          ${statusBadge}
         </div>
         <span style="color:var(--muted);font-size:1rem;" id="acc-icon-${p.id}">${isFirst ? '▲' : '▼'}</span>
       </div>
@@ -1530,6 +1579,9 @@ async function saveManagerPoint() {
     qualites: document.getElementById('pm_qualites').value.trim(),
     axeAmelioration: document.getElementById('pm_axeAmelioration').value.trim(),
   };
+  // Validation champs obligatoires
+  const emptyFields = MANAGER_FIELDS.filter(k => !managerData[k]);
+  if (emptyFields.length) { showToast('Veuillez remplir tous les champs avant d\'enregistrer.'); return; }
   const activeObjs = (c.objectifs||[]).filter(o=>o.statut==='en-cours');
   if (activeObjs.length) {
     managerData.objectifs = {};
