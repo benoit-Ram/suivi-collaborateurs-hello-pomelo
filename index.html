@@ -869,7 +869,8 @@ async function initDB() {
     absences: (absencesRes.data || []).map(a => ({
       id: a.id, collaborateurId: a.collaborateur_id, type: a.type,
       dateDebut: a.date_debut, dateFin: a.date_fin,
-      statut: a.statut || 'en_attente', commentaire: a.commentaire || ''
+      statut: a.statut || 'en_attente', commentaire: a.commentaire || '',
+      motifRefus: a.motif_refus || ''
     }))
   };
   if (settingsRes.data) {
@@ -899,7 +900,7 @@ function renderSidebar() {
   let html = `
     <span class="nav-section">Navigation</span>
     <button class="nav-item ${currentView === 'dashboard' ? 'active' : ''}" onclick="navigate('dashboard')">
-      <span class="nav-icon">🏠</span><span>Tableau de bord</span>
+      <span class="nav-icon">🏠</span><span>Tableau de bord</span>${(() => { const cm = currentMois(); const missingPoints = DB.collaborateurs.filter(c => !(c.pointsSuivi||[]).some(p => p.mois === cm)).length; return missingPoints ? `<span style="background:var(--orange);color:white;font-size:0.65rem;font-weight:800;padding:2px 7px;border-radius:99px;margin-left:auto;">${missingPoints}</span>` : ''; })()}
     </button>`;
   if (currentView === 'collab' && currentCollabId) {
     const c = getCollab(currentCollabId);
@@ -917,7 +918,7 @@ function renderSidebar() {
       <span class="nav-icon">🗂️</span><span>Organigramme</span>
     </button>
     <button class="nav-item ${currentView === 'bo-absences' ? 'active' : ''}" onclick="navigate('bo-absences')">
-      <span class="nav-icon">🏖️</span><span>Congés & Absences</span>
+      <span class="nav-icon">🏖️</span><span>Congés & Absences</span>${(() => { const pending = (DB.absences||[]).filter(a => a.statut === 'en_attente').length; return pending ? `<span style="background:var(--pink);color:white;font-size:0.65rem;font-weight:800;padding:2px 7px;border-radius:99px;margin-left:auto;">${pending}</span>` : ''; })()}
     </button>
     <button class="nav-item ${currentView === 'bo-settings' ? 'active' : ''}" onclick="navigate('bo-settings')">
       <span class="nav-icon">⚙️</span><span>Paramètres</span>
@@ -2087,12 +2088,15 @@ function renderBoAbsences() {
         <td>${fmtDate(a.dateFin)}</td>
         <td style="font-weight:700;">${jours}j</td>
         <td style="font-size:0.82rem;">${valideur}</td>
-        <td><span class="badge ${ABS_STATUT_BADGE[a.statut]||'badge-gray'}">${ABS_STATUTS[a.statut]||a.statut}</span></td>
+        <td>
+          <span class="badge ${ABS_STATUT_BADGE[a.statut]||'badge-gray'}">${ABS_STATUTS[a.statut]||a.statut}</span>
+          ${a.statut === 'refuse' && a.motifRefus ? `<div style="font-size:0.72rem;color:#881337;margin-top:4px;font-style:italic;">Motif : ${a.motifRefus}</div>` : ''}
+        </td>
         <td>
           <div style="display:flex;gap:6px;">
             ${a.statut === 'en_attente' ? `
-              <button class="btn btn-sm" style="background:var(--green);color:white;" onclick="updateAbsStatut('${a.id}','approuve')">✓</button>
-              <button class="btn btn-danger btn-sm" onclick="updateAbsStatut('${a.id}','refuse')">✕</button>
+              <button class="btn btn-sm" style="background:var(--green);color:white;" onclick="updateAbsStatut('${a.id}','approuve')">✓ Approuver</button>
+              <button class="btn btn-danger btn-sm" onclick="refuserAbsence('${a.id}')">✕ Refuser</button>
             ` : ''}
             <button class="btn btn-danger btn-sm" onclick="deleteAbsence('${a.id}')">🗑️</button>
           </div>
@@ -2125,7 +2129,24 @@ async function updateAbsStatut(id, statut) {
   const abs = (DB.absences||[]).find(a => a.id === id);
   if (abs) abs.statut = statut;
   renderBoAbsences();
-  showToast(statut === 'approuve' ? 'Absence approuvée ✓' : 'Absence refusée');
+  renderSidebar();
+  showToast('Absence approuvée ✓');
+}
+
+function refuserAbsence(id) {
+  const motif = prompt('Motif du refus (obligatoire) :');
+  if (!motif || !motif.trim()) { showToast('Le motif de refus est obligatoire.'); return; }
+  refuserAbsenceConfirm(id, motif.trim());
+}
+
+async function refuserAbsenceConfirm(id, motif) {
+  const { error } = await sb.from('absences').update({ statut: 'refuse', motif_refus: motif }).eq('id', id);
+  if (error) { showToast('Erreur: ' + error.message); return; }
+  const abs = (DB.absences||[]).find(a => a.id === id);
+  if (abs) { abs.statut = 'refuse'; abs.motifRefus = motif; }
+  renderBoAbsences();
+  renderSidebar();
+  showToast('Absence refusée — motif enregistré.');
 }
 
 async function deleteAbsence(id) {

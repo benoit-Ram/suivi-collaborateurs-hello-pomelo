@@ -66,4 +66,7 @@ ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS acquisition_conges numeric D
 
 -- Valideur de congés (par défaut le manager si non renseigné)
 ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS valideur_conges_id uuid REFERENCES collaborateurs(id);
+
+-- Motif de refus des absences
+ALTER TABLE absences ADD COLUMN IF NOT EXISTS motif_refus text;
 ```

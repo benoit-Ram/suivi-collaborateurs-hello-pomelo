@@ -300,6 +300,14 @@
       <span class="brand-tag">Mon espace</span>
     </div>
     <div class="topbar-user">
+      <div id="notifBell" onclick="toggleNotifPanel()" style="position:relative;cursor:pointer;margin-right:6px;">
+        <span style="font-size:1.2rem;">🔔</span>
+        <span id="notifBadge" style="display:none;position:absolute;top:-4px;right:-6px;background:var(--pink);color:white;font-size:0.6rem;font-weight:800;padding:1px 5px;border-radius:99px;"></span>
+      </div>
+      <div id="notifPanel" style="display:none;position:absolute;top:58px;right:24px;width:340px;max-height:400px;overflow-y:auto;background:white;border-radius:14px;box-shadow:0 12px 40px rgba(5,5,109,0.18);z-index:100;padding:16px;">
+        <div style="font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--navy);margin-bottom:12px;">Notifications</div>
+        <div id="notifList"></div>
+      </div>
       <div id="topbarAvatar" class="user-avatar-init"></div>
       <span id="topbarName" class="user-name"></span>
       <button class="btn-logout" onclick="logout()">Déconnexion</button>
@@ -543,6 +551,12 @@ function showApp() {
 
   renderProfile();
   showTab('objectifs');
+
+  // Load absences for notifications
+  sb.from('absences').select('*').eq('collaborateur_id', currentCollab.id).then(({ data }) => {
+    myAbsences = (data||[]).map(a => ({ id: a.id, type: a.type, dateDebut: a.date_debut, dateFin: a.date_fin, statut: a.statut || 'en_attente', commentaire: a.commentaire || '', motifRefus: a.motif_refus || '' }));
+    updateNotifBadge();
+  });
 }
 
 function renderProfile() {
@@ -1095,7 +1109,8 @@ async function renderConges() {
   if (error) { showToast('Erreur: ' + error.message); return; }
   myAbsences = (data||[]).map(a => ({
     id: a.id, type: a.type, dateDebut: a.date_debut, dateFin: a.date_fin,
-    statut: a.statut || 'en_attente', commentaire: a.commentaire || ''
+    statut: a.statut || 'en_attente', commentaire: a.commentaire || '',
+    motifRefus: a.motif_refus || ''
   }));
 
   const s = getMySolde();
@@ -1157,6 +1172,12 @@ async function renderConges() {
       </div>
     </div>
 
+    <!-- Calendrier -->
+    <div class="card" style="margin-bottom:24px;">
+      <div class="section-title" style="margin-top:0;">Mon calendrier</div>
+      <div id="calendarContainer"></div>
+    </div>
+
     <!-- Historique -->
     <div class="section-title">Historique</div>
     ${myAbsences.length ? myAbsences.map(a => {
@@ -1167,12 +1188,21 @@ async function renderConges() {
           <div style="font-weight:700;font-size:0.9rem;color:var(--navy);">${ABS_TYPES[a.type]||a.type}</div>
           <div style="font-size:0.78rem;color:var(--muted);margin-top:2px;">Du ${fmtDate(a.dateDebut)} au ${fmtDate(a.dateFin)} · ${jours} jour${jours>1?'s':''}</div>
           ${a.commentaire ? `<div style="font-size:0.78rem;color:var(--muted);margin-top:4px;font-style:italic;">${a.commentaire}</div>` : ''}
+          ${a.statut === 'refuse' && a.motifRefus ? `<div style="font-size:0.78rem;color:#881337;margin-top:4px;background:#FFF1F2;padding:6px 10px;border-radius:6px;border-left:3px solid #F43F5E;">Motif du refus : ${a.motifRefus}</div>` : ''}
         </div>
         <span class="badge ${ABS_STATUT_BADGE[a.statut]||'badge-gray'}">${ABS_STATUTS[a.statut]||a.statut}</span>
         ${a.statut === 'en_attente' ? `<button class="btn btn-danger btn-sm" onclick="cancelAbsence('${a.id}')">Annuler</button>` : ''}
       </div>`;
     }).join('') : '<div class="empty-state"><div class="empty-icon">🏖️</div><p>Aucune demande de congé.</p></div>'}
   `;
+
+  // Render calendar
+  calYear = new Date().getFullYear();
+  calMonth = new Date().getMonth();
+  document.getElementById('calendarContainer').innerHTML = renderCalendar(calYear, calMonth);
+
+  // Update notifications
+  updateNotifBadge();
 }
 
 async function submitAbsence() {
@@ -1204,6 +1234,203 @@ async function cancelAbsence(id) {
   if (error) { showToast('Erreur: ' + error.message); return; }
   showToast('Demande annulée.');
   renderConges();
+}
+
+// ─────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────
+let notifOpen = false;
+
+function toggleNotifPanel() {
+  notifOpen = !notifOpen;
+  document.getElementById('notifPanel').style.display = notifOpen ? 'block' : 'none';
+  if (notifOpen) renderNotifications();
+}
+
+// Close panel when clicking outside
+document.addEventListener('click', (e) => {
+  if (notifOpen && !e.target.closest('#notifBell') && !e.target.closest('#notifPanel')) {
+    notifOpen = false;
+    document.getElementById('notifPanel').style.display = 'none';
+  }
+});
+
+function renderNotifications() {
+  const notifs = [];
+  const cm = currentMois();
+
+  // Absences approuvées ou refusées récemment
+  myAbsences.forEach(a => {
+    if (a.statut === 'approuve') {
+      notifs.push({ icon: '✅', text: `Congé ${ABS_TYPES[a.type]||a.type} du ${fmtDate(a.dateDebut)} au ${fmtDate(a.dateFin)} approuvé`, type: 'success' });
+    }
+    if (a.statut === 'refuse') {
+      notifs.push({ icon: '❌', text: `Congé ${ABS_TYPES[a.type]||a.type} du ${fmtDate(a.dateDebut)} au ${fmtDate(a.dateFin)} refusé${a.motifRefus ? ' — ' + a.motifRefus : ''}`, type: 'danger' });
+    }
+  });
+
+  // Point mensuel rempli par le manager ce mois
+  const currentPoint = (currentCollab.pointsSuivi||[]).find(p => p.mois === cm);
+  if (currentPoint) {
+    const md = currentPoint.managerData || {};
+    const hasMd = Object.values(md).some(v => v && typeof v === 'string' && v.trim());
+    if (hasMd) notifs.push({ icon: '📋', text: `Votre manager a rempli le point de ${moisLabel(cm)}. Pensez à compléter vos réponses !`, type: 'info' });
+  }
+
+  // Point mensuel non rempli
+  if (currentPoint && !((currentPoint.collabData||{}).ressenti)) {
+    notifs.push({ icon: '⏰', text: `N'oubliez pas de remplir vos réponses pour ${moisLabel(cm)}.`, type: 'warning' });
+  }
+
+  // Demandes en attente (si manager)
+  if (myTeam.length) {
+    const teamIds = myTeam.map(m => m.id);
+    const pendingCount = myAbsences.length ? 0 : 0; // will be loaded separately
+  }
+
+  const badge = document.getElementById('notifBadge');
+  if (notifs.length) { badge.style.display = 'block'; badge.textContent = notifs.length; }
+  else { badge.style.display = 'none'; }
+
+  document.getElementById('notifList').innerHTML = notifs.length
+    ? notifs.map(n => `
+      <div style="display:flex;gap:10px;padding:10px 12px;border-radius:10px;margin-bottom:6px;background:${n.type==='success'?'#F0FDF4':n.type==='danger'?'#FFF1F2':n.type==='warning'?'#FFF7ED':'#EFF6FF'};font-size:0.82rem;font-weight:600;color:${n.type==='success'?'#166534':n.type==='danger'?'#881337':n.type==='warning'?'#9A3412':'#1E40AF'};">
+        <span>${n.icon}</span><span style="flex:1;">${n.text}</span>
+      </div>`).join('')
+    : '<div style="text-align:center;color:var(--muted);font-size:0.82rem;padding:16px;">Aucune notification</div>';
+}
+
+function updateNotifBadge() {
+  const notifs = [];
+  myAbsences.forEach(a => {
+    if (a.statut === 'approuve' || a.statut === 'refuse') notifs.push(a);
+  });
+  const cm = currentMois();
+  const currentPoint = (currentCollab.pointsSuivi||[]).find(p => p.mois === cm);
+  if (currentPoint) {
+    const md = currentPoint.managerData || {};
+    if (Object.values(md).some(v => v && typeof v === 'string' && v.trim())) notifs.push({});
+  }
+  const badge = document.getElementById('notifBadge');
+  if (notifs.length) { badge.style.display = 'block'; badge.textContent = notifs.length; }
+  else { badge.style.display = 'none'; }
+}
+
+// ─────────────────────────────────────────
+// CALENDRIER CONGÉS
+// ─────────────────────────────────────────
+const JOURS_FERIES_FR = [
+  { m: 1, d: 1, label: "Jour de l'an" },
+  { m: 5, d: 1, label: 'Fête du travail' },
+  { m: 5, d: 8, label: 'Victoire 1945' },
+  { m: 7, d: 14, label: 'Fête nationale' },
+  { m: 8, d: 15, label: 'Assomption' },
+  { m: 11, d: 1, label: 'Toussaint' },
+  { m: 11, d: 11, label: 'Armistice' },
+  { m: 12, d: 25, label: 'Noël' },
+];
+
+function getJoursFeries(year) {
+  const feries = JOURS_FERIES_FR.map(f => ({ date: `${year}-${String(f.m).padStart(2,'0')}-${String(f.d).padStart(2,'0')}`, label: f.label }));
+  // Lundi de Pâques (calcul simplifié)
+  const a = year % 19, b = Math.floor(year/100), c = year % 100;
+  const d = Math.floor(b/4), e = b % 4, f = Math.floor((b+8)/25);
+  const g = Math.floor((b-f+1)/3), h = (19*a+b-d-g+15) % 30;
+  const i = Math.floor(c/4), k = c % 4;
+  const l = (32+2*e+2*i-h-k) % 7;
+  const m = Math.floor((a+11*h+22*l)/451);
+  const month = Math.floor((h+l-7*m+114)/31);
+  const day = ((h+l-7*m+114) % 31) + 1;
+  const easter = new Date(year, month-1, day);
+  const lundiPaques = new Date(easter); lundiPaques.setDate(easter.getDate()+1);
+  const ascension = new Date(easter); ascension.setDate(easter.getDate()+39);
+  const lundiPentecote = new Date(easter); lundiPentecote.setDate(easter.getDate()+50);
+  [{ d: lundiPaques, l: 'Lundi de Pâques' }, { d: ascension, l: 'Ascension' }, { d: lundiPentecote, l: 'Lundi de Pentecôte' }].forEach(x => {
+    feries.push({ date: x.d.toISOString().split('T')[0], label: x.l });
+  });
+  return feries;
+}
+
+function isDateInRange(date, debut, fin) {
+  return date >= debut && date <= fin;
+}
+
+function renderCalendar(year, month) {
+  const feries = getJoursFeries(year);
+  const feriesDates = new Set(feries.map(f => f.date));
+  const feriesMap = {};
+  feries.forEach(f => { feriesMap[f.date] = f.label; });
+
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month+1, 0);
+  const startDow = (firstDay.getDay() + 6) % 7; // Monday=0
+
+  const today = new Date().toISOString().split('T')[0];
+  const monthLabel = firstDay.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+
+  let html = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <button class="btn btn-ghost btn-sm" onclick="changeCalMonth(-1)">← Préc</button>
+      <span style="font-weight:700;color:var(--navy);font-size:0.95rem;text-transform:capitalize;">${monthLabel}</span>
+      <button class="btn btn-ghost btn-sm" onclick="changeCalMonth(1)">Suiv →</button>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:0.78rem;">
+      <thead><tr>${['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'].map(d => `<th style="padding:6px 4px;text-align:center;color:var(--muted);font-size:0.68rem;font-weight:700;">${d}</th>`).join('')}</tr></thead>
+      <tbody>`;
+
+  let dayNum = 1;
+  for (let row = 0; row < 6; row++) {
+    if (dayNum > lastDay.getDate()) break;
+    html += '<tr>';
+    for (let col = 0; col < 7; col++) {
+      if ((row === 0 && col < startDow) || dayNum > lastDay.getDate()) {
+        html += '<td style="padding:4px;"></td>';
+      } else {
+        const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
+        const isFerie = feriesDates.has(dateStr);
+        const isWeekend = col >= 5;
+        const isToday = dateStr === today;
+        const absence = myAbsences.find(a => isDateInRange(dateStr, a.dateDebut, a.dateFin));
+        let bg = 'transparent', color = 'var(--navy)', title = '';
+        if (isFerie) { bg = '#EFF6FF'; color = '#1E40AF'; title = feriesMap[dateStr]; }
+        if (isWeekend) { bg = 'var(--offwhite)'; color = 'var(--muted)'; }
+        if (absence) {
+          if (absence.statut === 'approuve') { bg = '#DCFCE7'; color = '#166534'; title = ABS_TYPES[absence.type]||absence.type; }
+          else if (absence.statut === 'en_attente') { bg = '#FFF7ED'; color = '#9A3412'; title = (ABS_TYPES[absence.type]||absence.type)+' (en attente)'; }
+          else if (absence.statut === 'refuse') { bg = '#FFF1F2'; color = '#881337'; title = (ABS_TYPES[absence.type]||absence.type)+' (refusé)'; }
+        }
+        if (isToday) { bg = 'var(--pink)'; color = 'white'; }
+        html += `<td style="padding:2px;text-align:center;">
+          <div title="${title}" style="width:28px;height:28px;line-height:28px;margin:0 auto;border-radius:8px;background:${bg};color:${color};font-weight:${isToday||absence?'700':'500'};cursor:${title?'help':'default'};">${dayNum}</div>
+        </td>`;
+        dayNum++;
+      }
+    }
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+
+  // Legend
+  html += `
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;font-size:0.7rem;font-weight:600;color:var(--muted);">
+      <div style="display:flex;align-items:center;gap:4px;"><div style="width:12px;height:12px;border-radius:3px;background:#DCFCE7;"></div> Approuvé</div>
+      <div style="display:flex;align-items:center;gap:4px;"><div style="width:12px;height:12px;border-radius:3px;background:#FFF7ED;"></div> En attente</div>
+      <div style="display:flex;align-items:center;gap:4px;"><div style="width:12px;height:12px;border-radius:3px;background:#FFF1F2;"></div> Refusé</div>
+      <div style="display:flex;align-items:center;gap:4px;"><div style="width:12px;height:12px;border-radius:3px;background:#EFF6FF;"></div> Jour férié</div>
+      <div style="display:flex;align-items:center;gap:4px;"><div style="width:12px;height:12px;border-radius:3px;background:var(--pink);"></div> Aujourd'hui</div>
+    </div>`;
+
+  return html;
+}
+
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth();
+
+function changeCalMonth(delta) {
+  calMonth += delta;
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  document.getElementById('calendarContainer').innerHTML = renderCalendar(calYear, calMonth);
 }
 
 </script>
