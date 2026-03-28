@@ -2652,7 +2652,7 @@ function handleAdminGoogleResponse(response) {
 // ─────────────────────────────────────────
 // INIT
 // ─────────────────────────────────────────
-(function() {
+function initAdminAuth() {
   // Check existing admin session
   const session = sessionStorage.getItem('hp_admin_session');
   if (session) {
@@ -2661,38 +2661,31 @@ function handleAdminGoogleResponse(response) {
     return;
   }
 
-  // Render Google Sign-In button for admin
-  if (typeof google !== 'undefined' && google.accounts) {
-    google.accounts.id.initialize({
-      client_id: ADMIN_CLIENT_ID,
-      callback: handleAdminGoogleResponse,
-      auto_select: false,
-    });
-    google.accounts.id.renderButton(
-      document.getElementById('adminGoogleBtn'),
-      { theme: 'outline', size: 'large', width: 300, text: 'signin_with', shape: 'rectangular', locale: 'fr' }
-    );
-  } else {
-    // Google lib not loaded yet (async), retry
-    window.addEventListener('load', () => {
-      if (typeof google !== 'undefined' && google.accounts) {
-        google.accounts.id.initialize({
-          client_id: ADMIN_CLIENT_ID,
-          callback: handleAdminGoogleResponse,
-          auto_select: false,
-        });
-        google.accounts.id.renderButton(
-          document.getElementById('adminGoogleBtn'),
-          { theme: 'outline', size: 'large', width: 300, text: 'signin_with', shape: 'rectangular', locale: 'fr' }
-        );
-      } else {
-        // Fallback: skip auth for local dev / demo
-        document.getElementById('adminLogin').style.display = 'none';
-        initDB();
-      }
-    });
+  // Wait for Google lib to load
+  function tryRenderGoogleBtn() {
+    if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
+      google.accounts.id.initialize({
+        client_id: ADMIN_CLIENT_ID,
+        callback: handleAdminGoogleResponse,
+        auto_select: false,
+      });
+      google.accounts.id.renderButton(
+        document.getElementById('adminGoogleBtn'),
+        { theme: 'outline', size: 'large', width: 300, text: 'signin_with', shape: 'rectangular', locale: 'fr' }
+      );
+    } else {
+      setTimeout(tryRenderGoogleBtn, 200);
+    }
   }
-})();
+  tryRenderGoogleBtn();
+}
+
+// Start
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initAdminAuth);
+} else {
+  initAdminAuth();
+}
 </script>
 </body>
 </html>
