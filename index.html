@@ -2102,13 +2102,24 @@ function renderBoAbsences() {
     return `<tr>
       <td><strong>${c.prenom} ${c.nom}</strong></td>
       <td style="font-size:0.82rem;">${valideur}</td>
-      <td>${s.soldeInitial}j</td>
-      <td>${s.acquisition}j/mois</td>
+      <td><input type="number" step="0.5" value="${s.soldeInitial}" style="width:60px;border:1.5px solid var(--lavender);border-radius:6px;padding:4px 6px;font-family:inherit;font-size:0.82rem;text-align:center;" onchange="updateSoldeConges('${c.id}','solde_conges',this.value)" /></td>
+      <td><input type="number" step="0.1" value="${s.acquisition}" style="width:60px;border:1.5px solid var(--lavender);border-radius:6px;padding:4px 6px;font-family:inherit;font-size:0.82rem;text-align:center;" onchange="updateSoldeConges('${c.id}','acquisition_conges',this.value)" /></td>
       <td>${s.acquis}j (${s.moisAcquis} mois)</td>
       <td>${s.pris}j</td>
       <td style="font-weight:700;color:${soldeColor};">${s.solde}j</td>
     </tr>`;
   }).join('');
+}
+
+async function updateSoldeConges(collabId, field, value) {
+  const val = parseFloat(value) || 0;
+  const { error } = await sb.from('collaborateurs').update({ [field]: val }).eq('id', collabId);
+  if (error) { showToast('Erreur: ' + error.message); return; }
+  const c = getCollab(collabId);
+  if (field === 'solde_conges') c.soldeConges = val;
+  else if (field === 'acquisition_conges') c.acquisitionConges = val;
+  renderBoAbsences();
+  showToast('Congés mis à jour ✓');
 }
 
 async function updateAbsStatut(id, statut) {
