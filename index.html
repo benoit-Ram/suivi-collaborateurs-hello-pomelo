@@ -907,33 +907,36 @@ async function initDB() {
   document.head.appendChild(style);
   document.body.appendChild(loader);
 
-  const [collabRes, settingsRes, absencesRes] = await Promise.all([
-    sb.from('collaborateurs').select('*, points_suivi(*), objectifs(*)'),
-    sb.from('settings').select('*'),
-    sb.from('absences').select('*').order('date_debut', { ascending: false })
-  ]);
-  loader.remove();
-  if (collabRes.error) { console.error('Supabase collabs:', collabRes.error); showToast('Erreur Supabase : ' + collabRes.error.message); return; }
-  if (absencesRes.error) { console.warn('Supabase absences:', absencesRes.error); }
-  console.log('Loaded:', collabRes.data?.length, 'collaborateurs');
-  DB = {
-    collaborateurs: collabRes.data.map(fromRow),
-    absences: (absencesRes.data || []).map(a => ({
-      id: a.id, collaborateurId: a.collaborateur_id, type: a.type,
-      dateDebut: a.date_debut, dateFin: a.date_fin,
-      statut: a.statut || 'en_attente', commentaire: a.commentaire || '',
-      motifRefus: a.motif_refus || ''
-    }))
-  };
-  if (settingsRes.data) {
-    settingsRes.data.forEach(row => { SETTINGS[row.key] = row.value; });
+  try {
+    const [collabRes, settingsRes, absencesRes] = await Promise.all([
+      sb.from('collaborateurs').select('*, points_suivi(*), objectifs(*)'),
+      sb.from('settings').select('*'),
+      sb.from('absences').select('*').order('date_debut', { ascending: false })
+    ]);
+    loader.remove();
+
+    if (collabRes.error) { console.error('Supabase collabs:', collabRes.error); showToast('Erreur Supabase : ' + collabRes.error.message); }
+    if (absencesRes.error) { console.warn('Supabase absences:', absencesRes.error); }
+
+    DB = {
+      collaborateurs: (collabRes.data || []).map(fromRow),
+      absences: (absencesRes.data || []).map(a => ({
+        id: a.id, collaborateurId: a.collaborateur_id, type: a.type,
+        dateDebut: a.date_debut, dateFin: a.date_fin,
+        statut: a.statut || 'en_attente', commentaire: a.commentaire || '',
+        motifRefus: a.motif_refus || ''
+      }))
+    };
+    if (settingsRes.data) {
+      settingsRes.data.forEach(row => { SETTINGS[row.key] = row.value; });
+    }
+
+    try { await initDefaultQuestions(); } catch(e) { console.warn('initDefaultQuestions:', e); }
+    try { await autoCreateMonthlyPoints(); } catch(e) { console.warn('autoCreateMonthlyPoints:', e); }
+  } catch(e) {
+    console.error('initDB failed:', e);
+    loader.remove();
   }
-
-  // Pré-remplir les questions par défaut si pas encore configurées
-  try { await initDefaultQuestions(); } catch(e) { console.warn('initDefaultQuestions:', e); }
-
-  // Auto-création des points mensuels manquants pour le mois en cours
-  try { await autoCreateMonthlyPoints(); } catch(e) { console.warn('autoCreateMonthlyPoints:', e); }
 
   navigate('dashboard');
 }
