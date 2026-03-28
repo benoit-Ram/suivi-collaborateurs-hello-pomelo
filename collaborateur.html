@@ -471,6 +471,8 @@ window.addEventListener('load', async () => {
 function handleGoogleResponse(response) {
   // Decode JWT
   const payload = JSON.parse(atob(response.credential.split('.')[1]));
+  console.log('Google login:', payload.email, payload.name);
+  console.log('Collaborateurs emails:', COLLABS.map(c => c.email));
   loginWithEmail(payload.email, payload.name, payload.picture, true);
 }
 
@@ -530,6 +532,7 @@ function loginWithEmail(email, name, picture, saveSession) {
   const collab = COLLABS.find(c => c.email && c.email.toLowerCase() === email.toLowerCase());
 
   if (!collab) {
+    console.log('Email non trouvé:', email, '— Emails en base:', COLLABS.map(c => c.email).join(', '));
     showLoginError(`Aucun compte collaborateur trouvé pour "${email}". Contactez votre administrateur.`);
     return;
   }
