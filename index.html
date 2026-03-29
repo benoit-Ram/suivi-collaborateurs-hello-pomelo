@@ -856,11 +856,21 @@
     <div id="teamObjList"></div>
     <div id="teamObjForm" style="display:none;margin-top:12px;">
       <div class="card">
-        <div style="display:flex;gap:8px;align-items:end;">
-          <div style="flex:1;">
-            <label style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:5px;">Titre de l'objectif d'équipe</label>
-            <input id="newTeamObjTitre" type="text" placeholder="Ex : Augmenter le NPS de 10 points" class="settings-input" style="width:100%;" />
+        <div class="form-grid">
+          <div class="form-field full">
+            <label>Titre de l'objectif d'équipe</label>
+            <input id="newTeamObjTitre" type="text" placeholder="Ex : Augmenter le NPS de 10 points" />
           </div>
+          <div class="form-field">
+            <label>Date de début</label>
+            <input id="newTeamObjDebut" type="date" />
+          </div>
+          <div class="form-field">
+            <label>Date de fin</label>
+            <input id="newTeamObjFin" type="date" />
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:8px;">
           <button class="btn btn-primary" onclick="addTeamObjectif()">+ Ajouter</button>
         </div>
       </div>
@@ -2057,35 +2067,76 @@ async function saveSettingKey(key, value) {
 }
 
 // ── OBJECTIFS D'ÉQUIPE ──
+function normalizeTeamObj(o) {
+  if (typeof o === 'string') return { titre: o, dateDebut: '', dateFin: '', progression: 0 };
+  return { titre: o.titre||'', dateDebut: o.dateDebut||'', dateFin: o.dateFin||'', progression: o.progression||0 };
+}
+
 function renderTeamObjectifs() {
   const equipe = document.getElementById('teamObjEquipe').value;
   const form = document.getElementById('teamObjForm');
-  const list = document.getElementById('teamObjList');
-  if (!equipe) { form.style.display = 'none'; list.innerHTML = ''; return; }
+  const listEl = document.getElementById('teamObjList');
+  if (!equipe) { form.style.display = 'none'; listEl.innerHTML = ''; return; }
   form.style.display = 'block';
-  const objs = SETTINGS['team_objectifs_' + equipe] || [];
+  const objs = (SETTINGS['team_objectifs_' + equipe] || []).map(normalizeTeamObj);
   if (!objs.length) {
-    list.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;font-style:italic;">Aucun objectif d\'équipe pour cette BU.</p>';
+    listEl.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;font-style:italic;">Aucun objectif d\'équipe pour cette BU.</p>';
     return;
   }
-  list.innerHTML = objs.map((o, i) => `
-    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid var(--lavender);border-radius:10px;margin-bottom:8px;background:white;">
-      <span style="background:var(--blue);color:white;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;flex-shrink:0;">${i+1}</span>
-      <span style="flex:1;font-weight:600;color:var(--navy);font-size:0.88rem;">${escHTML(o)}</span>
-      <button class="btn btn-ghost btn-sm" onclick="editTeamObjectif('${equipe}',${i})">✏️</button>
-      <button class="btn btn-danger btn-sm" onclick="removeTeamObjectif('${equipe}',${i})">✕</button>
-    </div>`).join('');
+  listEl.innerHTML = objs.map((o, i) => {
+    const pct = o.progression || 0;
+    const editing = teamObjEditingIdx === i;
+    if (editing) {
+      return `<div class="card" style="margin-bottom:8px;border:2px solid var(--pink);padding:16px;">
+        <div class="form-grid">
+          <div class="form-field full"><label>Titre</label><input id="teEditTitre" type="text" value="${escHTML(o.titre)}" /></div>
+          <div class="form-field"><label>Date de début</label><input id="teEditDebut" type="date" value="${o.dateDebut}" /></div>
+          <div class="form-field"><label>Date de fin</label><input id="teEditFin" type="date" value="${o.dateFin}" /></div>
+          <div class="form-field full">
+            <label>Progression (${pct}%)</label>
+            <input id="teEditProg" type="range" min="0" max="100" value="${pct}" oninput="document.getElementById('teEditProgVal').textContent=this.value+'%'" />
+            <span id="teEditProgVal" style="font-weight:700;color:var(--navy);">${pct}%</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="teamObjEditingIdx=null;renderTeamObjectifs();">Annuler</button>
+          <button class="btn btn-primary btn-sm" onclick="saveTeamObjEdit('${escHTML(equipe)}',${i})">Enregistrer</button>
+        </div>
+      </div>`;
+    }
+    return `<div class="obj-card" style="border-left:4px solid var(--blue);">
+      <div class="obj-header">
+        <span style="background:var(--blue);color:white;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;flex-shrink:0;">${i+1}</span>
+        <span style="flex:1;font-weight:700;color:var(--navy);font-size:0.88rem;">${escHTML(o.titre)}</span>
+        <button class="btn btn-ghost btn-sm" onclick="teamObjEditingIdx=${i};renderTeamObjectifs();">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="removeTeamObjectif('${escHTML(equipe)}',${i})">✕</button>
+      </div>
+      <div style="margin:8px 0;">
+        <div style="display:flex;justify-content:space-between;font-size:0.7rem;font-weight:700;color:var(--muted);margin-bottom:4px;">
+          <span>Progression</span><span>${pct}%</span>
+        </div>
+        <div class="progress-wrap"><div class="progress-bar" style="width:${pct}%;background:linear-gradient(90deg,var(--skyblue),var(--blue));"></div></div>
+      </div>
+      ${o.dateDebut || o.dateFin ? `<div class="obj-footer"><span>📅 Du ${fmtDate(o.dateDebut)} au ${fmtDate(o.dateFin)}</span></div>` : ''}
+    </div>`;
+  }).join('');
 }
+
+let teamObjEditingIdx = null;
 
 async function addTeamObjectif() {
   const equipe = document.getElementById('teamObjEquipe').value;
   const titre = document.getElementById('newTeamObjTitre').value.trim();
+  const dateDebut = document.getElementById('newTeamObjDebut').value;
+  const dateFin = document.getElementById('newTeamObjFin').value;
   if (!titre) { showToast('Veuillez saisir un titre.'); return; }
   const key = 'team_objectifs_' + equipe;
-  const list = [...(SETTINGS[key] || []), titre];
+  const list = [...(SETTINGS[key] || []).map(normalizeTeamObj), { titre, dateDebut, dateFin, progression: 0 }];
   await saveSettingKey(key, list);
   SETTINGS[key] = list;
   document.getElementById('newTeamObjTitre').value = '';
+  document.getElementById('newTeamObjDebut').value = '';
+  document.getElementById('newTeamObjFin').value = '';
   renderTeamObjectifs();
   showToast('Objectif d\'équipe ajouté !');
 }
@@ -2093,21 +2144,26 @@ async function addTeamObjectif() {
 async function removeTeamObjectif(equipe, index) {
   if (!confirm('Supprimer cet objectif d\'équipe ?')) return;
   const key = 'team_objectifs_' + equipe;
-  const list = [...(SETTINGS[key] || [])];
+  const list = [...(SETTINGS[key] || []).map(normalizeTeamObj)];
   list.splice(index, 1);
   await saveSettingKey(key, list);
   SETTINGS[key] = list;
   renderTeamObjectifs();
 }
 
-function editTeamObjectif(equipe, index) {
+async function saveTeamObjEdit(equipe, index) {
   const key = 'team_objectifs_' + equipe;
-  const list = SETTINGS[key] || [];
-  const newVal = prompt('Modifier l\'objectif :', list[index]);
-  if (newVal === null || !newVal.trim()) return;
-  list[index] = newVal.trim();
-  saveSettingKey(key, list);
+  const list = [...(SETTINGS[key] || []).map(normalizeTeamObj)];
+  list[index] = {
+    titre: document.getElementById('teEditTitre').value.trim(),
+    dateDebut: document.getElementById('teEditDebut').value,
+    dateFin: document.getElementById('teEditFin').value,
+    progression: parseInt(document.getElementById('teEditProg').value) || 0,
+  };
+  if (!list[index].titre) { showToast('Le titre est obligatoire.'); return; }
+  await saveSettingKey(key, list);
   SETTINGS[key] = list;
+  teamObjEditingIdx = null;
   renderTeamObjectifs();
   showToast('Objectif modifié !');
 }
