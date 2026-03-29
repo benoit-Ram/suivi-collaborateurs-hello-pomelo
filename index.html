@@ -1167,21 +1167,32 @@ function renderAlerts() {
   const alerts = [];
 
   DB.collaborateurs.forEach(c => {
-    // Points mensuels — statut
-    const point = (c.pointsSuivi||[]).find(p => p.mois === cm);
-    if (point) {
-      const status = getPointStatus(point);
-      const md = point.managerData || {};
-      const cd = point.collabData || {};
-      const managerDone = MANAGER_FIELDS.every(k => md[k] && String(md[k]).trim());
-      const collabDone = COLLAB_FIELDS.every(k => cd[k] && String(cd[k]).trim());
-      if (status === 'vide') {
-        alerts.push({ type: 'danger', icon: '🔴', text: `<strong>${escHTML(c.prenom)} ${escHTML(c.nom)}</strong> — Point de ${moisLabel(cm)} vide (ni manager ni collaborateur)`, collabId: c.id, email: c.email, prenom: c.prenom });
-      } else if (!managerDone) {
-        alerts.push({ type: 'warning', icon: '🟡', text: `<strong>${escHTML(c.prenom)} ${escHTML(c.nom)}</strong> — Retours manager manquants pour ${moisLabel(cm)}`, collabId: c.id });
-      } else if (!collabDone) {
-        alerts.push({ type: 'warning', icon: '🟡', text: `<strong>${escHTML(c.prenom)} ${escHTML(c.nom)}</strong> — Réponses collaborateur manquantes pour ${moisLabel(cm)}`, collabId: c.id, email: c.email, prenom: c.prenom });
+    // Points mensuels — rappel uniquement si le mois PRÉCÉDENT n'est pas complet (à partir du 1er du mois suivant)
+    const now = new Date();
+    const prevMonth = now.getMonth() === 0 ? 12 : now.getMonth();
+    const prevYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+    const prevMois = prevYear + '-' + String(prevMonth).padStart(2, '0');
+    const prevPoint = (c.pointsSuivi||[]).find(p => p.mois === prevMois);
+    if (prevPoint) {
+      const status = getPointStatus(prevPoint);
+      if (status !== 'complet') {
+        const md = prevPoint.managerData || {};
+        const cd = prevPoint.collabData || {};
+        const mdKeys = Object.keys(md).filter(k => k !== 'objectifs');
+        const cdKeys = Object.keys(cd).filter(k => k !== 'objectifs');
+        const managerDone = mdKeys.length > 0 && mdKeys.every(k => md[k] && String(md[k]).trim());
+        const collabDone = cdKeys.length > 0 && cdKeys.every(k => cd[k] && String(cd[k]).trim());
+        if (status === 'vide') {
+          alerts.push({ type: 'danger', icon: '🔴', text: `<strong>${escHTML(c.prenom)} ${escHTML(c.nom)}</strong> — Point de ${moisLabel(prevMois)} non rempli`, collabId: c.id, email: c.email, prenom: c.prenom });
+        } else if (!managerDone) {
+          alerts.push({ type: 'warning', icon: '🟡', text: `<strong>${escHTML(c.prenom)} ${escHTML(c.nom)}</strong> — Retours manager manquants pour ${moisLabel(prevMois)}`, collabId: c.id });
+        } else if (!collabDone) {
+          alerts.push({ type: 'warning', icon: '🟡', text: `<strong>${escHTML(c.prenom)} ${escHTML(c.nom)}</strong> — Réponses collaborateur manquantes pour ${moisLabel(prevMois)}`, collabId: c.id, email: c.email, prenom: c.prenom });
+        }
       }
+    } else {
+      // Pas de point du tout pour le mois précédent
+      alerts.push({ type: 'danger', icon: '🔴', text: `<strong>${escHTML(c.prenom)} ${escHTML(c.nom)}</strong> — Point de ${moisLabel(prevMois)} inexistant`, collabId: c.id, email: c.email, prenom: c.prenom });
     }
 
     // Documents en attente de validation
