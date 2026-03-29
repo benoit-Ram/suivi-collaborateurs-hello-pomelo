@@ -15,6 +15,10 @@
       --white: #FFFFFF; --offwhite: #F8F7FC; --text: #05056D; --muted: #6B6B9A;
       --green: #22C55E; --orange: #F97316; --red: #EF4444;
       --sidebar-w: 240px;
+      --shadow-sm: 0 2px 8px rgba(5,5,109,0.06);
+      --shadow-md: 0 4px 16px rgba(5,5,109,0.08);
+      --shadow-lg: 0 8px 32px rgba(5,5,109,0.12);
+      --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px;
     }
     body { font-family: 'Quicksand', sans-serif; background: var(--offwhite); color: var(--text); min-height: 100vh; display: flex; }
 
@@ -204,47 +208,78 @@
 
     /* UX: transitions & animations */
     @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes spin { to { transform: rotate(360deg); } }
     .view { animation: fadeIn 0.2s ease; }
     .collab-card { transition: all 0.2s ease; }
     .obj-card { transition: all 0.15s ease; }
-    .obj-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(5,5,109,0.12); }
+    .obj-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
     tr { transition: background 0.1s ease; }
     .btn { transition: all 0.15s ease; }
     .btn:active { transform: scale(0.97); }
-    .btn.loading { opacity: 0.7; pointer-events: none; }
-    .btn.loading::after { content: '…'; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+    .btn.loading { position: relative; color: transparent; pointer-events: none; }
+    .btn.loading::after { content: ''; position: absolute; inset: 0; margin: auto; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.6s linear infinite; }
+
+    /* Accessibility: focus states */
+    *:focus-visible { outline: 2px solid var(--pink); outline-offset: 2px; }
+    .btn:focus-visible { box-shadow: 0 0 0 4px rgba(255,50,133,0.2); }
+    .nav-item:focus-visible { outline-color: white; }
 
     /* UX: sticky table headers */
     thead th { position: sticky; top: 0; background: white; z-index: 2; }
 
+    /* UX: table polish */
+    tr:hover td { background: #F0F0FF; }
+    tbody tr:nth-child(even) td { background: rgba(5,5,109,0.02); }
+    tbody tr:nth-child(even):hover td { background: #F0F0FF; }
+    .card { overflow-x: auto; }
+
     /* UX: search improvements */
     .search-bar { position: relative; }
-    .search-clear { position: absolute; right: 220px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 1rem; cursor: pointer; color: var(--muted); padding: 4px; display: none; }
-    .search-clear:hover { color: var(--pink); }
     .result-count { font-size: 0.78rem; color: var(--muted); font-weight: 600; margin-left: 4px; }
 
     /* UX: better modal animation */
+    .modal-overlay { backdrop-filter: blur(4px); }
     .modal-overlay.open .modal { animation: modalSlideIn 0.25s cubic-bezier(.34,1.56,.64,1); }
     @keyframes modalSlideIn { from { transform: scale(0.9) translateY(10px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
 
+    /* ── RESPONSIVE ── */
+    @media (max-width: 1024px) {
+      :root { --sidebar-w: 180px; }
+      .nav-item { font-size: 0.8rem; padding: 8px 10px; }
+    }
     @media (max-width: 768px) {
-      :root { --sidebar-w: 60px; }
-      .sidebar-logo .logo-title, .sidebar-logo .logo-sub, .nav-item span, .nav-section, .sidebar-footer p { display: none; }
-      .main { padding: 20px 16px; }
+      :root { --sidebar-w: 0px; }
+      #mobileMenuBtn { display: block !important; }
+      .sidebar { transform: translateX(-100%); transition: transform 0.25s ease; width: 240px; }
+      .sidebar.sidebar-open { transform: translateX(0); }
+      .main { margin-left: 0; padding: 20px 16px; padding-top: 56px; }
       .grid-4 { grid-template-columns: 1fr 1fr; }
       .grid-2 { grid-template-columns: 1fr; }
       .form-grid { grid-template-columns: 1fr; }
+      .collab-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+      .profile-nav { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .profile-nav::-webkit-scrollbar { display: none; }
+      .profile-header { flex-direction: column; align-items: center; text-align: center; }
+      .modal { max-width: calc(100% - 32px); padding: 24px; }
+      .search-bar { flex-direction: column; }
+    }
+    @media (max-width: 480px) {
+      .grid-4 { grid-template-columns: 1fr; }
+      .main { padding: 16px 12px; }
+      .page-header h1 { font-size: 1.2rem; }
+      .stat-num { font-size: 1.5rem; }
     }
   </style>
 </head>
 <body>
 
 <!-- MODAL: COLLABORATEUR -->
-<div id="modalCollab" class="modal-overlay">
+<div id="modalCollab" class="modal-overlay" role="dialog" aria-labelledby="modalCollabTitle">
   <div class="modal">
     <div class="modal-header">
       <h2 id="modalCollabTitle">Ajouter un collaborateur</h2>
-      <button class="btn-close" onclick="closeModal('modalCollab')">✕</button>
+      <button class="btn-close" onclick="closeModal('modalCollab')" aria-label="Fermer">✕</button>
     </div>
     <div class="form-grid">
       <div class="form-field">
@@ -330,11 +365,11 @@
 </div>
 
 <!-- MODAL: POINT DE SUIVI -->
-<div id="modalPoint" class="modal-overlay">
+<div id="modalPoint" class="modal-overlay" role="dialog" aria-labelledby="modalPointTitle">
   <div class="modal" style="max-width:600px;">
     <div class="modal-header">
       <h2 id="modalPointTitle">Point mensuel</h2>
-      <button class="btn-close" onclick="closeModal('modalPoint')">✕</button>
+      <button class="btn-close" onclick="closeModal('modalPoint')" aria-label="Fermer">✕</button>
     </div>
     <div style="background:linear-gradient(135deg,#F0F0FF,#FFF0F8);border-radius:12px;padding:16px;margin-bottom:20px;">
       <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--navy);margin-bottom:4px;">👔 Section Manager</div>
@@ -353,11 +388,11 @@
 </div>
 
 <!-- MODAL: OBJECTIF -->
-<div id="modalObj" class="modal-overlay">
+<div id="modalObj" class="modal-overlay" role="dialog" aria-labelledby="modalObjTitle">
   <div class="modal">
     <div class="modal-header">
       <h2 id="modalObjTitle">Nouvel objectif</h2>
-      <button class="btn-close" onclick="closeModal('modalObj')">✕</button>
+      <button class="btn-close" onclick="closeModal('modalObj')" aria-label="Fermer">✕</button>
     </div>
     <div class="form-grid">
       <div class="form-field full">
@@ -402,11 +437,11 @@
 </div>
 
 <!-- MODAL: ENTRETIEN ANNUEL -->
-<div id="modalEntretien" class="modal-overlay">
+<div id="modalEntretien" class="modal-overlay" role="dialog" aria-labelledby="modalEntretienTitle">
   <div class="modal" style="max-width:620px;">
     <div class="modal-header">
       <h2 id="modalEntretienTitle">Entretien annuel</h2>
-      <button class="btn-close" onclick="closeModal('modalEntretien')">✕</button>
+      <button class="btn-close" onclick="closeModal('modalEntretien')" aria-label="Fermer">✕</button>
     </div>
     <div style="background:linear-gradient(135deg,#F0F0FF,#FFF0F8);border-radius:12px;padding:16px;margin-bottom:20px;">
       <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--navy);margin-bottom:4px;">📋 Entretien formel</div>
@@ -453,6 +488,9 @@
     </div>
   </div>
 </div>
+
+<!-- MOBILE MENU BUTTON -->
+<button id="mobileMenuBtn" onclick="document.querySelector('.sidebar').classList.toggle('sidebar-open')" aria-label="Menu" style="display:none;position:fixed;top:12px;left:12px;z-index:200;background:var(--navy);color:white;border:none;border-radius:var(--radius-sm);padding:8px 12px;font-size:1.2rem;cursor:pointer;box-shadow:var(--shadow-md);">☰</button>
 
 <!-- SIDEBAR -->
 <nav class="sidebar">

@@ -15,7 +15,11 @@
       --pink: #FF3285; --blue: #0000EA; --navy: #05056D;
       --lavender: #CFD0E5; --lilac: #8F8FBC; --skyblue: #5BB6F4;
       --white: #FFFFFF; --offwhite: #F8F7FC; --text: #05056D; --muted: #6B6B9A;
-      --green: #22C55E;
+      --green: #22C55E; --orange: #F97316; --red: #EF4444;
+      --shadow-sm: 0 2px 8px rgba(5,5,109,0.06);
+      --shadow-md: 0 4px 16px rgba(5,5,109,0.08);
+      --shadow-lg: 0 8px 32px rgba(5,5,109,0.12);
+      --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px;
     }
     body { font-family: 'Quicksand', sans-serif; background: var(--offwhite); color: var(--text); min-height: 100vh; }
 
@@ -169,11 +173,30 @@
 
     /* UX: transitions & animations */
     @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes spin { to { transform: rotate(360deg); } }
     .tab-pane.active { animation: fadeIn 0.2s ease; }
     .obj-card { transition: all 0.15s ease; }
-    .obj-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(5,5,109,0.12); }
+    .obj-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
     .btn:active { transform: scale(0.97); }
-    .check-item { transition: all 0.15s ease; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+
+    /* Accessibility: focus states */
+    *:focus-visible { outline: 2px solid var(--pink); outline-offset: 2px; }
+    .btn:focus-visible { box-shadow: 0 0 0 4px rgba(255,50,133,0.2); }
+    .tab-btn:focus-visible { outline-offset: -2px; }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .content { padding: 20px 12px; }
+      .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; }
+      .tabs::-webkit-scrollbar { display: none; }
+      .tab-btn { flex: none; padding: 10px 12px; font-size: 0.72rem; }
+      .topbar { padding: 0 16px; }
+      .login-card { padding: 32px 24px; }
+      .profile-card { flex-direction: column; align-items: center; text-align: center; }
+      .grid-2 { grid-template-columns: 1fr; }
+      .modal-box { max-width: calc(100% - 32px); padding: 24px 20px; }
+    }
 
     /* ── MODALE TEST LOGIN ── */
     .modal-overlay {
@@ -265,7 +288,7 @@
   <div class="modal-box">
     <div class="modal-header">
       <span class="modal-title">Choisir un compte test</span>
-      <button class="modal-close" onclick="document.getElementById('demoModal').classList.add('hidden')">✕</button>
+      <button class="modal-close" onclick="document.getElementById('demoModal').classList.add('hidden')" aria-label="Fermer">✕</button>
     </div>
     <p class="modal-sub">Sélectionnez un collaborateur pour simuler sa connexion. Cette option disparaîtra une fois Google Auth configuré.</p>
     <div class="modal-badge">⚠️ Mode démonstration</div>
@@ -287,7 +310,7 @@
       <span class="brand-tag">Mon espace</span>
     </div>
     <div class="topbar-user">
-      <div id="notifBell" onclick="toggleNotifPanel()" style="position:relative;cursor:pointer;margin-right:6px;">
+      <div id="notifBell" onclick="toggleNotifPanel()" aria-label="Notifications" role="button" style="position:relative;cursor:pointer;margin-right:6px;">
         <span style="font-size:1.2rem;">🔔</span>
         <span id="notifBadge" style="display:none;position:absolute;top:-4px;right:-6px;background:var(--pink);color:white;font-size:0.6rem;font-weight:800;padding:1px 5px;border-radius:99px;"></span>
       </div>
