@@ -791,7 +791,8 @@ async function saveCollabPoint(pointId) {
 function renderObjectifs() {
   const c = currentCollab;
   const objs = c.objectifs || [];
-  const teamObjs = COLLAB_SETTINGS['team_objectifs_' + c.equipe] || [];
+  const teamObjKey = 'team_objectifs_' + (c.equipe || '');
+  const teamObjs = COLLAB_SETTINGS[teamObjKey] || [];
 
   const total = objs.length;
   const atteints = objs.filter(o => o.statut === 'atteint').length;

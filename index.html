@@ -2052,12 +2052,8 @@ async function moveQuestion(side, index, direction) {
 }
 
 async function saveSettingKey(key, value) {
-  // Upsert : try update, if no rows affected, insert
-  const { data, error } = await sb.from('settings').update({ value }).eq('key', key).select();
-  if (!error && data && data.length === 0) {
-    await sb.from('settings').insert({ key, value });
-  }
-  if (error) showToast('Erreur: ' + error.message);
+  const { error } = await sb.from('settings').upsert({ key, value }, { onConflict: 'key' });
+  if (error) showToast('Erreur settings: ' + error.message);
 }
 
 // ── OBJECTIFS D'ÉQUIPE ──

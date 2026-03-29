@@ -72,4 +72,7 @@ ALTER TABLE absences ADD COLUMN IF NOT EXISTS motif_refus text;
 
 -- Photo de profil (récupérée automatiquement depuis Google)
 ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS photo_url text;
+
+-- Index unique sur settings.key pour upsert
+CREATE UNIQUE INDEX IF NOT EXISTS settings_key_unique ON settings(key);
 ```
