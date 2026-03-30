@@ -401,7 +401,7 @@ function collabFromRow(row) {
       managerData: p.manager_data || {},
       collabData: p.collab_data || {}
     })),
-    objectifs: (row.objectifs || []).sort((a,b)=> new Date(a.created_at)-new Date(b.created_at)).map((o,i) => ({ id:o.id, numero:i+1, titre:o.titre, description:o.description||'', dateDebut:o.date_debut||'', dateFin:o.date_fin||'', statut:o.statut||'en-attente', progression:o.progression||0 }))
+    objectifs: (row.objectifs || []).sort((a,b)=> new Date(a.created_at)-new Date(b.created_at)).map((o,i) => ({ id:o.id, numero:i+1, titre:o.titre, description:o.description||'', dateDebut:o.date_debut||'', dateFin:o.date_fin||'', statut:o.statut||'en-attente', progression:o.progression||0, recurrence:o.recurrence||'' }))
   };
 }
 
@@ -854,6 +854,7 @@ function renderObjectifs() {
           <span style="background:var(--pink);color:white;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;margin-right:8px;flex-shrink:0;">${i+1}</span>
           <div class="obj-title" style="flex:1;">${o.titre}</div>
           <span class="badge ${STATUS_COLORS[o.statut] || 'badge-gray'}">${STATUS_LABELS[o.statut] || o.statut}</span>
+          ${o.recurrence ? `<span class="badge badge-blue" style="font-size:0.6rem;">🔄 ${o.recurrence === 'hebdo' ? 'Hebdo' : 'Mensuel'}</span>` : ''}
         </div>
         ${o.description ? `<div class="obj-desc">${o.description}</div>` : ''}
         <div style="margin:8px 0;">

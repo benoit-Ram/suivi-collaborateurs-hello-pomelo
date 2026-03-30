@@ -92,4 +92,7 @@ CREATE TABLE IF NOT EXISTS objectif_requests (
   motif_refus text,
   created_at timestamptz DEFAULT now()
 );
+
+-- Récurrence des objectifs (hebdo, mensuel)
+ALTER TABLE objectifs ADD COLUMN IF NOT EXISTS recurrence text;
 ```
