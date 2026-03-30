@@ -86,6 +86,13 @@ function toggleAcc(id) {
   if (icon) icon.textContent = open ? '▼' : '▲';
 }
 
+// Inject shared keyframes
+if (typeof document !== 'undefined') {
+  const s = document.createElement('style');
+  s.textContent = '@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}@keyframes spin{to{transform:rotate(360deg)}}@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}';
+  document.head.appendChild(s);
+}
+
 function showToast(msg) {
   const t = document.createElement('div');
   t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#05056D;color:white;padding:12px 20px;border-radius:12px;font-size:0.85rem;font-weight:700;box-shadow:0 8px 24px rgba(5,5,109,0.3);z-index:500;transition:opacity 0.3s;';
@@ -110,6 +117,64 @@ function daysFromNow(dateStr) {
 const ABS_TYPES = { conge:'Congé', sans_solde:'Sans solde' };
 const ABS_STATUTS = { en_attente:'En attente', approuve:'Approuvé', refuse:'Refusé' };
 const ABS_STATUT_BADGE = { en_attente:'badge-orange', approuve:'badge-green', refuse:'badge-pink' };
+
+// ── BUTTON LOADING ──
+function btnLoading(btn) {
+  if (!btn) return;
+  btn._origHTML = btn.innerHTML;
+  btn.disabled = true;
+  btn.style.opacity = '0.7';
+  btn.style.pointerEvents = 'none';
+  btn.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;">' + btn._origHTML + ' <span style="width:14px;height:14px;border:2px solid rgba(255,255,255,0.4);border-top-color:white;border-radius:50%;animation:spin 0.6s linear infinite;display:inline-block;"></span></span>';
+}
+
+function btnDone(btn) {
+  if (!btn) return;
+  btn.disabled = false;
+  btn.style.opacity = '';
+  btn.style.pointerEvents = '';
+  if (btn._origHTML) btn.innerHTML = btn._origHTML;
+}
+
+// ── CONFIRM MODAL (Promise-based) ──
+function confirmModal(message) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(5,5,109,0.4);backdrop-filter:blur(4px);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn 0.15s ease;';
+    overlay.innerHTML = `
+      <div style="background:white;border-radius:16px;padding:28px;max-width:400px;width:100%;box-shadow:0 20px 60px rgba(5,5,109,0.2);">
+        <div style="font-size:0.95rem;font-weight:700;color:#05056D;margin-bottom:6px;">Confirmation</div>
+        <div style="font-size:0.88rem;color:#6B6B9A;line-height:1.6;margin-bottom:20px;">${message}</div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button id="_confirmCancel" style="padding:9px 18px;border-radius:10px;border:1.5px solid #CFD0E5;background:white;color:#05056D;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;">Annuler</button>
+          <button id="_confirmOk" style="padding:9px 18px;border-radius:10px;border:none;background:linear-gradient(135deg,#EF4444,#B91C1C);color:white;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;">Confirmer</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#_confirmCancel').onclick = () => { overlay.remove(); resolve(false); };
+    overlay.querySelector('#_confirmOk').onclick = () => { overlay.remove(); resolve(true); };
+    overlay.addEventListener('click', e => { if (e.target === overlay) { overlay.remove(); resolve(false); } });
+  });
+}
+
+// ── KEYBOARD SHORTCUTS ──
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    // Close confirm modals
+    const confirmOverlay = document.querySelector('[style*="z-index:300"]');
+    if (confirmOverlay) { confirmOverlay.remove(); return; }
+    // Close open modals
+    document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+    // Close notification panel
+    const notifPanel = document.getElementById('notifPanel');
+    if (notifPanel && notifPanel.style.display === 'block') notifPanel.style.display = 'none';
+  }
+});
+
+// ── SKELETON LOADING ──
+function skeletonHTML(lines) {
+  return Array(lines || 3).fill(0).map((_, i) => `<div style="height:${i===0?'20px':'14px'};background:linear-gradient(90deg,var(--lavender) 25%,#E8E8F0 50%,var(--lavender) 75%);background-size:200%;border-radius:6px;margin-bottom:10px;width:${i===0?'60%':i===1?'80%':'45%'};animation:shimmer 1.5s infinite;"></div>`).join('');
+}
 
 // ── DEBOUNCE ──
 function debounce(fn, delay) {

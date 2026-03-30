@@ -1596,7 +1596,7 @@ async function validateUpload(docKey) {
 }
 
 async function rejectUpload(docKey) {
-  if (!confirm('Rejeter ce document ? Le collaborateur devra en déposer un nouveau.')) return;
+  if (!await confirmModal('Rejeter ce document ? Le collaborateur devra en déposer un nouveau.')) return;
   const c = getCollab(currentCollabId);
   const upload = c.onboarding.uploads?.[docKey];
   if (upload) {
@@ -1905,7 +1905,7 @@ async function saveManagerPoint() {
 }
 
 async function deletePoint(id) {
-  if (!confirm('Supprimer ce point mensuel ?')) return;
+  if (!await confirmModal('Supprimer ce point mensuel ?')) return;
   const { error } = await sb.from('points_suivi').delete().eq('id', id);
   if (error) { showToast('Erreur: ' + error.message); return; }
   const c = getCollab(currentCollabId);
@@ -2041,7 +2041,7 @@ async function saveObj() {
 }
 
 async function deleteObj(id) {
-  if (!confirm('Supprimer cet objectif ?')) return;
+  if (!await confirmModal('Supprimer cet objectif ?')) return;
   const { error } = await sb.from('objectifs').delete().eq('id', id);
   if (error) { showToast('Erreur: ' + error.message); return; }
   const c = getCollab(currentCollabId);
@@ -2173,7 +2173,7 @@ async function addQuestion(side) {
 }
 
 async function removeQuestion(side, index) {
-  if (!confirm('Supprimer cette question ?')) return;
+  if (!await confirmModal('Supprimer cette question ?')) return;
   const key = 'questions_' + side;
   const list = [...(SETTINGS[key] || [])];
   list.splice(index, 1);
@@ -2452,7 +2452,7 @@ async function addTeamObjectif() {
 }
 
 async function removeTeamObjectif(equipe, index) {
-  if (!confirm('Supprimer cet objectif d\'équipe ?')) return;
+  if (!await confirmModal('Supprimer cet objectif d\'équipe ?')) return;
   const key = 'team_objectifs_' + equipe;
   const list = [...(SETTINGS[key] || []).map(normalizeTeamObj)];
   list.splice(index, 1);
@@ -2536,7 +2536,7 @@ async function renameSettingItem(key, encodedVal) {
 
 async function removeSettingItem(key, encodedVal) {
   const val = decodeURIComponent(encodedVal);
-  if (!confirm(`Supprimer "${val}" de la liste ?`)) return;
+  if (!await confirmModal(`Supprimer "${escHTML(val)}" de la liste ?`)) return;
   const newList = (SETTINGS[key] || []).filter(v => v !== val);
   const { error } = await sb.from('settings').update({ value: newList }).eq('key', key);
   if (error) { showToast('Erreur : ' + error.message); return; }
@@ -2714,7 +2714,8 @@ function renderBoPeople() {
 
 async function deleteCollab(id) {
   const c = getCollab(id);
-  if (!c || !confirm(`Supprimer ${c.prenom} ${c.nom} ? Cette action est irréversible.`)) return;
+  if (!c) return;
+  if (!await confirmModal(`Supprimer ${escHTML(c.prenom)} ${escHTML(c.nom)} ? Cette action est irréversible.`)) return;
   const { error } = await sb.from('collaborateurs').delete().eq('id', id);
   if (error) { showToast('Erreur: ' + error.message); return; }
   DB.collaborateurs = DB.collaborateurs.filter(x => x.id !== id);
@@ -2986,7 +2987,7 @@ async function refuserAbsenceConfirm(id, motif) {
 }
 
 async function deleteAbsence(id) {
-  if (!confirm('Supprimer cette absence ?')) return;
+  if (!await confirmModal('Supprimer cette absence ?')) return;
   const { error } = await sb.from('absences').delete().eq('id', id);
   if (error) { showToast('Erreur: ' + error.message); return; }
   DB.absences = (DB.absences||[]).filter(a => a.id !== id);
@@ -3089,7 +3090,7 @@ async function saveEntretien() {
 }
 
 async function deleteEntretien(id) {
-  if (!confirm('Supprimer cet entretien ?')) return;
+  if (!await confirmModal('Supprimer cet entretien ?')) return;
   const { error } = await sb.from('points_suivi').delete().eq('id', id);
   if (error) { showToast('Erreur: ' + error.message); return; }
   const c = getCollab(currentCollabId);

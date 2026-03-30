@@ -789,16 +789,48 @@ function renderPoints() {
         <!-- Collab section -->
         <div style="margin-top:20px;padding-top:16px;border-top:1px dashed var(--lavender);">
           <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--pink);margin-bottom:${locked ? 12 : 4}px;">✏️ Mes réponses</div>
-          ${locked ? '' : `<div style="font-size:0.78rem;color:var(--muted);margin-bottom:14px;line-height:1.5;">Préparez vos réponses avant le début du mois suivant — elles seront verrouillées le 1er du mois prochain.</div>`}
+          ${locked ? '' : `<div style="font-size:0.78rem;color:var(--muted);margin-bottom:14px;line-height:1.5;">Vos réponses sont sauvegardées automatiquement en brouillon.</div>`}
           ${collabHtml}
-          ${!locked ? `<div style="display:flex;justify-content:flex-end;margin-top:8px;"><button class="btn btn-primary" onclick="saveCollabPoint('${p.id}')">💾 Sauvegarder mes réponses</button></div>` : ''}
+          ${!locked ? `<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+            <span id="draftStatus_${p.id}" style="font-size:0.72rem;color:var(--muted);"></span>
+            <button class="btn btn-primary" onclick="saveCollabPoint('${p.id}',this)">💾 Sauvegarder</button>
+          </div>` : ''}
         </div>
       </div>
     </div>`;
   }).join('');
+
+  // Auto-save drafts: restore from localStorage + setup listeners
+  setTimeout(() => {
+    const cm = currentMois();
+    sorted.filter(p => !isPointLocked(p.mois || cm)).forEach(p => {
+      const questions = getActiveCollabQuestions();
+      const draftKey = 'draft_point_' + p.id;
+      const draft = JSON.parse(localStorage.getItem(draftKey) || 'null');
+      if (draft) {
+        questions.forEach(q => {
+          const el = document.getElementById(`cf_${p.id}_${q.key}`);
+          if (el && !el.value && draft[q.key]) { el.value = draft[q.key]; }
+        });
+        const statusEl = document.getElementById('draftStatus_' + p.id);
+        if (statusEl) statusEl.textContent = '💾 Brouillon restauré';
+      }
+      // Listen for changes
+      questions.forEach(q => {
+        const el = document.getElementById(`cf_${p.id}_${q.key}`);
+        if (el) el.addEventListener('input', debounce(() => {
+          const d = {};
+          questions.forEach(qq => { const e = document.getElementById(`cf_${p.id}_${qq.key}`); if (e) d[qq.key] = e.value; });
+          localStorage.setItem(draftKey, JSON.stringify(d));
+          const statusEl = document.getElementById('draftStatus_' + p.id);
+          if (statusEl) statusEl.textContent = '💾 Brouillon sauvegardé';
+        }, 500));
+      });
+    });
+  }, 100);
 }
 
-async function saveCollabPoint(pointId) {
+async function saveCollabPoint(pointId, btn) {
   const c = currentCollab;
   const p = (c.pointsSuivi || []).find(x => x.id === pointId);
   if (!p || isPointLocked(p.mois)) { showToast('Ce point est verrouillé.'); return; }
@@ -814,9 +846,13 @@ async function saveCollabPoint(pointId) {
   const emptyFields = questions.filter(q => !collabData[q.key]);
   if (emptyFields.length) { showToast(`Veuillez remplir tous les champs (${emptyFields.length} manquant${emptyFields.length > 1 ? 's' : ''}).`); return; }
 
+  if (btn) btnLoading(btn);
   const { error } = await sb.from('points_suivi').update({ collab_data: collabData }).eq('id', pointId);
+  if (btn) btnDone(btn);
   if (error) { showToast('Erreur: ' + error.message); return; }
   p.collabData = collabData;
+  // Clear draft
+  localStorage.removeItem('draft_point_' + pointId);
   showToast('Réponses enregistrées !');
 }
 
@@ -1128,7 +1164,7 @@ async function submitObjRequest() {
 }
 
 async function deleteTeamObj(objId) {
-  if (!confirm('Supprimer cet objectif ?')) return;
+  if (!await confirmModal('Supprimer cet objectif ?')) return;
   const { error } = await sb.from('objectifs').delete().eq('id', objId);
   if (error) { showToast('Erreur: ' + error.message); return; }
   const member = myTeam.find(m => m.id === managementMemberId);
@@ -1544,7 +1580,7 @@ async function submitAbsence() {
 }
 
 async function cancelAbsence(id) {
-  if (!confirm('Annuler cette demande ?')) return;
+  if (!await confirmModal('Annuler cette demande de congé ?')) return;
   const { error } = await sb.from('absences').delete().eq('id', id);
   if (error) { showToast('Erreur: ' + error.message); return; }
   showToast('Demande annulée.');
