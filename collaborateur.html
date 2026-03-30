@@ -421,6 +421,7 @@ async function loadCollabsFromSupabase() {
 let currentCollab = null;
 let currentUser = null; // { name, email, picture }
 let myTeam = []; // membres de l'équipe si l'utilisateur est manager
+let myObjRequests = []; // demandes d'objectifs faites par ce manager
 
 // ─────────────────────────────────────────
 // GOOGLE AUTH
@@ -598,12 +599,21 @@ function showApp() {
   renderProfile();
   showTab('objectifs');
 
-  // Load absences for notifications
+  // Load absences + objective requests for notifications
   sb.from('absences').select('*').eq('collaborateur_id', currentCollab.id).then(({ data, error }) => {
     if (error) { console.warn('Absences load:', error.message); return; }
     myAbsences = (data||[]).map(a => ({ id: a.id, type: a.type, dateDebut: a.date_debut, dateFin: a.date_fin, statut: a.statut || 'en_attente', commentaire: a.commentaire || '', motifRefus: a.motif_refus || '' }));
     updateNotifBadge();
   }).catch(e => console.warn('Absences:', e));
+
+  // Load objective requests made by this manager
+  sb.from('objectif_requests').select('*').eq('manager_id', currentCollab.id).order('created_at', { ascending: false }).then(({ data }) => {
+    myObjRequests = (data||[]).filter(r => r.statut !== 'en_attente').map(r => ({
+      id: r.id, collaborateurId: r.collaborateur_id, type: r.type, data: r.data,
+      statut: r.statut, motifRefus: r.motif_refus || ''
+    }));
+    updateNotifBadge();
+  }).catch(e => console.warn('ObjRequests:', e));
 }
 
 function renderProfile() {
@@ -956,12 +966,16 @@ function switchMgmtTab(tab) {
 }
 
 // ── OBJECTIFS DU MANAGÉ ──
+let objFormVisible = false;
+let objFormType = 'creer'; // 'creer' | 'modifier'
+let objFormObjId = null;
+
 function renderMemberObjectifs(member) {
   const objs = member.objectifs || [];
   const el = document.getElementById('mgmtContent');
 
   let html = '';
-  if (!objs.length) {
+  if (!objs.length && !objFormVisible) {
     html = '<div class="empty-state"><div class="empty-icon">🎯</div><p>Aucun objectif défini pour ce collaborateur.</p></div>';
   } else {
     html = objs.map((o, i) => {
@@ -973,7 +987,8 @@ function renderMemberObjectifs(member) {
           <span style="background:var(--pink);color:white;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;margin-right:8px;flex-shrink:0;">${i+1}</span>
           <div class="obj-title" style="flex:1;">${escHTML(o.titre)}</div>
           <span class="badge ${STATUS_COLORS[o.statut]||'badge-gray'}">${STATUS_LABELS[o.statut]||o.statut}</span>
-          <button class="btn btn-ghost btn-sm" onclick="proposeObjModif('${o.id}','modifier')">📝 Proposer modif</button>
+          ${o.recurrence ? `<span class="badge badge-blue" style="font-size:0.6rem;">🔄 ${o.recurrence === 'hebdo' ? 'Hebdo' : 'Mensuel'}</span>` : ''}
+          <button class="btn btn-ghost btn-sm" onclick="openObjForm('modifier','${o.id}')">✏️ Modifier</button>
         </div>
         ${o.description ? `<div class="obj-desc">${escHTML(o.description)}</div>` : ''}
         <div style="margin:8px 0;">
@@ -986,38 +1001,97 @@ function renderMemberObjectifs(member) {
       </div>`;
     }).join('');
   }
-  html += `<div style="margin-top:16px;"><button class="btn btn-primary btn-sm" onclick="proposeObjModif(null,'creer')">+ Proposer un nouvel objectif</button></div>`;
+
+  // Formulaire inline
+  if (objFormVisible) {
+    const obj = objFormType === 'modifier' ? (objs.find(o => o.id === objFormObjId) || {}) : {};
+    html += `
+    <div class="card" style="margin-top:16px;border:2px solid var(--pink);animation:fadeIn 0.2s ease;">
+      <div style="font-size:0.85rem;font-weight:700;color:var(--navy);margin-bottom:14px;">${objFormType === 'creer' ? '+ Nouvel objectif' : '✏️ Modifier l\'objectif'}</div>
+      <div class="form-grid">
+        <div class="form-field full">
+          <label>Titre <span class="req">*</span></label>
+          <input id="mgrObjTitre" type="text" value="${escHTML(obj.titre||'')}" placeholder="Titre de l'objectif..." />
+        </div>
+        <div class="form-field full">
+          <label>Description</label>
+          <textarea id="mgrObjDesc" placeholder="Contexte, critères de succès...">${escHTML(obj.description||'')}</textarea>
+        </div>
+        <div class="form-field">
+          <label>Date de début</label>
+          <input id="mgrObjDebut" type="date" value="${obj.dateDebut||''}" />
+        </div>
+        <div class="form-field">
+          <label>Date de fin</label>
+          <input id="mgrObjFin" type="date" value="${obj.dateFin||''}" />
+        </div>
+        <div class="form-field">
+          <label>Statut</label>
+          <select id="mgrObjStatut">
+            ${['en-cours','atteint','non-atteint','en-attente'].map(s => `<option value="${s}" ${(obj.statut||'en-cours')===s?'selected':''}>${STATUS_LABELS[s]}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-field">
+          <label>Progression</label>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <input id="mgrObjProg" type="range" min="0" max="100" value="${obj.progression||0}" oninput="document.getElementById('mgrObjProgVal').textContent=this.value+'%'" style="flex:1;" />
+            <span id="mgrObjProgVal" style="font-weight:700;color:var(--navy);">${obj.progression||0}%</span>
+          </div>
+        </div>
+        <div class="form-field full">
+          <label>Commentaire pour l'admin</label>
+          <input id="mgrObjMotif" type="text" placeholder="Raison de la demande, contexte..." />
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
+        <button onclick="closeObjForm()" style="padding:8px 16px;border-radius:10px;border:none;background:var(--offwhite);color:var(--navy);font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;">Annuler</button>
+        <button onclick="submitObjRequest()" style="padding:8px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--pink),#C0006E);color:white;font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(255,50,133,0.3);">Envoyer la demande</button>
+      </div>
+    </div>`;
+  } else {
+    html += `<div style="margin-top:16px;">
+      <button onclick="openObjForm('creer')" style="display:inline-flex;align-items:center;gap:6px;padding:10px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--pink),#C0006E);color:white;font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(255,50,133,0.3);transition:all 0.15s;">+ Proposer un nouvel objectif</button>
+    </div>`;
+  }
   el.innerHTML = html;
 }
 
-async function proposeObjModif(objId, type) {
+function openObjForm(type, objId) {
+  objFormVisible = true;
+  objFormType = type;
+  objFormObjId = objId || null;
   const member = myTeam.find(m => m.id === managementMemberId);
-  if (!member) return;
+  if (member) renderMemberObjectifs(member);
+}
 
-  let data = {};
-  if (type === 'creer') {
-    const titre = prompt('Titre du nouvel objectif :');
-    if (!titre || !titre.trim()) return;
-    const description = prompt('Description (optionnel) :') || '';
-    data = { titre: titre.trim(), description: description.trim(), statut: 'en-cours', progression: 0 };
-  } else if (type === 'modifier') {
-    const obj = (member.objectifs||[]).find(o => o.id === objId);
-    if (!obj) return;
-    const titre = prompt('Titre :', obj.titre);
-    if (titre === null) return;
-    const statut = prompt('Statut (en-cours, atteint, non-atteint, en-attente) :', obj.statut) || obj.statut;
-    const progression = prompt('Progression (0-100) :', obj.progression);
-    data = { titre: titre.trim() || obj.titre, description: obj.description, statut, progression: parseInt(progression) || obj.progression, dateDebut: obj.dateDebut, dateFin: obj.dateFin };
-  }
+function closeObjForm() {
+  objFormVisible = false;
+  const member = myTeam.find(m => m.id === managementMemberId);
+  if (member) renderMemberObjectifs(member);
+}
 
-  const motif = prompt('Commentaire pour l\'admin :') || '';
+async function submitObjRequest() {
+  const titre = document.getElementById('mgrObjTitre').value.trim();
+  if (!titre) { showToast('Le titre est obligatoire.'); return; }
+  const data = {
+    titre,
+    description: document.getElementById('mgrObjDesc').value.trim(),
+    dateDebut: document.getElementById('mgrObjDebut').value || '',
+    dateFin: document.getElementById('mgrObjFin').value || '',
+    statut: document.getElementById('mgrObjStatut').value,
+    progression: parseInt(document.getElementById('mgrObjProg').value) || 0,
+  };
+  const motif = document.getElementById('mgrObjMotif').value.trim();
 
   const { error } = await sb.from('objectif_requests').insert({
-    objectif_id: objId, collaborateur_id: managementMemberId,
-    manager_id: currentCollab.id, type, data, statut: 'en_attente', motif
+    objectif_id: objFormObjId, collaborateur_id: managementMemberId,
+    manager_id: currentCollab.id, type: objFormType, data, statut: 'en_attente', motif
   });
   if (error) { showToast('Erreur: ' + error.message); return; }
-  showToast('Demande envoyée à l\'admin !');
+  objFormVisible = false;
+  showToast('Demande envoyée à l\'admin ✓');
+  const member = myTeam.find(m => m.id === managementMemberId);
+  if (member) renderMemberObjectifs(member);
 }
 
 // ── POINTS MENSUELS DU MANAGÉ ──
@@ -1478,10 +1552,25 @@ function renderNotifications() {
     notifs.push({ icon: '⏰', text: `N'oubliez pas de remplir vos réponses pour ${moisLabel(cm)}.`, type: 'warning' });
   }
 
-  // Demandes en attente (si manager)
+  // Demandes d'objectifs (si manager) — réponses de l'admin
+  (myObjRequests || []).forEach(r => {
+    const collab = COLLABS.find(c => c.id === r.collaborateurId);
+    const nom = collab ? collab.prenom + ' ' + collab.nom : '';
+    if (r.statut === 'approuve') {
+      notifs.push({ icon: '✅', text: `Objectif "${escHTML(r.data?.titre||'')}" pour ${nom} — approuvé par l'admin`, type: 'success' });
+    } else if (r.statut === 'refuse') {
+      notifs.push({ icon: '❌', text: `Objectif "${escHTML(r.data?.titre||'')}" pour ${nom} — refusé${r.motifRefus ? ' : ' + escHTML(r.motifRefus) : ''}`, type: 'danger' });
+    }
+  });
+
+  // Congés en attente de mes managés (si manager/valideur)
   if (myTeam.length) {
-    const teamIds = myTeam.map(m => m.id);
-    const pendingCount = myAbsences.length ? 0 : 0; // will be loaded separately
+    myTeam.forEach(m => {
+      const valideurId = m.valideurCongesId || m.managerId;
+      if (valideurId === currentCollab.id) {
+        // Check if this member has pending absences (loaded via team data)
+      }
+    });
   }
 
   const badge = document.getElementById('notifBadge');
@@ -1497,18 +1586,17 @@ function renderNotifications() {
 }
 
 function updateNotifBadge() {
-  const notifs = [];
-  myAbsences.forEach(a => {
-    if (a.statut === 'approuve' || a.statut === 'refuse') notifs.push(a);
-  });
+  let count = 0;
+  myAbsences.forEach(a => { if (a.statut === 'approuve' || a.statut === 'refuse') count++; });
   const cm = currentMois();
   const currentPoint = (currentCollab.pointsSuivi||[]).find(p => p.mois === cm);
   if (currentPoint) {
     const md = currentPoint.managerData || {};
-    if (Object.values(md).some(v => v && typeof v === 'string' && v.trim())) notifs.push({});
+    if (Object.values(md).some(v => v && typeof v === 'string' && v.trim())) count++;
   }
+  (myObjRequests || []).forEach(r => { if (r.statut === 'approuve' || r.statut === 'refuse') count++; });
   const badge = document.getElementById('notifBadge');
-  if (notifs.length) { badge.style.display = 'block'; badge.textContent = notifs.length; }
+  if (count) { badge.style.display = 'block'; badge.textContent = count; }
   else { badge.style.display = 'none'; }
 }
 
