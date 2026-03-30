@@ -702,6 +702,23 @@
     </div>
   </div>
 
+  <!-- BO: OBJECTIFS -->
+  <div id="view-bo-objectifs" class="view hidden">
+    <div class="page-header">
+      <h1>Gestion des objectifs</h1>
+      <p>Objectifs individuels et objectifs d'équipe</p>
+    </div>
+    <div class="divider"></div>
+
+    <!-- Toggle individuel / équipe -->
+    <div style="display:flex;gap:6px;margin-bottom:24px;background:var(--offwhite);padding:6px;border-radius:12px;max-width:400px;">
+      <button id="boObjTabIndiv" onclick="switchBoObjTab('individuel')" style="flex:1;padding:10px 16px;border-radius:10px;border:none;font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;transition:all 0.15s;background:white;color:var(--navy);box-shadow:0 2px 8px rgba(5,5,109,0.1);">👤 Individuels</button>
+      <button id="boObjTabEquipe" onclick="switchBoObjTab('equipe')" style="flex:1;padding:10px 16px;border-radius:10px;border:none;font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;transition:all 0.15s;background:transparent;color:var(--muted);">👥 Par équipe</button>
+    </div>
+
+    <div id="boObjContent"></div>
+  </div>
+
   <!-- BO: ABSENCES / CONGÉS -->
   <div id="view-bo-absences" class="view hidden">
     <div class="page-header">
@@ -1099,6 +1116,9 @@ function renderSidebar() {
     <button class="nav-item ${currentView === 'bo-managers' ? 'active' : ''}" onclick="navigate('bo-managers')">
       <span class="nav-icon">🗂️</span><span>Organigramme</span>
     </button>
+    <button class="nav-item ${currentView === 'bo-objectifs' ? 'active' : ''}" onclick="navigate('bo-objectifs')">
+      <span class="nav-icon">🎯</span><span>Objectifs</span>
+    </button>
     <button class="nav-item ${currentView === 'bo-absences' ? 'active' : ''}" onclick="navigate('bo-absences')">
       <span class="nav-icon">🏖️</span><span>Congés & Absences</span>${(() => { const pending = (DB.absences||[]).filter(a => a.statut === 'en_attente').length; return pending ? `<span style="background:var(--pink);color:white;font-size:0.65rem;font-weight:800;padding:2px 7px;border-radius:99px;margin-left:auto;">${pending}</span>` : ''; })()}
     </button>
@@ -1120,6 +1140,7 @@ function navigate(view, collabId) {
   else if (view === 'collab') { currentTab = 'onboarding'; renderCollab(); }
   else if (view === 'bo-people') renderBoPeople();
   else if (view === 'bo-managers') renderBoManagers();
+  else if (view === 'bo-objectifs') renderBoObjectifs();
   else if (view === 'bo-absences') renderBoAbsences();
   else if (view === 'bo-settings') renderBoSettings();
 }
@@ -2110,7 +2131,144 @@ async function saveSettingKey(key, value) {
   if (error) showToast('Erreur settings: ' + error.message);
 }
 
-// ── OBJECTIFS D'ÉQUIPE ──
+// ── BO: OBJECTIFS (vue admin) ──
+let boObjTab = 'individuel';
+let boObjCollabId = null;
+
+function switchBoObjTab(tab) {
+  boObjTab = tab;
+  document.getElementById('boObjTabIndiv').style.cssText = tab === 'individuel' ? 'flex:1;padding:10px 16px;border-radius:10px;border:none;font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;background:white;color:var(--navy);box-shadow:0 2px 8px rgba(5,5,109,0.1);' : 'flex:1;padding:10px 16px;border-radius:10px;border:none;font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);';
+  document.getElementById('boObjTabEquipe').style.cssText = tab === 'equipe' ? 'flex:1;padding:10px 16px;border-radius:10px;border:none;font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;background:white;color:var(--navy);box-shadow:0 2px 8px rgba(5,5,109,0.1);' : 'flex:1;padding:10px 16px;border-radius:10px;border:none;font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);';
+  renderBoObjectifs();
+}
+
+function renderBoObjectifs() {
+  const el = document.getElementById('boObjContent');
+  if (boObjTab === 'equipe') {
+    renderBoObjEquipe(el);
+  } else {
+    renderBoObjIndividuel(el);
+  }
+}
+
+function renderBoObjIndividuel(el) {
+  // Selector for collaborateur
+  const collabs = DB.collaborateurs;
+  let html = `<div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;">
+    <select id="boObjCollabSelect" class="settings-input" style="flex:1;max-width:300px;padding:10px 14px;" onchange="boObjCollabId=this.value;renderBoObjectifs();">
+      <option value="">— Choisir un collaborateur —</option>
+      ${collabs.map(c => `<option value="${c.id}" ${c.id===boObjCollabId?'selected':''}>${c.prenom} ${c.nom} — ${c.poste}</option>`).join('')}
+    </select>
+    ${boObjCollabId ? `<button class="btn btn-primary btn-sm" onclick="openAddObjForCollab('${boObjCollabId}')">+ Nouvel objectif</button>` : ''}
+  </div>`;
+
+  if (!boObjCollabId) {
+    // Show all collaborateurs with their objectives count
+    html += `<div class="card"><table><thead><tr>
+      <th>Collaborateur</th><th>Objectifs</th><th>En cours</th><th>Atteints</th><th>Actions</th>
+    </tr></thead><tbody>
+    ${collabs.map(c => {
+      const objs = c.objectifs || [];
+      const enCours = objs.filter(o => o.statut === 'en-cours').length;
+      const atteints = objs.filter(o => o.statut === 'atteint').length;
+      return `<tr>
+        <td><strong>${c.prenom} ${c.nom}</strong></td>
+        <td>${objs.length}</td>
+        <td>${enCours}</td>
+        <td>${atteints}</td>
+        <td><button class="btn btn-ghost btn-sm" onclick="boObjCollabId='${c.id}';renderBoObjectifs();">Voir</button></td>
+      </tr>`;
+    }).join('')}
+    </tbody></table></div>`;
+  } else {
+    const c = getCollab(boObjCollabId);
+    if (!c) { el.innerHTML = html; return; }
+    const objs = c.objectifs || [];
+    html += `<div style="margin-bottom:12px;font-size:0.95rem;font-weight:700;color:var(--navy);">${c.prenom} ${c.nom} — ${objs.length} objectif${objs.length>1?'s':''}</div>`;
+    if (!objs.length) {
+      html += '<p style="color:var(--muted);font-style:italic;">Aucun objectif.</p>';
+    } else {
+      html += objs.map((o, i) => {
+        const pct = o.progression || 0;
+        const barColor = BAR_COLORS[o.statut] || 'var(--lavender)';
+        return `<div class="obj-card">
+          <div class="obj-header">
+            <span style="background:var(--pink);color:white;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;margin-right:8px;flex-shrink:0;">${i+1}</span>
+            <span style="flex:1;font-weight:700;color:var(--navy);">${escHTML(o.titre)}</span>
+            <span class="badge ${STATUS_COLORS[o.statut]||'badge-gray'}">${STATUS_LABELS[o.statut]||o.statut}</span>
+            <button class="btn btn-ghost btn-sm" onclick="currentCollabId='${c.id}';openEditObj('${o.id}')">✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="currentCollabId='${c.id}';deleteObj('${o.id}')">🗑️</button>
+          </div>
+          ${o.description ? `<div class="obj-desc">${escHTML(o.description)}</div>` : ''}
+          <div style="margin:8px 0;">
+            <div style="display:flex;justify-content:space-between;font-size:0.7rem;font-weight:700;color:var(--muted);margin-bottom:4px;"><span>Progression</span><span>${pct}%</span></div>
+            <div class="progress-wrap"><div class="progress-bar" style="width:${pct}%;background:${barColor};"></div></div>
+          </div>
+          <div class="obj-footer"><span>📅 Du ${fmtDate(o.dateDebut)} au ${fmtDate(o.dateFin)}</span></div>
+        </div>`;
+      }).join('');
+    }
+  }
+  el.innerHTML = html;
+}
+
+function openAddObjForCollab(collabId) {
+  currentCollabId = collabId;
+  openAddObj();
+}
+
+function renderBoObjEquipe(el) {
+  const equipes = SETTINGS.equipes || [];
+  let html = `<div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;">
+    <select id="boObjEquipeSelect" class="settings-input" style="flex:1;max-width:300px;padding:10px 14px;" onchange="renderBoObjectifs();">
+      <option value="">— Choisir une équipe —</option>
+      ${equipes.map(e => `<option value="${escHTML(e)}">${escHTML(e)}</option>`).join('')}
+    </select>
+  </div>`;
+
+  const selEquipe = document.getElementById('boObjEquipeSelect')?.value || '';
+  if (!selEquipe) {
+    // Summary table of all teams
+    html += `<div class="card"><table><thead><tr><th>Équipe</th><th>Objectifs</th><th>Actions</th></tr></thead><tbody>
+    ${equipes.map(eq => {
+      const objs = (SETTINGS['team_objectifs_' + eq] || []).map(normalizeTeamObj);
+      return `<tr>
+        <td><strong>${escHTML(eq)}</strong></td>
+        <td>${objs.length}</td>
+        <td><button class="btn btn-ghost btn-sm" onclick="document.getElementById('boObjEquipeSelect').value='${escHTML(eq)}';renderBoObjectifs();">Voir</button></td>
+      </tr>`;
+    }).join('')}
+    </tbody></table></div>`;
+  } else {
+    const objs = (SETTINGS['team_objectifs_' + selEquipe] || []).map(normalizeTeamObj);
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div style="font-size:0.95rem;font-weight:700;color:var(--navy);">Équipe ${escHTML(selEquipe)} — ${objs.length} objectif${objs.length>1?'s':''}</div>
+      <button class="btn btn-primary btn-sm" onclick="document.getElementById('teamObjEquipe').value='${escHTML(selEquipe)}';navigate('bo-settings');">Gérer dans Paramètres</button>
+    </div>`;
+    if (!objs.length) {
+      html += '<p style="color:var(--muted);font-style:italic;">Aucun objectif d\'équipe.</p>';
+    } else {
+      html += objs.map((o, i) => {
+        const pct = o.progression || 0;
+        return `<div class="obj-card" style="border-left:4px solid var(--blue);">
+          <div class="obj-header">
+            <span style="background:var(--blue);color:white;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;margin-right:8px;flex-shrink:0;">${i+1}</span>
+            <span style="flex:1;font-weight:700;color:var(--navy);">${escHTML(o.titre)}</span>
+            <span class="badge badge-blue">Équipe</span>
+          </div>
+          <div style="margin:8px 0;">
+            <div style="display:flex;justify-content:space-between;font-size:0.7rem;font-weight:700;color:var(--muted);margin-bottom:4px;"><span>Progression</span><span>${pct}%</span></div>
+            <div class="progress-wrap"><div class="progress-bar" style="width:${pct}%;background:linear-gradient(90deg,var(--skyblue),var(--blue));"></div></div>
+          </div>
+          ${o.dateDebut || o.dateFin ? `<div class="obj-footer"><span>📅 Du ${fmtDate(o.dateDebut)} au ${fmtDate(o.dateFin)}</span></div>` : ''}
+        </div>`;
+      }).join('');
+    }
+  }
+  el.innerHTML = html;
+}
+
+// ── OBJECTIFS D'ÉQUIPE (paramètres) ──
 function normalizeTeamObj(o) {
   if (typeof o === 'string') return { titre: o, dateDebut: '', dateFin: '', progression: 0 };
   return { titre: o.titre||'', dateDebut: o.dateDebut||'', dateFin: o.dateFin||'', progression: o.progression||0 };
