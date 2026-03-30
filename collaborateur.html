@@ -339,7 +339,7 @@
     <div class="tabs">
       <button class="tab-btn active" data-tab="objectifs" onclick="showTab('objectifs')">🎯 Mes objectifs</button>
       <button class="tab-btn" data-tab="points" onclick="showTab('points')">🗓️ Mon suivi mensuel</button>
-      <button id="btnTabEquipe" class="tab-btn hidden" data-tab="equipe" onclick="showTab('equipe')">👥 Mon équipe</button>
+      <button id="btnTabEquipe" class="tab-btn hidden" data-tab="equipe" onclick="showTab('equipe')">👔 Management</button>
       <button class="tab-btn" data-tab="conges" onclick="showTab('conges')">🏖️ Mes congés</button>
     </div>
 
@@ -877,32 +877,158 @@ function renderObjectifs() {
 }
 
 // ─────────────────────────────────────────
-// MON ÉQUIPE (vue manager)
+// MANAGEMENT (vue manager)
 // ─────────────────────────────────────────
+let managementView = 'list';
+let managementMemberId = null;
+let managementTab = 'objectifs';
+let memberAbsences = [];
 
 function renderTeam() {
-  const container = document.getElementById('teamList');
+  if (managementView === 'detail' && managementMemberId) {
+    const member = myTeam.find(m => m.id === managementMemberId);
+    if (member) { renderMemberDetail(member); return; }
+  }
+  renderMemberList();
+}
 
+function renderMemberList() {
+  managementView = 'list';
+  managementMemberId = null;
+  const container = document.getElementById('teamList');
   if (!myTeam.length) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-icon">👥</div><p>Vous n'avez pas de collaborateurs directs.</p></div>`;
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">👔</div><p>Vous n'avez pas de collaborateurs directs.</p></div>`;
     return;
   }
+  container.innerHTML = `
+    <div class="section-title">Mes collaborateurs (${myTeam.length})</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;">
+      ${myTeam.map(m => `
+        <div class="collab-card" onclick="openMemberDetail('${m.id}')" style="cursor:pointer;background:white;border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow-md);border:2px solid transparent;transition:all 0.2s;">
+          ${avatarHTML(m, 48)}
+          <div style="font-weight:700;font-size:0.95rem;color:var(--navy);margin-top:10px;">${m.prenom} ${m.nom}</div>
+          <div style="font-size:0.78rem;color:var(--muted);margin-top:2px;">${m.poste || '—'}</div>
+          <div style="font-size:0.72rem;color:var(--lilac);margin-top:6px;">${m.equipes ? m.equipes.join(', ') : ''}</div>
+        </div>`).join('')}
+    </div>`;
+}
 
-  container.innerHTML = myTeam.map(member => `
-    <div class="card" style="margin-bottom:20px;" id="team-card-${member.id}">
-      <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;">
-        ${avatarHTML(member, 48)}
-        <div style="flex:1;">
-          <div style="font-size:1.05rem;font-weight:700;color:var(--navy);">${member.prenom} ${member.nom}</div>
-          <div style="font-size:0.82rem;color:var(--muted);margin-top:2px;">${member.poste || '—'}</div>
-        </div>
-      </div>
-      <div class="section-title">Points de suivi</div>
-      <div id="team-points-${member.id}">
-        ${renderTeamMemberPoints(member)}
+function openMemberDetail(memberId) {
+  managementView = 'detail';
+  managementMemberId = memberId;
+  managementTab = 'objectifs';
+  renderTeam();
+}
+
+async function renderMemberDetail(member) {
+  // Load absences for this member
+  await loadMemberAbsences(member.id);
+
+  const container = document.getElementById('teamList');
+  container.innerHTML = `
+    <button class="btn btn-ghost btn-sm" onclick="renderMemberList()" style="margin-bottom:16px;">← Retour à la liste</button>
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
+      ${avatarHTML(member, 56)}
+      <div>
+        <div style="font-size:1.15rem;font-weight:700;color:var(--navy);">${member.prenom} ${member.nom}</div>
+        <div style="font-size:0.85rem;color:var(--muted);">${member.poste || '—'}</div>
       </div>
     </div>
-  `).join('');
+    <div style="display:flex;gap:8px;margin-bottom:20px;overflow-x:auto;">
+      <button class="btn ${managementTab==='objectifs'?'btn-primary':'btn-ghost'} btn-sm" onclick="switchMgmtTab('objectifs')">🎯 Objectifs</button>
+      <button class="btn ${managementTab==='points'?'btn-primary':'btn-ghost'} btn-sm" onclick="switchMgmtTab('points')">📋 Points mensuels</button>
+      <button class="btn ${managementTab==='conges'?'btn-primary':'btn-ghost'} btn-sm" onclick="switchMgmtTab('conges')">🏖️ Congés</button>
+    </div>
+    <div id="mgmtContent"></div>`;
+
+  if (managementTab === 'objectifs') renderMemberObjectifs(member);
+  else if (managementTab === 'points') renderMemberPoints(member);
+  else if (managementTab === 'conges') renderMemberConges(member);
+}
+
+function switchMgmtTab(tab) {
+  managementTab = tab;
+  const member = myTeam.find(m => m.id === managementMemberId);
+  if (!member) return;
+  // Update buttons
+  document.querySelectorAll('#teamList .btn-sm').forEach(b => {
+    if (b.textContent.includes('Retour')) return;
+    b.className = 'btn btn-ghost btn-sm';
+  });
+  event.target.className = 'btn btn-primary btn-sm';
+  if (tab === 'objectifs') renderMemberObjectifs(member);
+  else if (tab === 'points') renderMemberPoints(member);
+  else if (tab === 'conges') renderMemberConges(member);
+}
+
+// ── OBJECTIFS DU MANAGÉ ──
+function renderMemberObjectifs(member) {
+  const objs = member.objectifs || [];
+  const el = document.getElementById('mgmtContent');
+
+  let html = '';
+  if (!objs.length) {
+    html = '<div class="empty-state"><div class="empty-icon">🎯</div><p>Aucun objectif défini pour ce collaborateur.</p></div>';
+  } else {
+    html = objs.map((o, i) => {
+      const pct = o.progression || 0;
+      const barColor = BAR_COLORS[o.statut] || 'var(--lavender)';
+      return `
+      <div class="obj-card">
+        <div class="obj-header">
+          <span style="background:var(--pink);color:white;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;margin-right:8px;flex-shrink:0;">${i+1}</span>
+          <div class="obj-title" style="flex:1;">${escHTML(o.titre)}</div>
+          <span class="badge ${STATUS_COLORS[o.statut]||'badge-gray'}">${STATUS_LABELS[o.statut]||o.statut}</span>
+          <button class="btn btn-ghost btn-sm" onclick="proposeObjModif('${o.id}','modifier')">📝 Proposer modif</button>
+        </div>
+        ${o.description ? `<div class="obj-desc">${escHTML(o.description)}</div>` : ''}
+        <div style="margin:8px 0;">
+          <div style="display:flex;justify-content:space-between;font-size:0.7rem;font-weight:700;color:var(--muted);margin-bottom:4px;">
+            <span>Progression</span><span>${pct}%</span>
+          </div>
+          <div class="progress-wrap"><div class="progress-bar" style="width:${pct}%;background:${barColor};"></div></div>
+        </div>
+        <div class="obj-footer"><span>📅 Du ${fmtDate(o.dateDebut)} au ${fmtDate(o.dateFin)}</span></div>
+      </div>`;
+    }).join('');
+  }
+  html += `<div style="margin-top:16px;"><button class="btn btn-primary btn-sm" onclick="proposeObjModif(null,'creer')">+ Proposer un nouvel objectif</button></div>`;
+  el.innerHTML = html;
+}
+
+async function proposeObjModif(objId, type) {
+  const member = myTeam.find(m => m.id === managementMemberId);
+  if (!member) return;
+
+  let data = {};
+  if (type === 'creer') {
+    const titre = prompt('Titre du nouvel objectif :');
+    if (!titre || !titre.trim()) return;
+    const description = prompt('Description (optionnel) :') || '';
+    data = { titre: titre.trim(), description: description.trim(), statut: 'en-cours', progression: 0 };
+  } else if (type === 'modifier') {
+    const obj = (member.objectifs||[]).find(o => o.id === objId);
+    if (!obj) return;
+    const titre = prompt('Titre :', obj.titre);
+    if (titre === null) return;
+    const statut = prompt('Statut (en-cours, atteint, non-atteint, en-attente) :', obj.statut) || obj.statut;
+    const progression = prompt('Progression (0-100) :', obj.progression);
+    data = { titre: titre.trim() || obj.titre, description: obj.description, statut, progression: parseInt(progression) || obj.progression, dateDebut: obj.dateDebut, dateFin: obj.dateFin };
+  }
+
+  const motif = prompt('Commentaire pour l\'admin :') || '';
+
+  const { error } = await sb.from('objectif_requests').insert({
+    objectif_id: objId, collaborateur_id: managementMemberId,
+    manager_id: currentCollab.id, type, data, statut: 'en_attente', motif
+  });
+  if (error) { showToast('Erreur: ' + error.message); return; }
+  showToast('Demande envoyée à l\'admin !');
+}
+
+// ── POINTS MENSUELS DU MANAGÉ ──
+function renderMemberPoints(member) {
+  document.getElementById('mgmtContent').innerHTML = renderTeamMemberPoints(member);
 }
 
 function renderTeamMemberPoints(member) {
@@ -1060,6 +1186,91 @@ async function saveTeamManagerPoint(memberId, pointId) {
 
   p.managerData = managerData;
   showToast('Retours manager enregistrés !');
+}
+
+// ── CONGÉS DU MANAGÉ (vue manager) ──
+async function loadMemberAbsences(memberId) {
+  const { data, error } = await sb.from('absences').select('*')
+    .eq('collaborateur_id', memberId).order('date_debut', { ascending: false });
+  if (error) { console.warn('Load member absences:', error.message); memberAbsences = []; return; }
+  memberAbsences = (data||[]).map(a => ({ id: a.id, type: a.type, dateDebut: a.date_debut, dateFin: a.date_fin, statut: a.statut || 'en_attente', commentaire: a.commentaire || '', motifRefus: a.motif_refus || '' }));
+}
+
+function renderMemberConges(member) {
+  const el = document.getElementById('mgmtContent');
+  const isValideur = (member.valideurCongesId === currentCollab.id) || (!member.valideurCongesId && member.managerId === currentCollab.id);
+
+  // Calculate solde for member
+  const soldeInitial = member.soldeConges || 0;
+  const acquisition = member.acquisitionConges || 2.08;
+  let moisAcquis = 0;
+  if (member.dateEntree) {
+    const entree = new Date(member.dateEntree);
+    const now = new Date();
+    moisAcquis = Math.max(0, (now.getFullYear() - entree.getFullYear()) * 12 + (now.getMonth() - entree.getMonth()));
+  }
+  const acquis = Math.round(moisAcquis * acquisition * 100) / 100;
+  const pris = memberAbsences.filter(a => a.statut === 'approuve' && a.type === 'conge').reduce((s, a) => s + countWorkDays(a.dateDebut, a.dateFin), 0);
+  const solde = Math.round((soldeInitial + acquis - pris) * 100) / 100;
+  const soldeColor = solde <= 0 ? 'var(--red)' : solde <= 5 ? 'var(--orange)' : 'var(--green)';
+  const pendingCount = memberAbsences.filter(a => a.statut === 'en_attente').length;
+
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;">
+      <div class="card" style="text-align:center;padding:16px;">
+        <div style="font-size:1.5rem;font-weight:700;color:${soldeColor};">${solde}j</div>
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--muted);margin-top:4px;">Solde</div>
+      </div>
+      <div class="card" style="text-align:center;padding:16px;">
+        <div style="font-size:1.5rem;font-weight:700;color:var(--pink);">${pris}j</div>
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--muted);margin-top:4px;">Pris</div>
+      </div>
+      <div class="card" style="text-align:center;padding:16px;">
+        <div style="font-size:1.5rem;font-weight:700;color:var(--orange);">${pendingCount}</div>
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--muted);margin-top:4px;">En attente</div>
+      </div>
+    </div>
+    <div class="section-title">Demandes de congés</div>
+    ${memberAbsences.length ? memberAbsences.map(a => {
+      const jours = countWorkDays(a.dateDebut, a.dateFin);
+      return `
+      <div style="display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:12px;border:1.5px solid var(--lavender);margin-bottom:8px;background:white;">
+        <div style="flex:1;">
+          <div style="font-weight:700;font-size:0.9rem;color:var(--navy);">${ABS_TYPES[a.type]||a.type} — ${jours}j</div>
+          <div style="font-size:0.78rem;color:var(--muted);margin-top:2px;">Du ${fmtDate(a.dateDebut)} au ${fmtDate(a.dateFin)}</div>
+          ${a.commentaire ? `<div style="font-size:0.78rem;color:var(--muted);margin-top:4px;font-style:italic;">${escHTML(a.commentaire)}</div>` : ''}
+          ${a.statut === 'refuse' && a.motifRefus ? `<div style="font-size:0.78rem;color:#881337;margin-top:4px;background:#FFF1F2;padding:6px 10px;border-radius:6px;border-left:3px solid #F43F5E;">Motif : ${escHTML(a.motifRefus)}</div>` : ''}
+        </div>
+        <span class="badge ${ABS_STATUT_BADGE[a.statut]||'badge-gray'}">${ABS_STATUTS[a.statut]||a.statut}</span>
+        ${isValideur && a.statut === 'en_attente' ? `
+          <button class="btn btn-sm" style="background:var(--green);color:white;padding:4px 10px;" onclick="approveTeamAbsence('${a.id}')">✓</button>
+          <button class="btn btn-danger btn-sm" style="padding:4px 10px;" onclick="refuseTeamAbsence('${a.id}')">✕</button>
+        ` : ''}
+      </div>`;
+    }).join('') : '<div class="empty-state"><div class="empty-icon">🏖️</div><p>Aucune demande de congé.</p></div>'}
+  `;
+}
+
+async function approveTeamAbsence(id) {
+  const { error } = await sb.from('absences').update({ statut: 'approuve' }).eq('id', id);
+  if (error) { showToast('Erreur: ' + error.message); return; }
+  const a = memberAbsences.find(x => x.id === id);
+  if (a) a.statut = 'approuve';
+  const member = myTeam.find(m => m.id === managementMemberId);
+  if (member) renderMemberConges(member);
+  showToast('Congé approuvé ✓');
+}
+
+async function refuseTeamAbsence(id) {
+  const motif = prompt('Motif du refus (obligatoire) :');
+  if (!motif || !motif.trim()) { showToast('Le motif est obligatoire.'); return; }
+  const { error } = await sb.from('absences').update({ statut: 'refuse', motif_refus: motif.trim() }).eq('id', id);
+  if (error) { showToast('Erreur: ' + error.message); return; }
+  const a = memberAbsences.find(x => x.id === id);
+  if (a) { a.statut = 'refuse'; a.motifRefus = motif.trim(); }
+  const member = myTeam.find(m => m.id === managementMemberId);
+  if (member) renderMemberConges(member);
+  showToast('Congé refusé.');
 }
 
 // ─────────────────────────────────────────

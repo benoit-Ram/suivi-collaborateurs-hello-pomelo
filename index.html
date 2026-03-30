@@ -976,10 +976,11 @@ async function initDB() {
   document.body.appendChild(loader);
 
   try {
-    const [collabRes, settingsRes, absencesRes] = await Promise.all([
+    const [collabRes, settingsRes, absencesRes, objReqRes] = await Promise.all([
       sb.from('collaborateurs').select('*, points_suivi(*), objectifs(*)'),
       sb.from('settings').select('*'),
-      sb.from('absences').select('*').order('date_debut', { ascending: false })
+      sb.from('absences').select('*').order('date_debut', { ascending: false }),
+      sb.from('objectif_requests').select('*').eq('statut', 'en_attente').order('created_at', { ascending: false })
     ]);
     loader.remove();
 
@@ -993,6 +994,11 @@ async function initDB() {
         dateDebut: a.date_debut, dateFin: a.date_fin,
         statut: a.statut || 'en_attente', commentaire: a.commentaire || '',
         motifRefus: a.motif_refus || ''
+      })),
+      objRequests: (objReqRes.data || []).map(r => ({
+        id: r.id, objectifId: r.objectif_id, collaborateurId: r.collaborateur_id,
+        managerId: r.manager_id, type: r.type, data: r.data || {},
+        statut: r.statut, motif: r.motif || '', createdAt: r.created_at
       }))
     };
     if (settingsRes.data) {
@@ -1218,16 +1224,34 @@ function renderAlerts() {
     }
   });
 
+  // Demandes de modification d'objectifs
+  (DB.objRequests || []).forEach(r => {
+    const collab = getCollab(r.collaborateurId);
+    const manager = getCollab(r.managerId);
+    const typeLabel = { modifier: 'modifier', creer: 'créer', supprimer: 'supprimer' }[r.type] || r.type;
+    const titre = r.data?.titre || '(objectif)';
+    alerts.push({
+      type: 'info', icon: '🎯',
+      text: `<strong>${manager ? manager.prenom + ' ' + manager.nom : 'Manager'}</strong> propose de ${typeLabel} l'objectif "${escHTML(titre)}" pour <strong>${collab ? collab.prenom + ' ' + collab.nom : '—'}</strong>${r.motif ? ' — ' + escHTML(r.motif) : ''}`,
+      collabId: r.collaborateurId,
+      objRequest: r
+    });
+  });
+
   const panel = document.getElementById('alertsPanel');
   const list = document.getElementById('alertsList');
   if (!alerts.length) { panel.classList.add('hidden'); return; }
   panel.classList.remove('hidden');
-  list.innerHTML = alerts.slice(0, 15).map(a => `
+  list.innerHTML = alerts.slice(0, 20).map(a => `
     <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;margin-bottom:6px;font-size:0.82rem;font-weight:600;background:${a.type==='danger'?'#FFF1F2':a.type==='warning'?'#FFF7ED':'#EFF6FF'};color:${a.type==='danger'?'#881337':a.type==='warning'?'#9A3412':'#1E40AF'};">
       <span style="font-size:1rem;flex-shrink:0;">${a.icon}</span>
       <span style="flex:1;cursor:pointer;" onclick="navigate('collab','${a.collabId}')">${a.text}</span>
+      ${a.objRequest ? `
+        <button class="btn btn-sm" style="background:var(--green);color:white;padding:3px 8px;font-size:0.68rem;flex-shrink:0;" onclick="event.stopPropagation();approveObjRequest('${a.objRequest.id}')">✓ Approuver</button>
+        <button class="btn btn-danger btn-sm" style="padding:3px 8px;font-size:0.68rem;flex-shrink:0;" onclick="event.stopPropagation();refuseObjRequest('${a.objRequest.id}')">✕ Refuser</button>
+      ` : ''}
       ${a.email ? `<a href="mailto:${escHTML(a.email)}?subject=${encodeURIComponent('Rappel — Point de suivi mensuel ' + moisLabel(currentMois()))}&body=${encodeURIComponent('Bonjour ' + (a.prenom||'') + ',\n\nN\'oublie pas de compléter ton point de suivi de ' + moisLabel(currentMois()) + ' sur l\'outil Hello Pomelo avant le 5 du mois prochain.\n\nMerci !')}" onclick="event.stopPropagation()" class="btn btn-sm" style="background:var(--navy);color:white;padding:3px 8px;font-size:0.68rem;flex-shrink:0;">📧 Rappel</a>` : ''}
-    </div>`).join('') + (alerts.length > 15 ? `<div style="font-size:0.78rem;color:var(--muted);text-align:center;margin-top:8px;">… et ${alerts.length - 15} autres alertes</div>` : '');
+    </div>`).join('') + (alerts.length > 20 ? `<div style="font-size:0.78rem;color:var(--muted);text-align:center;margin-top:8px;">… et ${alerts.length - 20} autres alertes</div>` : '');
 }
 
 // ── ANALYTICS ──
@@ -2805,6 +2829,51 @@ async function deleteEntretien(id) {
   const c = getCollab(currentCollabId);
   c.entretiens = (c.entretiens||[]).filter(e => e.id !== id);
   renderEntretiens();
+}
+
+// ─────────────────────────────────────────
+// EXPORT PDF (Fiche collaborateur)
+// ─────────────────────────────────────────
+// ─────────────────────────────────────────
+// DEMANDES DE MODIFICATION D'OBJECTIFS
+// ─────────────────────────────────────────
+async function approveObjRequest(id) {
+  const req = (DB.objRequests||[]).find(r => r.id === id);
+  if (!req) return;
+  try {
+    if (req.type === 'creer' && req.data) {
+      await sb.from('objectifs').insert({
+        collaborateur_id: req.collaborateurId,
+        titre: req.data.titre, description: req.data.description || null,
+        date_debut: req.data.dateDebut || null, date_fin: req.data.dateFin || null,
+        statut: req.data.statut || 'en-cours', progression: req.data.progression || 0
+      });
+    } else if (req.type === 'modifier' && req.objectifId && req.data) {
+      await sb.from('objectifs').update({
+        titre: req.data.titre, description: req.data.description || null,
+        statut: req.data.statut || 'en-cours', progression: req.data.progression || 0
+      }).eq('id', req.objectifId);
+    } else if (req.type === 'supprimer' && req.objectifId) {
+      await sb.from('objectifs').delete().eq('id', req.objectifId);
+    }
+    await sb.from('objectif_requests').update({ statut: 'approuve' }).eq('id', id);
+    DB.objRequests = (DB.objRequests||[]).filter(r => r.id !== id);
+    // Reload collabs to get updated objectives
+    const { data } = await sb.from('collaborateurs').select('*, points_suivi(*), objectifs(*)');
+    if (data) DB.collaborateurs = data.map(fromRow);
+    renderDashboard();
+    showToast('Demande approuvée — objectif mis à jour ✓');
+  } catch(e) { showToast('Erreur: ' + e.message); }
+}
+
+async function refuseObjRequest(id) {
+  const motif = prompt('Motif du refus :');
+  if (!motif || !motif.trim()) { showToast('Le motif est obligatoire.'); return; }
+  const { error } = await sb.from('objectif_requests').update({ statut: 'refuse', motif_refus: motif.trim() }).eq('id', id);
+  if (error) { showToast('Erreur: ' + error.message); return; }
+  DB.objRequests = (DB.objRequests||[]).filter(r => r.id !== id);
+  renderDashboard();
+  showToast('Demande refusée.');
 }
 
 // ─────────────────────────────────────────

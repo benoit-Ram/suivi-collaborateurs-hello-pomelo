@@ -76,3 +76,20 @@ ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS photo_url text;
 -- Index unique sur settings.key pour upsert
 CREATE UNIQUE INDEX IF NOT EXISTS settings_key_unique ON settings(key);
 ```
+
+## Migration v5 — Demandes de modification d'objectifs
+
+```sql
+CREATE TABLE IF NOT EXISTS objectif_requests (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  objectif_id uuid REFERENCES objectifs(id) ON DELETE CASCADE,
+  collaborateur_id uuid REFERENCES collaborateurs(id) ON DELETE CASCADE,
+  manager_id uuid REFERENCES collaborateurs(id),
+  type text NOT NULL,
+  data jsonb,
+  statut text DEFAULT 'en_attente',
+  motif text,
+  motif_refus text,
+  created_at timestamptz DEFAULT now()
+);
+```
