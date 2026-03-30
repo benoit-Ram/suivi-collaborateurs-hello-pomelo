@@ -1212,6 +1212,7 @@ function renderBoSettings() {
       : `<p style="color:var(--muted);font-size:0.85rem;font-style:italic;">Aucun élément.</p>`;
   });
   renderQuestionsList();
+  renderFermetures();
 
   // Populate team objectives equipe select
   const teamObjSel = document.getElementById('teamObjEquipe');
@@ -1487,6 +1488,42 @@ function renderBoObjEquipeHTML() {
     }
   }
   return html;
+}
+
+// ── PÉRIODES DE FERMETURE ──
+function renderFermetures() {
+  const list = SETTINGS['periodes_fermeture'] || [];
+  const el = document.getElementById('fermeturesList');
+  if (!el) return;
+  el.innerHTML = list.length ? list.map((f, i) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1.5px solid var(--lavender);border-radius:10px;margin-bottom:8px;background:white;">
+      <span style="font-weight:600;color:var(--navy);flex:1;">${escHTML(f.label)} — ${fmtDate(f.debut)} → ${fmtDate(f.fin)}</span>
+      <button class="btn btn-danger btn-sm" onclick="removeFermeture(${i})">✕</button>
+    </div>`).join('') : '<p style="color:var(--muted);font-size:0.85rem;font-style:italic;">Aucune période de fermeture.</p>';
+}
+
+async function addFermeture() {
+  const label = document.getElementById('newFermLabel').value.trim();
+  const debut = document.getElementById('newFermDebut').value;
+  const fin = document.getElementById('newFermFin').value;
+  if (!label || !debut || !fin) { showToast('Remplissez tous les champs.'); return; }
+  const list = [...(SETTINGS['periodes_fermeture'] || []), { label, debut, fin }];
+  await saveSettingKey('periodes_fermeture', list);
+  SETTINGS['periodes_fermeture'] = list;
+  document.getElementById('newFermLabel').value = '';
+  document.getElementById('newFermDebut').value = '';
+  document.getElementById('newFermFin').value = '';
+  renderFermetures();
+  showToast('Période ajoutée !');
+}
+
+async function removeFermeture(index) {
+  if (!await confirmModal('Supprimer cette période de fermeture ?')) return;
+  const list = [...(SETTINGS['periodes_fermeture'] || [])];
+  list.splice(index, 1);
+  await saveSettingKey('periodes_fermeture', list);
+  SETTINGS['periodes_fermeture'] = list;
+  renderFermetures();
 }
 
 // ── OBJECTIFS D'ÉQUIPE (paramètres) ──

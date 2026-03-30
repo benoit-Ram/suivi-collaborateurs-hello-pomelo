@@ -899,6 +899,18 @@
       </div>
     </div>
 
+    <!-- PÉRIODES DE FERMETURE -->
+    <div class="section-title" style="margin-top:28px;">Périodes de fermeture</div>
+    <div class="card" style="margin-bottom:20px;">
+      <div id="fermeturesList" style="margin-bottom:12px;"></div>
+      <div class="form-grid">
+        <div class="form-field"><label>Libellé</label><input id="newFermLabel" type="text" placeholder="Ex: Fermeture Noël" /></div>
+        <div class="form-field"><label>Du</label><input id="newFermDebut" type="date" /></div>
+        <div class="form-field"><label>Au</label><input id="newFermFin" type="date" /></div>
+        <div class="form-field" style="justify-content:flex-end;"><button class="btn btn-primary" onclick="addFermeture()" style="margin-top:auto;">+ Ajouter</button></div>
+      </div>
+    </div>
+
     <!-- OBJECTIFS D'ÉQUIPE -->
     <div class="section-title" style="margin-top:28px;">Objectifs d'équipe</div>
     <div id="teamObjEquipeSelect" style="margin-bottom:16px;">

@@ -1095,16 +1095,23 @@ function getMySolde() {
   const acquis = Math.round(moisAcquis * acquisition * 100) / 100;
   const pris = myAbsences
     .filter(a => a.statut === 'approuve' && a.type === 'conge')
-    .reduce((sum, a) => sum + countWorkDays(a.dateDebut, a.dateFin), 0);
+    .reduce((sum, a) => sum + (a.demiJournee ? 0.5 : countWorkDays(a.dateDebut, a.dateFin)), 0);
   const enAttente = myAbsences
     .filter(a => a.statut === 'en_attente' && a.type === 'conge')
-    .reduce((sum, a) => sum + countWorkDays(a.dateDebut, a.dateFin), 0);
+    .reduce((sum, a) => sum + (a.demiJournee ? 0.5 : countWorkDays(a.dateDebut, a.dateFin)), 0);
   const solde = Math.round((soldeInitial + acquis - pris) * 100) / 100;
   return { soldeInitial, acquis, pris, enAttente, solde };
 }
 
+// ── LEAVE SUBTYPES ──
+const ABS_MOTIFS = {
+  conge: ['Vacances', 'Événement familial', 'Déménagement', 'Rendez-vous médical', 'Autre'],
+  sans_solde: ['Convenance personnelle', 'Autre']
+};
+
+let congesHistYear = new Date().getFullYear();
+
 async function renderConges() {
-  // Charger les absences du collaborateur
   const { data, error } = await sb.from('absences').select('*')
     .eq('collaborateur_id', currentCollab.id)
     .order('date_debut', { ascending: false });
@@ -1112,65 +1119,110 @@ async function renderConges() {
   myAbsences = (data||[]).map(a => ({
     id: a.id, type: a.type, dateDebut: a.date_debut, dateFin: a.date_fin,
     statut: a.statut || 'en_attente', commentaire: a.commentaire || '',
-    motifRefus: a.motif_refus || ''
+    motifRefus: a.motif_refus || '', demiJournee: a.demi_journee || ''
   }));
 
   const s = getMySolde();
   const soldeColor = s.solde <= 0 ? 'var(--red)' : s.solde <= 5 ? 'var(--orange)' : 'var(--green)';
+  const soldePct = Math.min(100, Math.max(0, Math.round(s.solde / (s.soldeInitial + s.acquis || 1) * 100)));
   const valideurId = currentCollab.valideurCongesId || currentCollab.managerId;
   const valideur = valideurId ? COLLABS.find(c => c.id === valideurId) : null;
   const valideurNom = valideur ? valideur.prenom + ' ' + valideur.nom : 'Admin';
 
+  // Périodes de fermeture
+  const fermetures = COLLAB_SETTINGS['periodes_fermeture'] || [];
+
   const container = document.getElementById('myCongesContent');
   container.innerHTML = `
-    <!-- Valideur -->
     <div style="background:linear-gradient(135deg,#F0F0FF,#FFF0F8);border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:10px;border:1.5px solid #E0D8FF;">
       <span style="font-size:1.1rem;">👔</span>
-      <span style="font-size:0.85rem;font-weight:600;color:var(--navy);">Valideur de congés : <strong>${valideurNom}</strong></span>
+      <span style="font-size:0.85rem;font-weight:600;color:var(--navy);">Valideur : <strong>${valideurNom}</strong></span>
     </div>
-    <!-- Solde -->
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px;">
-      <div class="card" style="text-align:center;padding:16px;">
-        <div style="font-size:1.8rem;font-weight:700;color:${soldeColor};">${s.solde}</div>
-        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-top:4px;">Jours restants</div>
+
+    <!-- Jauge + Stats -->
+    <div style="display:grid;grid-template-columns:1fr 3fr;gap:16px;margin-bottom:24px;">
+      <div class="card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;">
+        <div style="position:relative;width:90px;height:90px;">
+          <svg viewBox="0 0 36 36" style="width:90px;height:90px;transform:rotate(-90deg);">
+            <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--lavender)" stroke-width="3"/>
+            <circle cx="18" cy="18" r="15.9" fill="none" stroke="${soldeColor}" stroke-width="3" stroke-dasharray="${soldePct} ${100-soldePct}" stroke-linecap="round"/>
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;">
+            <span style="font-size:1.4rem;font-weight:700;color:${soldeColor};">${s.solde}</span>
+            <span style="font-size:0.6rem;font-weight:700;color:var(--muted);text-transform:uppercase;">jours</span>
+          </div>
+        </div>
+        ${s.solde <= 5 ? `<div style="font-size:0.7rem;color:var(--orange);font-weight:700;margin-top:8px;">⚠️ Solde faible</div>` : ''}
       </div>
-      <div class="card" style="text-align:center;padding:16px;">
-        <div style="font-size:1.8rem;font-weight:700;color:var(--navy);">${s.acquis}</div>
-        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-top:4px;">Acquis</div>
-      </div>
-      <div class="card" style="text-align:center;padding:16px;">
-        <div style="font-size:1.8rem;font-weight:700;color:var(--pink);">${s.pris}</div>
-        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-top:4px;">Pris</div>
-      </div>
-      <div class="card" style="text-align:center;padding:16px;">
-        <div style="font-size:1.8rem;font-weight:700;color:var(--orange);">${s.enAttente}</div>
-        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-top:4px;">En attente</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+        <div class="card" style="text-align:center;padding:14px;">
+          <div style="font-size:1.5rem;font-weight:700;color:var(--navy);">${s.acquis}</div>
+          <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;color:var(--muted);margin-top:4px;">Acquis</div>
+        </div>
+        <div class="card" style="text-align:center;padding:14px;">
+          <div style="font-size:1.5rem;font-weight:700;color:var(--pink);">${s.pris}</div>
+          <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;color:var(--muted);margin-top:4px;">Pris</div>
+        </div>
+        <div class="card" style="text-align:center;padding:14px;">
+          <div style="font-size:1.5rem;font-weight:700;color:var(--orange);">${s.enAttente}</div>
+          <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;color:var(--muted);margin-top:4px;">En attente</div>
+        </div>
       </div>
     </div>
 
-    <!-- Formulaire de demande -->
+    ${fermetures.length ? `<div style="background:#FFF7ED;border-radius:10px;padding:12px 16px;margin-bottom:16px;border-left:4px solid var(--orange);font-size:0.82rem;color:#9A3412;font-weight:600;">
+      📅 Périodes de fermeture : ${fermetures.map(f => `${fmtDate(f.debut)} → ${fmtDate(f.fin)} (${escHTML(f.label||'')})`).join(' · ')}
+    </div>` : ''}
+
+    <!-- Formulaire -->
     <div class="card" style="margin-bottom:24px;">
       <div class="section-title" style="margin-top:0;">Nouvelle demande</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end;">
-        <div>
-          <label style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:5px;">Type</label>
-          <select id="absType" style="width:100%;border:1.5px solid var(--lavender);border-radius:10px;padding:10px 14px;font-family:inherit;font-size:0.9rem;color:var(--navy);background:var(--offwhite);outline:none;">
+      <div class="form-grid">
+        <div class="form-field">
+          <label>Type</label>
+          <select id="absType" onchange="updateAbsMotifs()">
             ${Object.entries(ABS_TYPES).map(([k,v]) => `<option value="${k}">${v}</option>`).join('')}
           </select>
         </div>
-        <div>
-          <label style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:5px;">Du</label>
-          <input id="absDateDebut" type="date" style="width:100%;border:1.5px solid var(--lavender);border-radius:10px;padding:10px 14px;font-family:inherit;font-size:0.9rem;color:var(--navy);background:var(--offwhite);outline:none;" />
+        <div class="form-field">
+          <label>Motif</label>
+          <select id="absMotif"></select>
         </div>
-        <div>
-          <label style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:5px;">Au</label>
-          <input id="absDateFin" type="date" style="width:100%;border:1.5px solid var(--lavender);border-radius:10px;padding:10px 14px;font-family:inherit;font-size:0.9rem;color:var(--navy);background:var(--offwhite);outline:none;" />
+        <div class="form-field">
+          <label>Du</label>
+          <input id="absDateDebut" type="date" />
         </div>
-        <button class="btn btn-primary" onclick="submitAbsence()">Demander</button>
+        <div class="form-field">
+          <label>Au</label>
+          <input id="absDateFin" type="date" />
+        </div>
+        <div class="form-field">
+          <label>Durée</label>
+          <select id="absDemiJournee">
+            <option value="">Journée(s) complète(s)</option>
+            <option value="matin">Demi-journée (matin)</option>
+            <option value="aprem">Demi-journée (après-midi)</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>Commentaire</label>
+          <input id="absCommentaire" type="text" placeholder="Précisions..." />
+        </div>
       </div>
-      <div style="margin-top:10px;">
-        <label style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:5px;">Commentaire (optionnel)</label>
-        <input id="absCommentaire" type="text" placeholder="Motif, précisions..." style="width:100%;border:1.5px solid var(--lavender);border-radius:10px;padding:10px 14px;font-family:inherit;font-size:0.9rem;color:var(--navy);background:var(--offwhite);outline:none;" />
+      <div style="display:flex;justify-content:flex-end;margin-top:10px;">
+        <button class="btn btn-primary" onclick="submitAbsence()">🏖️ Demander</button>
+      </div>
+    </div>
+
+    <!-- Simulateur -->
+    <div class="card" style="margin-bottom:24px;">
+      <div class="section-title" style="margin-top:0;">🧮 Simulateur</div>
+      <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;">
+        <div class="form-field" style="flex:1;min-width:120px;">
+          <label>Jours à poser</label>
+          <input id="simJours" type="number" min="0.5" step="0.5" value="5" oninput="updateSimu()" />
+        </div>
+        <div id="simuResult" style="font-size:0.88rem;font-weight:600;color:var(--navy);padding:10px 0;"></div>
       </div>
     </div>
 
@@ -1180,38 +1232,165 @@ async function renderConges() {
       <div id="calendarContainer"></div>
     </div>
 
-    <!-- Historique -->
-    <div class="section-title">Historique</div>
+    <!-- Calendrier équipe -->
+    <div class="card" style="margin-bottom:24px;">
+      <div class="section-title" style="margin-top:0;">📅 Calendrier d'équipe</div>
+      <div id="teamCalendarContainer"></div>
+    </div>
+
+    <!-- Historique annuel -->
+    <div class="card" style="margin-bottom:24px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div class="section-title" style="margin:0;">📊 Récapitulatif ${congesHistYear}</div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-ghost btn-sm" onclick="congesHistYear--;renderCongesHist();">←</button>
+          <button class="btn btn-ghost btn-sm" onclick="congesHistYear++;renderCongesHist();">→</button>
+        </div>
+      </div>
+      <div id="congesHistContent"></div>
+    </div>
+
+    <!-- Export -->
+    <div style="display:flex;gap:10px;margin-bottom:24px;">
+      <button class="btn btn-navy btn-sm" onclick="exportCongesCSV()">📥 Export CSV</button>
+      <button class="btn btn-navy btn-sm" onclick="exportCongesPDF()">📄 Export PDF</button>
+    </div>
+
+    <!-- Historique demandes -->
+    <div class="section-title">Historique des demandes</div>
     ${myAbsences.length ? myAbsences.map(a => {
-      const jours = countWorkDays(a.dateDebut, a.dateFin);
+      const jours = a.demiJournee ? 0.5 : countWorkDays(a.dateDebut, a.dateFin);
       return `
       <div style="display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:12px;border:1.5px solid var(--lavender);margin-bottom:8px;background:white;">
         <div style="flex:1;">
-          <div style="font-weight:700;font-size:0.9rem;color:var(--navy);">${ABS_TYPES[a.type]||a.type}</div>
+          <div style="font-weight:700;font-size:0.9rem;color:var(--navy);">${ABS_TYPES[a.type]||a.type}${a.demiJournee ? ` (${a.demiJournee === 'matin' ? 'matin' : 'après-midi'})` : ''}</div>
           <div style="font-size:0.78rem;color:var(--muted);margin-top:2px;">Du ${fmtDate(a.dateDebut)} au ${fmtDate(a.dateFin)} · ${jours} jour${jours>1?'s':''}</div>
-          ${a.commentaire ? `<div style="font-size:0.78rem;color:var(--muted);margin-top:4px;font-style:italic;">${a.commentaire}</div>` : ''}
-          ${a.statut === 'refuse' && a.motifRefus ? `<div style="font-size:0.78rem;color:#881337;margin-top:4px;background:#FFF1F2;padding:6px 10px;border-radius:6px;border-left:3px solid #F43F5E;">Motif du refus : ${escHTML(a.motifRefus)}</div>` : ''}
+          ${a.commentaire ? `<div style="font-size:0.78rem;color:var(--muted);margin-top:4px;font-style:italic;">${escHTML(a.commentaire)}</div>` : ''}
+          ${a.statut === 'refuse' && a.motifRefus ? `<div style="font-size:0.78rem;color:#881337;margin-top:4px;background:#FFF1F2;padding:6px 10px;border-radius:6px;border-left:3px solid #F43F5E;">Motif : ${escHTML(a.motifRefus)}</div>` : ''}
         </div>
         <span class="badge ${ABS_STATUT_BADGE[a.statut]||'badge-gray'}">${ABS_STATUTS[a.statut]||a.statut}</span>
         ${a.statut === 'en_attente' ? `<button class="btn btn-danger btn-sm" onclick="cancelAbsence('${a.id}')">Annuler</button>` : ''}
       </div>`;
-    }).join('') : '<div class="empty-state"><div class="empty-icon">🏖️</div><p>Aucune demande de congé.</p></div>'}
+    }).join('') : '<div class="empty-state"><div class="empty-icon">🏖️</div><p>Aucune demande.</p></div>'}
   `;
 
-  // Render calendar
+  // Init sub-components
+  updateAbsMotifs();
+  updateSimu();
   calYear = new Date().getFullYear();
   calMonth = new Date().getMonth();
   document.getElementById('calendarContainer').innerHTML = renderCalendar(calYear, calMonth);
-
-  // Update notifications
+  renderTeamCalendar();
+  renderCongesHist();
   updateNotifBadge();
+}
+
+function updateAbsMotifs() {
+  const type = document.getElementById('absType').value;
+  const motifs = ABS_MOTIFS[type] || ['Autre'];
+  document.getElementById('absMotif').innerHTML = motifs.map(m => `<option value="${m}">${m}</option>`).join('');
+}
+
+function updateSimu() {
+  const jours = parseFloat(document.getElementById('simJours').value) || 0;
+  const s = getMySolde();
+  const restant = Math.round((s.solde - jours) * 100) / 100;
+  const color = restant <= 0 ? 'var(--red)' : restant <= 5 ? 'var(--orange)' : 'var(--green)';
+  document.getElementById('simuResult').innerHTML = `Si vous posez <strong>${jours}j</strong>, il vous restera <strong style="color:${color};">${restant}j</strong>${restant < 0 ? ' ⚠️ Solde insuffisant !' : ''}`;
+}
+
+async function renderTeamCalendar() {
+  // Load team absences for same equipes
+  const equipes = currentCollab.equipes || [];
+  if (!equipes.length) { document.getElementById('teamCalendarContainer').innerHTML = '<p style="color:var(--muted);font-size:0.85rem;">Aucune équipe assignée.</p>'; return; }
+  const teammates = COLLABS.filter(c => c.id !== currentCollab.id && c.equipes && c.equipes.some(e => equipes.includes(e)));
+  if (!teammates.length) { document.getElementById('teamCalendarContainer').innerHTML = '<p style="color:var(--muted);font-size:0.85rem;">Aucun collègue dans vos équipes.</p>'; return; }
+  const ids = teammates.map(c => c.id);
+  const { data } = await sb.from('absences').select('*').in('collaborateur_id', ids).in('statut', ['approuve','en_attente']);
+  const teamAbs = (data||[]).map(a => ({ ...a, prenom: (teammates.find(c=>c.id===a.collaborateur_id)||{}).prenom||'' }));
+
+  const now = new Date();
+  const month = now.getMonth(), year = now.getFullYear();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  let html = `<div style="overflow-x:auto;"><table style="font-size:0.72rem;width:100%;"><thead><tr><th style="text-align:left;padding:4px 8px;">Collègue</th>`;
+  for (let d = 1; d <= daysInMonth; d++) html += `<th style="padding:2px 4px;text-align:center;">${d}</th>`;
+  html += '</tr></thead><tbody>';
+  teammates.forEach(c => {
+    const abs = teamAbs.filter(a => a.collaborateur_id === c.id);
+    html += `<tr><td style="padding:4px 8px;font-weight:600;white-space:nowrap;">${c.prenom}</td>`;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const dow = new Date(year, month, d).getDay();
+      const isWeekend = dow === 0 || dow === 6;
+      const absence = abs.find(a => dateStr >= a.date_debut && dateStr <= a.date_fin);
+      let bg = isWeekend ? 'var(--lavender)' : 'transparent';
+      if (absence) bg = absence.statut === 'approuve' ? '#DCFCE7' : '#FFF7ED';
+      html += `<td style="padding:2px;text-align:center;background:${bg};border-radius:3px;" title="${absence ? (ABS_TYPES[absence.type]||absence.type) : ''}"></td>`;
+    }
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  document.getElementById('teamCalendarContainer').innerHTML = html;
+}
+
+function renderCongesHist() {
+  const year = congesHistYear;
+  const yearAbs = myAbsences.filter(a => a.dateDebut && a.dateDebut.startsWith(year));
+  const approuves = yearAbs.filter(a => a.statut === 'approuve');
+  const totalJours = approuves.reduce((s,a) => s + (a.demiJournee ? 0.5 : countWorkDays(a.dateDebut, a.dateFin)), 0);
+
+  // Monthly breakdown
+  const months = [];
+  for (let m = 0; m < 12; m++) {
+    const mStr = year + '-' + String(m+1).padStart(2,'0');
+    const mAbs = approuves.filter(a => a.dateDebut.startsWith(mStr));
+    const mJours = mAbs.reduce((s,a) => s + (a.demiJournee ? 0.5 : countWorkDays(a.dateDebut, a.dateFin)), 0);
+    months.push({ label: new Date(year, m, 1).toLocaleDateString('fr-FR', {month:'short'}), jours: mJours });
+  }
+  const maxJ = Math.max(...months.map(m=>m.jours), 1);
+
+  document.getElementById('congesHistContent').innerHTML = `
+    <div style="font-size:0.88rem;font-weight:700;color:var(--navy);margin-bottom:14px;">Total ${year} : <span style="color:var(--pink);">${totalJours} jours</span> pris (${approuves.length} demandes)</div>
+    <div style="display:flex;align-items:flex-end;gap:6px;height:100px;">
+      ${months.map(m => `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;">
+        <div style="font-size:0.65rem;font-weight:700;color:var(--navy);">${m.jours || ''}</div>
+        <div style="width:100%;background:${m.jours ? 'linear-gradient(180deg,var(--pink),#C0006E)' : 'var(--lavender)'};height:${Math.max(4, m.jours/maxJ*80)}px;border-radius:4px 4px 0 0;transition:height 0.3s;"></div>
+        <div style="font-size:0.6rem;color:var(--muted);text-transform:uppercase;">${m.label}</div>
+      </div>`).join('')}
+    </div>`;
+}
+
+function exportCongesCSV() {
+  const headers = ['Date début','Date fin','Type','Motif','Durée','Demi-journée','Statut'];
+  const rows = myAbsences.map(a => [
+    a.dateDebut, a.dateFin, ABS_TYPES[a.type]||a.type, a.commentaire||'',
+    a.demiJournee ? '0.5j' : countWorkDays(a.dateDebut, a.dateFin)+'j',
+    a.demiJournee || '', ABS_STATUTS[a.statut]||a.statut
+  ]);
+  exportCSV('conges_' + currentCollab.prenom + '_' + new Date().toISOString().split('T')[0] + '.csv', headers, rows);
+  showToast('Export CSV téléchargé !');
+}
+
+function exportCongesPDF() {
+  const c = currentCollab;
+  const s = getMySolde();
+  const html = `
+    <h1>Historique des congés</h1>
+    <div class="meta">${c.prenom} ${c.nom} · Solde : ${s.solde}j · Acquis : ${s.acquis}j · Pris : ${s.pris}j</div>
+    ${myAbsences.map(a => `<div class="field">
+      <div class="field-label">${fmtDate(a.dateDebut)} → ${fmtDate(a.dateFin)} · ${ABS_TYPES[a.type]||a.type}${a.demiJournee ? ' ('+a.demiJournee+')' : ''}</div>
+      <div class="field-value">${ABS_STATUTS[a.statut]||a.statut}${a.commentaire ? ' — '+a.commentaire : ''}</div>
+    </div>`).join('')}
+    <div style="margin-top:40px;font-size:0.75rem;color:#6B6B9A;">Exporté le ${new Date().toLocaleDateString('fr-FR')}</div>`;
+  exportPrintHTML(`Congés ${c.prenom} ${c.nom}`, html);
 }
 
 async function submitAbsence() {
   const type = document.getElementById('absType').value;
   const dateDebut = document.getElementById('absDateDebut').value;
   const dateFin = document.getElementById('absDateFin').value;
-  const commentaire = document.getElementById('absCommentaire').value.trim();
+  const commentaire = [document.getElementById('absMotif').value, document.getElementById('absCommentaire').value.trim()].filter(Boolean).join(' — ');
+  const demiJournee = document.getElementById('absDemiJournee').value || null;
 
   if (!dateDebut || !dateFin) { showToast('Veuillez renseigner les dates.'); return; }
   if (dateFin < dateDebut) { showToast('La date de fin doit être après la date de début.'); return; }
@@ -1219,7 +1398,8 @@ async function submitAbsence() {
   const { data, error } = await sb.from('absences').insert({
     collaborateur_id: currentCollab.id,
     type, date_debut: dateDebut, date_fin: dateFin,
-    statut: 'en_attente', commentaire: commentaire || null
+    statut: 'en_attente', commentaire: commentaire || null,
+    demi_journee: demiJournee
   }).select().single();
 
   if (error) { showToast('Erreur: ' + error.message); return; }
