@@ -926,7 +926,7 @@ async function renderMemberDetail(member) {
 
   const container = document.getElementById('teamList');
   container.innerHTML = `
-    <button class="btn btn-ghost btn-sm" onclick="renderMemberList()" style="margin-bottom:16px;">← Retour à la liste</button>
+    <button onclick="renderMemberList()" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:none;background:var(--offwhite);color:var(--navy);font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;transition:all 0.15s;margin-bottom:16px;" onmouseover="this.style.background='var(--lavender)'" onmouseout="this.style.background='var(--offwhite)'">← Retour</button>
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
       ${avatarHTML(member, 56)}
       <div>
@@ -934,10 +934,12 @@ async function renderMemberDetail(member) {
         <div style="font-size:0.85rem;color:var(--muted);">${member.poste || '—'}</div>
       </div>
     </div>
-    <div style="display:flex;gap:8px;margin-bottom:20px;overflow-x:auto;">
-      <button class="btn ${managementTab==='objectifs'?'btn-primary':'btn-ghost'} btn-sm" onclick="switchMgmtTab('objectifs')">🎯 Objectifs</button>
-      <button class="btn ${managementTab==='points'?'btn-primary':'btn-ghost'} btn-sm" onclick="switchMgmtTab('points')">📋 Points mensuels</button>
-      <button class="btn ${managementTab==='conges'?'btn-primary':'btn-ghost'} btn-sm" onclick="switchMgmtTab('conges')">🏖️ Congés</button>
+    <div style="display:flex;gap:6px;margin-bottom:24px;background:var(--offwhite);padding:6px;border-radius:12px;">
+      ${['objectifs','points','conges'].map(t => {
+        const labels = { objectifs: '🎯 Objectifs', points: '📋 Points mensuels', conges: '🏖️ Congés' };
+        const active = managementTab === t;
+        return `<button onclick="switchMgmtTab('${t}')" style="flex:1;padding:10px 16px;border-radius:10px;border:none;font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;transition:all 0.15s;${active ? 'background:white;color:var(--navy);box-shadow:0 2px 8px rgba(5,5,109,0.1);' : 'background:transparent;color:var(--muted);'}" onmouseover="if(!this.classList.contains('active'))this.style.color='var(--navy)'" onmouseout="if(!this.classList.contains('active'))this.style.color='var(--muted)'">${labels[t]}</button>`;
+      }).join('')}
     </div>
     <div id="mgmtContent"></div>`;
 
@@ -949,16 +951,7 @@ async function renderMemberDetail(member) {
 function switchMgmtTab(tab) {
   managementTab = tab;
   const member = myTeam.find(m => m.id === managementMemberId);
-  if (!member) return;
-  // Update buttons
-  document.querySelectorAll('#teamList .btn-sm').forEach(b => {
-    if (b.textContent.includes('Retour')) return;
-    b.className = 'btn btn-ghost btn-sm';
-  });
-  event.target.className = 'btn btn-primary btn-sm';
-  if (tab === 'objectifs') renderMemberObjectifs(member);
-  else if (tab === 'points') renderMemberPoints(member);
-  else if (tab === 'conges') renderMemberConges(member);
+  if (member) renderMemberDetail(member);
 }
 
 // ── OBJECTIFS DU MANAGÉ ──
