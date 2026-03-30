@@ -98,4 +98,14 @@ ALTER TABLE objectifs ADD COLUMN IF NOT EXISTS recurrence text;
 
 -- Historique des modifications d'objectifs
 ALTER TABLE objectifs ADD COLUMN IF NOT EXISTS historique jsonb DEFAULT '[]';
+
+-- Journal d'activité
+CREATE TABLE IF NOT EXISTS activity_log (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  action text NOT NULL,
+  auteur text,
+  cible text,
+  details text,
+  created_at timestamptz DEFAULT now()
+);
 ```

@@ -86,6 +86,11 @@ function toggleAcc(id) {
   if (icon) icon.textContent = open ? '▼' : '▲';
 }
 
+// Register Service Worker for PWA
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
 // Inject shared keyframes
 if (typeof document !== 'undefined') {
   const s = document.createElement('style');
