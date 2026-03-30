@@ -1013,7 +1013,8 @@ function renderMemberObjectifs(member) {
           <div class="obj-title" style="flex:1;">${escHTML(o.titre)}</div>
           <span class="badge ${STATUS_COLORS[o.statut]||'badge-gray'}">${STATUS_LABELS[o.statut]||o.statut}</span>
           ${o.recurrence ? `<span class="badge badge-blue" style="font-size:0.6rem;">🔄 ${o.recurrence === 'hebdo' ? 'Hebdo' : 'Mensuel'}</span>` : ''}
-          <button class="btn btn-ghost btn-sm" onclick="openObjForm('modifier','${o.id}')">✏️ Modifier</button>
+          <button class="btn btn-ghost btn-sm" onclick="openObjForm('modifier','${o.id}')">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteTeamObj('${o.id}')">🗑️</button>
         </div>
         ${o.description ? `<div class="obj-desc">${escHTML(o.description)}</div>` : ''}
         <div style="margin:8px 0;">
@@ -1063,39 +1064,17 @@ function renderMemberObjectifs(member) {
             <span id="mgrObjProgVal" style="font-weight:700;color:var(--navy);min-width:36px;">${obj.progression||0}%</span>
           </div>
         </div>
-        <div class="form-field full">
-          <label>💬 Commentaire pour l'admin</label>
-          <input id="mgrObjMotif" type="text" placeholder="Raison de la demande, contexte..." />
-        </div>
       </div>
       <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
         <button onclick="closeObjForm()" style="padding:10px 20px;border-radius:10px;border:1.5px solid var(--lavender);background:white;color:var(--navy);font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;transition:all 0.15s;">Annuler</button>
-        <button onclick="submitObjRequest()" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--pink),#C0006E);color:white;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(255,50,133,0.3);transition:all 0.15s;">📨 Envoyer la demande</button>
+        <button onclick="submitObjRequest()" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--pink),#C0006E);color:white;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(255,50,133,0.3);transition:all 0.15s;">✓ ${objFormType === 'creer' ? 'Créer l\'objectif' : 'Enregistrer'}</button>
       </div>
     </div>`;
   } else {
     html += `<div style="margin-top:16px;">
-      <button onclick="openObjForm('creer')" style="display:inline-flex;align-items:center;gap:6px;padding:10px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--pink),#C0006E);color:white;font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(255,50,133,0.3);transition:all 0.15s;">+ Proposer un nouvel objectif</button>
+      <button onclick="openObjForm('creer')" style="display:inline-flex;align-items:center;gap:6px;padding:10px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--pink),#C0006E);color:white;font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(255,50,133,0.3);transition:all 0.15s;">+ Nouvel objectif</button>
     </div>`;
 
-    // Show pending requests for this member
-    const pendingReqs = (myObjRequests||[]).filter(r => r.statut === 'en_attente' && r.collaborateurId === managementMemberId);
-    if (pendingReqs.length) {
-      html += `<div style="margin-top:20px;background:#FFF7ED;border-radius:var(--radius-md);padding:16px;border-left:4px solid var(--orange);">
-        <div style="font-size:0.8rem;font-weight:700;color:#9A3412;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">⏳ Demandes en attente (${pendingReqs.length})</div>
-        ${pendingReqs.map(r => {
-          const d = r.data||{};
-          return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:white;border-radius:8px;margin-bottom:6px;">
-            <span style="font-size:0.85rem;">🎯</span>
-            <div style="flex:1;">
-              <div style="font-weight:600;color:var(--navy);font-size:0.85rem;">${escHTML(d.titre||'—')}</div>
-              <div style="font-size:0.72rem;color:var(--muted);">${r.type === 'creer' ? 'Création' : 'Modification'} · En attente de validation admin</div>
-            </div>
-            <span class="badge badge-orange">En attente</span>
-          </div>`;
-        }).join('')}
-      </div>`;
-    }
   }
   el.innerHTML = html;
 }
@@ -1117,25 +1096,48 @@ function closeObjForm() {
 async function submitObjRequest() {
   const titre = document.getElementById('mgrObjTitre').value.trim();
   if (!titre) { showToast('Le titre est obligatoire.'); return; }
-  const data = {
+  const row = {
+    collaborateur_id: managementMemberId,
     titre,
-    description: document.getElementById('mgrObjDesc').value.trim(),
-    dateDebut: document.getElementById('mgrObjDebut').value || '',
-    dateFin: document.getElementById('mgrObjFin').value || '',
+    description: document.getElementById('mgrObjDesc').value.trim() || null,
+    date_debut: document.getElementById('mgrObjDebut').value || null,
+    date_fin: document.getElementById('mgrObjFin').value || null,
     statut: document.getElementById('mgrObjStatut').value,
     progression: parseInt(document.getElementById('mgrObjProg').value) || 0,
   };
-  const motif = document.getElementById('mgrObjMotif').value.trim();
 
-  const { error } = await sb.from('objectif_requests').insert({
-    objectif_id: objFormObjId, collaborateur_id: managementMemberId,
-    manager_id: currentCollab.id, type: objFormType, data, statut: 'en_attente', motif
-  });
-  if (error) { showToast('Erreur: ' + error.message); return; }
-  objFormVisible = false;
-  showToast('Demande envoyée à l\'admin ✓');
   const member = myTeam.find(m => m.id === managementMemberId);
-  if (member) renderMemberObjectifs(member);
+  if (!member) return;
+
+  if (objFormType === 'modifier' && objFormObjId) {
+    const { error } = await sb.from('objectifs').update(row).eq('id', objFormObjId);
+    if (error) { showToast('Erreur: ' + error.message); return; }
+    const idx = (member.objectifs||[]).findIndex(o => o.id === objFormObjId);
+    if (idx >= 0) {
+      member.objectifs[idx] = { ...member.objectifs[idx], titre, description: row.description||'', dateDebut: row.date_debut||'', dateFin: row.date_fin||'', statut: row.statut, progression: row.progression };
+    }
+    showToast('Objectif modifié ✓');
+  } else {
+    const { data, error } = await sb.from('objectifs').insert(row).select().single();
+    if (error) { showToast('Erreur: ' + error.message); return; }
+    if (!member.objectifs) member.objectifs = [];
+    member.objectifs.push({ id: data.id, numero: member.objectifs.length+1, titre, description: row.description||'', dateDebut: row.date_debut||'', dateFin: row.date_fin||'', statut: row.statut, progression: row.progression, recurrence: '' });
+    showToast('Objectif créé ✓');
+  }
+  objFormVisible = false;
+  renderMemberObjectifs(member);
+}
+
+async function deleteTeamObj(objId) {
+  if (!confirm('Supprimer cet objectif ?')) return;
+  const { error } = await sb.from('objectifs').delete().eq('id', objId);
+  if (error) { showToast('Erreur: ' + error.message); return; }
+  const member = myTeam.find(m => m.id === managementMemberId);
+  if (member) {
+    member.objectifs = (member.objectifs||[]).filter(o => o.id !== objId);
+    renderMemberObjectifs(member);
+  }
+  showToast('Objectif supprimé.');
 }
 
 // ── POINTS MENSUELS DU MANAGÉ ──
