@@ -393,7 +393,7 @@ function collabFromRow(row) {
     id: row.id, prenom: row.prenom, nom: row.nom, poste: row.poste || '',
     email: row.email || '', telephone: row.telephone || '',
     dateEntree: row.date_entree || '', managerId: row.manager_id || null,
-    bureau: row.bureau || '', equipe: row.equipe || '', photoUrl: row.photo_url || '',
+    bureau: row.bureau || '', equipe: row.equipe || '', equipes: parseEquipes(row.equipe), photoUrl: row.photo_url || '',
     soldeConges: row.solde_conges ?? 0, acquisitionConges: row.acquisition_conges ?? 2.08, valideurCongesId: row.valideur_conges_id || null,
     onboarding: row.onboarding || { notes:'', materiel:'', acces:'', documents:{} },
     pointsSuivi: (row.points_suivi || []).map(p => ({
@@ -619,7 +619,7 @@ function renderProfile() {
         ${c.email ? `<div class="profile-meta-item">✉️ <span>${c.email}</span></div>` : ''}
         ${c.dateEntree ? `<div class="profile-meta-item">📅 Entrée le <span>${fmtDate(c.dateEntree)}</span></div>` : ''}
         ${c.bureau ? `<div class="profile-meta-item">🏢 Bureau : <span>${c.bureau}</span></div>` : ''}
-        ${c.equipe ? `<div class="profile-meta-item">👥 Équipe : <span>${c.equipe}</span></div>` : ''}
+        ${c.equipes.length ? `<div class="profile-meta-item">👥 Équipe${c.equipes.length>1?'s':''} : <span>${c.equipes.join(', ')}</span></div>` : ''}
         ${manager ? `<div class="profile-meta-item">👔 Manager : <span>${manager.prenom} ${manager.nom}</span></div>` : ''}
       </div>
     </div>`;
@@ -791,8 +791,12 @@ async function saveCollabPoint(pointId) {
 function renderObjectifs() {
   const c = currentCollab;
   const objs = c.objectifs || [];
-  const teamObjKey = 'team_objectifs_' + (c.equipe || '');
-  const teamObjs = COLLAB_SETTINGS[teamObjKey] || [];
+  // Collect team objectives from all equipes
+  const allTeamObjs = [];
+  (c.equipes || []).forEach(eq => {
+    const objs = COLLAB_SETTINGS['team_objectifs_' + eq] || [];
+    objs.forEach(o => allTeamObjs.push({ ...( typeof o === 'string' ? { titre: o } : o ), equipe: eq }));
+  });
 
   const total = objs.length;
   const atteints = objs.filter(o => o.statut === 'atteint').length;
@@ -814,10 +818,10 @@ function renderObjectifs() {
       </div>
     </div>`;
 
-  // Team objectives (normalize: string or object)
-  const teamObjsNorm = teamObjs.map(o => typeof o === 'string' ? { titre: o, dateDebut: '', dateFin: '', progression: 0 } : o);
+  // Team objectives from all equipes
+  const teamObjsNorm = allTeamObjs.map(o => ({ titre: o.titre||'', dateDebut: o.dateDebut||'', dateFin: o.dateFin||'', progression: o.progression||0, equipe: o.equipe||'' }));
   if (teamObjsNorm.length) {
-    html += `<div class="section-title">Objectifs d'équipe — ${escHTML(c.equipe)}</div>`;
+    html += `<div class="section-title">Objectifs d'équipe</div>`;
     html += teamObjsNorm.map((o, i) => {
       const pct = o.progression || 0;
       return `
@@ -825,7 +829,7 @@ function renderObjectifs() {
         <div class="obj-header">
           <span style="background:var(--blue);color:white;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;margin-right:8px;flex-shrink:0;">${i+1}</span>
           <div class="obj-title" style="flex:1;">${escHTML(o.titre)}</div>
-          <span class="badge badge-blue">Équipe</span>
+          <span class="badge badge-blue">${escHTML(o.equipe)}</span>
         </div>
         <div style="margin:8px 0;">
           <div style="display:flex;justify-content:space-between;font-size:0.7rem;font-weight:700;color:var(--muted);margin-bottom:4px;">
@@ -865,7 +869,7 @@ function renderObjectifs() {
     }).join('');
   }
 
-  if (!objs.length && !teamObjs.length) {
+  if (!objs.length && !teamObjsNorm.length) {
     html = `<div class="empty-state"><div class="empty-icon">🎯</div><p>Aucun objectif défini pour le moment.</p></div>`;
   }
 

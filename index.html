@@ -311,8 +311,8 @@
         <select id="fBureau"><option value="">— Choisir un bureau —</option></select>
       </div>
       <div class="form-field">
-        <label>Équipe</label>
-        <select id="fEquipe"><option value="">— Choisir une équipe —</option></select>
+        <label>Équipe(s)</label>
+        <div id="fEquipeCheckboxes" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
       </div>
       <div class="form-field">
         <label>Type de contrat</label>
@@ -494,7 +494,7 @@
 
 <!-- SIDEBAR -->
 <nav class="sidebar">
-  <div class="sidebar-logo">
+  <div class="sidebar-logo" onclick="navigate('dashboard')" style="cursor:pointer;">
     <div class="logo-title">Hello Pomelo</div>
     <div class="logo-sub">Suivi Collaborateurs</div>
   </div>
@@ -919,7 +919,7 @@ function fromRow(row) {
     photoUrl: row.photo_url || '',
     managerId: row.manager_id || null,
     bureau: row.bureau || '',
-    equipe: row.equipe || '',
+    equipe: row.equipe || '', equipes: parseEquipes(row.equipe),
     contrat: row.contrat || '',
     typePoste: row.type_poste || '',
     onboarding: row.onboarding || defaultOnboarding(),
@@ -1248,7 +1248,7 @@ function renderAnalytics() {
 
   // Team distribution
   const teamCounts = {};
-  DB.collaborateurs.forEach(c => { const eq = c.equipe || 'Non assigné'; teamCounts[eq] = (teamCounts[eq]||0) + 1; });
+  DB.collaborateurs.forEach(c => { const eqs = c.equipes.length ? c.equipes : ['Non assigné']; eqs.forEach(eq => { teamCounts[eq] = (teamCounts[eq]||0) + 1; }); });
   const maxTeam = Math.max(...Object.values(teamCounts), 1);
   const teamColors = ['var(--pink)','var(--blue)','var(--skyblue)','var(--green)','var(--orange)','var(--lilac)'];
   document.getElementById('chartEquipes').innerHTML = Object.keys(teamCounts).length ? Object.entries(teamCounts).sort((a,b)=>b[1]-a[1]).map(([k,v],i) => `
@@ -1292,7 +1292,7 @@ function filterCollabs() {
 
   const filtered = DB.collaborateurs.filter(c => {
     if (q && !(c.prenom + ' ' + c.nom + ' ' + c.poste).toLowerCase().includes(q)) return false;
-    if (fEquipe && c.equipe !== fEquipe) return false;
+    if (fEquipe && !c.equipes.includes(fEquipe)) return false;
     if (fBureau && c.bureau !== fBureau) return false;
     if (fManager && c.managerId !== fManager) return false;
     if (fContrat && c.contrat !== fContrat) return false;
@@ -1355,7 +1355,7 @@ function exportCollabsCSV() {
   const headers = ['Prénom','Nom','Poste','Email','Téléphone','Date entrée','Bureau','Équipe','Contrat','Type poste','Manager','Dossier complet'];
   const rows = DB.collaborateurs.map(c => [
     c.prenom, c.nom, c.poste, c.email, c.telephone, c.dateEntree,
-    c.bureau, c.equipe, c.contrat, c.typePoste,
+    c.bureau, c.equipes.join(', '), c.contrat, c.typePoste,
     c.managerId ? getManagerName(c.managerId) : '',
     onboardingScore(c).pct === 100 ? 'Oui' : 'Non'
   ]);
@@ -1382,7 +1382,7 @@ function renderCollab() {
           ${c.telephone ? `<div class="profile-meta-item">📞 <span>${c.telephone}</span></div>` : ''}
           ${c.dateEntree ? `<div class="profile-meta-item">📅 Entrée le <span>${fmtDate(c.dateEntree)}</span></div>` : ''}
           ${c.bureau    ? `<div class="profile-meta-item">🏢 Bureau : <span>${c.bureau}</span></div>`          : ''}
-          ${c.equipe    ? `<div class="profile-meta-item">👥 Équipe : <span>${c.equipe}</span></div>`          : ''}
+          ${c.equipes.length ? `<div class="profile-meta-item">👥 Équipe${c.equipes.length>1?'s':''} : <span>${c.equipes.map(e=>escHTML(e)).join(', ')}</span></div>` : ''}
           ${c.contrat   ? `<div class="profile-meta-item">📄 Contrat : <span>${c.contrat}</span></div>`       : ''}
           ${c.typePoste ? `<div class="profile-meta-item">🏷️ Type de poste : <span>${c.typePoste}</span></div>` : ''}
           ${manager ? `<div class="profile-meta-item">👔 Manager : <span>${manager}</span></div>` : ''}
@@ -1943,6 +1943,15 @@ async function deleteObj(id) {
 // ─────────────────────────────────────────
 // PARAMÈTRES (équipes & bureaux)
 // ─────────────────────────────────────────
+function renderEquipeCheckboxes(selected) {
+  const equipes = SETTINGS.equipes || [];
+  document.getElementById('fEquipeCheckboxes').innerHTML = equipes.map(eq => `
+    <label style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;border:1.5px solid var(--lavender);cursor:pointer;font-size:0.82rem;background:white;">
+      <input type="checkbox" value="${escHTML(eq)}" ${selected.includes(eq)?'checked':''} style="accent-color:var(--pink);width:16px;height:16px;" />
+      ${escHTML(eq)}
+    </label>`).join('');
+}
+
 function populateSettingSelect(selectId, key, selected) {
   const sel = document.getElementById(selectId);
   if (!sel) return;
@@ -2194,7 +2203,8 @@ async function addSettingItem(key) {
 }
 
 function isSettingValueUsed(key, val) {
-  const fieldMap = { equipes: 'equipe', bureaux: 'bureau', contrats: 'contrat', typePostes: 'typePoste' };
+  if (key === 'equipes') return DB.collaborateurs.some(c => c.equipes.includes(val));
+  const fieldMap = { bureaux: 'bureau', contrats: 'contrat', typePostes: 'typePoste' };
   const field = fieldMap[key];
   if (!field) return false;
   return DB.collaborateurs.some(c => c[field] === val);
@@ -2211,12 +2221,24 @@ async function renameSettingItem(key, encodedVal) {
   if (error) { showToast('Erreur : ' + error.message); return; }
   SETTINGS[key] = newList;
   // Update all collaborateurs using the old value
-  const fieldMap = { equipes: 'equipe', bureaux: 'bureau', contrats: 'contrat', typePostes: 'type_poste' };
-  const dbField = fieldMap[key];
-  if (dbField) {
-    await sb.from('collaborateurs').update({ [dbField]: trimmed }).eq(dbField, oldVal);
-    const jsField = { equipes: 'equipe', bureaux: 'bureau', contrats: 'contrat', typePostes: 'typePoste' }[key];
-    DB.collaborateurs.forEach(c => { if (c[jsField] === oldVal) c[jsField] = trimmed; });
+  if (key === 'equipes') {
+    // Equipes is comma-separated — update each collab that contains the old value
+    const toUpdate = DB.collaborateurs.filter(c => c.equipes.includes(oldVal));
+    for (const c of toUpdate) {
+      const newEquipes = c.equipes.map(e => e === oldVal ? trimmed : e);
+      const newEquipeStr = newEquipes.join(',');
+      await sb.from('collaborateurs').update({ equipe: newEquipeStr }).eq('id', c.id);
+      c.equipe = newEquipeStr;
+      c.equipes = newEquipes;
+    }
+  } else {
+    const fieldMap = { bureaux: 'bureau', contrats: 'contrat', typePostes: 'type_poste' };
+    const dbField = fieldMap[key];
+    if (dbField) {
+      await sb.from('collaborateurs').update({ [dbField]: trimmed }).eq(dbField, oldVal);
+      const jsField = { bureaux: 'bureau', contrats: 'contrat', typePostes: 'typePoste' }[key];
+      DB.collaborateurs.forEach(c => { if (c[jsField] === oldVal) c[jsField] = trimmed; });
+    }
   }
   renderBoSettings();
   showToast(`"${oldVal}" renommé en "${trimmed}"`);
@@ -2251,7 +2273,7 @@ function openAddCollab() {
   document.getElementById('modalCollabTitle').textContent = 'Ajouter un collaborateur';
   ['fPrenom','fNom','fPoste','fEmail','fTel','fNotes','fGoogleDrive'].forEach(id => document.getElementById(id).value = '');
   populateSettingSelect('fBureau',    'bureaux',    '');
-  populateSettingSelect('fEquipe',    'equipes',    '');
+  renderEquipeCheckboxes([]);
   populateSettingSelect('fContrat',   'contrats',   '');
   populateSettingSelect('fTypePoste', 'typePostes', '');
   document.getElementById('fDateEntree').value = '';
@@ -2281,7 +2303,7 @@ function openEditCollab(id) {
   document.getElementById('fGoogleDrive').value = c.googleDrive || '';
   populateManagerSelect('fValideurConges', c.valideurCongesId, id);
   populateSettingSelect('fBureau',    'bureaux',    c.bureau    || '');
-  populateSettingSelect('fEquipe',    'equipes',    c.equipe    || '');
+  renderEquipeCheckboxes(c.equipes || []);
   populateSettingSelect('fContrat',   'contrats',   c.contrat   || '');
   populateSettingSelect('fTypePoste', 'typePostes', c.typePoste || '');
   populateManagerSelect('fManager', c.managerId, id);
@@ -2307,7 +2329,7 @@ async function saveCollab() {
     notes: document.getElementById('fNotes').value || null,
     manager_id: document.getElementById('fManager').value || null,
     bureau:     document.getElementById('fBureau').value    || null,
-    equipe:     document.getElementById('fEquipe').value    || null,
+    equipe:     Array.from(document.querySelectorAll('#fEquipeCheckboxes input:checked')).map(cb => cb.value).join(',') || null,
     contrat:    document.getElementById('fContrat').value   || null,
     type_poste: document.getElementById('fTypePoste').value || null,
   };
@@ -2316,7 +2338,7 @@ async function saveCollab() {
     const { error } = await sb.from('collaborateurs').update(row).eq('id', editingCollabId);
     if (error) { showToast('Erreur: ' + error.message); return; }
     const c = getCollab(editingCollabId);
-    Object.assign(c, { prenom, nom, poste, email: row.email || '', telephone: row.telephone || '', dateEntree: row.date_entree || '', dateFinEssai: row.date_fin_essai || '', soldeConges: row.solde_conges || 0, acquisitionConges: row.acquisition_conges || 2.08, valideurCongesId: row.valideur_conges_id || null, googleDrive: row.google_drive || '', notes: row.notes || '', managerId: row.manager_id || null, bureau: row.bureau || '', equipe: row.equipe || '', contrat: row.contrat || '', typePoste: row.type_poste || '' });
+    Object.assign(c, { prenom, nom, poste, email: row.email || '', telephone: row.telephone || '', dateEntree: row.date_entree || '', dateFinEssai: row.date_fin_essai || '', soldeConges: row.solde_conges || 0, acquisitionConges: row.acquisition_conges || 2.08, valideurCongesId: row.valideur_conges_id || null, googleDrive: row.google_drive || '', notes: row.notes || '', managerId: row.manager_id || null, bureau: row.bureau || '', equipe: row.equipe || '', equipes: parseEquipes(row.equipe), contrat: row.contrat || '', typePoste: row.type_poste || '' });
   } else {
     row.onboarding = defaultOnboarding();
     const { data, error } = await sb.from('collaborateurs').insert(row).select().single();
@@ -2359,7 +2381,7 @@ function renderBoPeople() {
       let va, vb;
       if (peopleSortKey === 'nom') { va = (a.nom + ' ' + a.prenom).toLowerCase(); vb = (b.nom + ' ' + b.prenom).toLowerCase(); }
       else if (peopleSortKey === 'poste') { va = (a.poste||'').toLowerCase(); vb = (b.poste||'').toLowerCase(); }
-      else if (peopleSortKey === 'equipe') { va = (a.equipe||'zzz').toLowerCase(); vb = (b.equipe||'zzz').toLowerCase(); }
+      else if (peopleSortKey === 'equipe') { va = (a.equipes[0]||'zzz').toLowerCase(); vb = (b.equipes[0]||'zzz').toLowerCase(); }
       else if (peopleSortKey === 'manager') { va = a.managerId ? getManagerName(a.managerId).toLowerCase() : 'zzz'; vb = b.managerId ? getManagerName(b.managerId).toLowerCase() : 'zzz'; }
       else if (peopleSortKey === 'dateEntree') { va = a.dateEntree || '9999'; vb = b.dateEntree || '9999'; }
       if (va < vb) return peopleSortAsc ? -1 : 1;
@@ -2386,7 +2408,7 @@ function renderBoPeople() {
           </div>
         </td>
         <td>${c.poste}</td>
-        <td>${c.equipe || '<span style="color:var(--muted)">—</span>'}</td>
+        <td>${c.equipes.length ? c.equipes.map(e=>escHTML(e)).join(', ') : '<span style="color:var(--muted)">—</span>'}</td>
         <td>${c.managerId ? getManagerName(c.managerId) : '<span style="color:var(--muted)">—</span>'}</td>
         <td>${fmtDate(c.dateEntree)}</td>
         <td>
@@ -2806,7 +2828,7 @@ function exportCollabPDF() {
 
   const html = `
     <h1>${c.prenom} ${c.nom}</h1>
-    <div class="meta">${c.poste} · Manager : ${manager} · Entrée le ${fmtDate(c.dateEntree)}${c.bureau?' · Bureau : '+c.bureau:''}${c.equipe?' · Équipe : '+c.equipe:''}</div>
+    <div class="meta">${c.poste} · Manager : ${manager} · Entrée le ${fmtDate(c.dateEntree)}${c.bureau?' · Bureau : '+c.bureau:''}${c.equipes.length?' · Équipe : '+c.equipes.join(', '):''}</div>
     ${c.notes ? `<div class="field"><div class="field-label">Notes RH</div><div class="field-value">${escHTML(c.notes)}</div></div>` : ''}
     <h2>Objectifs</h2>
     ${objs || '<p>Aucun objectif</p>'}

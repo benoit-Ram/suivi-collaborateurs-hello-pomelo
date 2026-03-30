@@ -27,6 +27,12 @@ function initials(c) {
   return ((c.prenom||'')[0]||'').toUpperCase() + ((c.nom||'')[0]||'').toUpperCase();
 }
 
+function parseEquipes(val) {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  return val.split(',').map(s => s.trim()).filter(Boolean);
+}
+
 function avatarHTML(c, size) {
   size = size || 52;
   if (c.photoUrl) return `<img src="${c.photoUrl}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;flex-shrink:0;" />`;
