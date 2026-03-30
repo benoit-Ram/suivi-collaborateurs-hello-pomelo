@@ -95,4 +95,7 @@ CREATE TABLE IF NOT EXISTS objectif_requests (
 
 -- Récurrence des objectifs (hebdo, mensuel)
 ALTER TABLE objectifs ADD COLUMN IF NOT EXISTS recurrence text;
+
+-- Historique des modifications d'objectifs
+ALTER TABLE objectifs ADD COLUMN IF NOT EXISTS historique jsonb DEFAULT '[]';
 ```

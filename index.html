@@ -968,7 +968,8 @@ function fromRow(row) {
         id: o.id, numero: i + 1, titre: o.titre, description: o.description || '',
         dateDebut: o.date_debut || '', dateFin: o.date_fin || '', statut: o.statut || 'en-attente',
         progression: o.progression || 0,
-        recurrence: o.recurrence || ''
+        recurrence: o.recurrence || '',
+        historique: o.historique || []
       }));
     })()
   };
@@ -2025,15 +2026,31 @@ async function saveObj() {
   };
   if (!row.date_debut || !row.date_fin) { showToast('Veuillez définir une date de début et de fin.'); return; }
   if (editingObjId) {
+    // Build historique entry
+    const existing = c.objectifs.find(o => o.id === editingObjId);
+    const changes = [];
+    if (existing) {
+      if (existing.titre !== titre) changes.push({ champ: 'Titre', avant: existing.titre, apres: titre });
+      if (existing.statut !== row.statut) changes.push({ champ: 'Statut', avant: STATUS_LABELS[existing.statut]||existing.statut, apres: STATUS_LABELS[row.statut]||row.statut });
+      if (existing.progression !== progression) changes.push({ champ: 'Progression', avant: existing.progression+'%', apres: progression+'%' });
+      if (existing.dateDebut !== (row.date_debut||'')) changes.push({ champ: 'Date début', avant: fmtDate(existing.dateDebut), apres: fmtDate(row.date_debut) });
+      if (existing.dateFin !== (row.date_fin||'')) changes.push({ champ: 'Date fin', avant: fmtDate(existing.dateFin), apres: fmtDate(row.date_fin) });
+      if ((existing.description||'') !== (row.description||'')) changes.push({ champ: 'Description', avant: '(modifié)', apres: '(modifié)' });
+    }
+    if (changes.length) {
+      const hist = existing.historique || [];
+      hist.push({ date: new Date().toISOString().split('T')[0], auteur: 'Admin', changes });
+      row.historique = hist;
+    }
     const { error } = await sb.from('objectifs').update(row).eq('id', editingObjId);
     if (error) { showToast('Erreur: ' + error.message); return; }
     const idx = c.objectifs.findIndex(o => o.id === editingObjId);
-    const existing = c.objectifs[idx];
-    c.objectifs[idx] = { id: editingObjId, numero: existing.numero, titre, description: row.description || '', dateDebut: row.date_debut||'', dateFin: row.date_fin||'', statut: row.statut, progression, recurrence: recurrence||'' };
+    c.objectifs[idx] = { id: editingObjId, numero: existing.numero, titre, description: row.description || '', dateDebut: row.date_debut||'', dateFin: row.date_fin||'', statut: row.statut, progression, recurrence: recurrence||'', historique: row.historique || existing.historique || [] };
   } else {
+    row.historique = [{ date: new Date().toISOString().split('T')[0], auteur: 'Admin', changes: [{ champ: 'Création', avant: '', apres: titre }] }];
     const { data, error } = await sb.from('objectifs').insert(row).select().single();
     if (error) { showToast('Erreur: ' + error.message); return; }
-    c.objectifs.push({ id: data.id, numero: c.objectifs.length+1, titre, description: row.description || '', dateDebut: row.date_debut||'', dateFin: row.date_fin||'', statut: row.statut, progression, recurrence: recurrence||'' });
+    c.objectifs.push({ id: data.id, numero: c.objectifs.length+1, titre, description: row.description || '', dateDebut: row.date_debut||'', dateFin: row.date_fin||'', statut: row.statut, progression, recurrence: recurrence||'', historique: row.historique });
   }
   closeModal('modalObj');
   renderObjectifs();
