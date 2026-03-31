@@ -6,7 +6,7 @@ export class AbsencesService {
   constructor(private supabase: SupabaseService) {}
 
   async findAll(filters?: Record<string, string>) {
-    let query = this.supabase.db.from('absences').select('*').order('created_at', { ascending: false });
+    let query = this.supabase.db.from('absences').select('*').order('date_debut', { ascending: false });
     if (filters) {
       Object.entries(filters).forEach(([key, val]) => { if (val) query = query.eq(key, val); });
     }

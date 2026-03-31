@@ -6,7 +6,7 @@ export class SettingsService {
   constructor(private supabase: SupabaseService) {}
 
   async findAll(filters?: Record<string, string>) {
-    let query = this.supabase.db.from('settings').select('*').order('created_at', { ascending: false });
+    let query = this.supabase.db.from('settings').select('*');
     if (filters) {
       Object.entries(filters).forEach(([key, val]) => { if (val) query = query.eq(key, val); });
     }
