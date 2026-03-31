@@ -655,7 +655,7 @@ function renderOnboarding() {
             <button onclick="rejectUpload('${k}')" class="btn btn-danger btn-sm" style="font-size:0.72rem;padding:3px 10px;">✕ Rejeter</button>
           </div>
         </div>` : '';
-      const pendingBadge = upload && !validated ? `<span style="font-size:0.68rem;font-weight:700;color:var(--pink);background:#FFF0F8;border-radius:99px;padding:2px 8px;margin-left:6px;">⏳ En attente</span>` : '';
+      const pendingBadge = upload && !validated ? `<span style="font-size:0.68rem;font-weight:700;color:var(--pink);background:var(--offwhite);border-radius:99px;padding:2px 8px;margin-left:6px;">⏳ En attente</span>` : '';
       return `
         <div style="margin-bottom:8px;">
           <div class="check-item ${validated ? 'done' : ''}">
@@ -756,8 +756,8 @@ function renderPoints() {
       : `<span class="badge ${POINT_STATUS_BADGE[status].cls}" style="font-size:0.65rem;">${POINT_STATUS_BADGE[status].label}</span>`;
 
     return `
-    <div class="point-accordion" style="margin-bottom:10px;border-radius:14px;border:1.5px solid var(--lavender);overflow:hidden;background:white;">
-      <div onclick="toggleAcc('acc-${p.id}')" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;cursor:pointer;background:${isFirst && !locked ? 'linear-gradient(135deg,#F0F0FF,#FFF0F8)' : 'white'};">
+    <div class="point-accordion" style="margin-bottom:10px;border-radius:14px;border:1.5px solid var(--lavender);overflow:hidden;background:var(--white);">
+      <div onclick="toggleAcc('acc-${p.id}')" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;cursor:pointer;background:${isFirst && !locked ? 'var(--offwhite)' : 'white'};">
         <div style="display:flex;align-items:center;gap:10px;">
           <span style="font-size:0.95rem;font-weight:700;color:var(--navy);">📅 ${label}</span>
           ${statusBadge}
@@ -1171,7 +1171,7 @@ async function deleteObj(id) {
 function renderEquipeCheckboxes(selected) {
   const equipes = SETTINGS.equipes || [];
   document.getElementById('fEquipeCheckboxes').innerHTML = equipes.map(eq => `
-    <label style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;border:1.5px solid var(--lavender);cursor:pointer;font-size:0.82rem;background:white;">
+    <label style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;border:1.5px solid var(--lavender);cursor:pointer;font-size:0.82rem;background:var(--white);">
       <input type="checkbox" value="${escHTML(eq)}" ${selected.includes(eq)?'checked':''} style="accent-color:var(--pink);width:16px;height:16px;" />
       ${escHTML(eq)}
     </label>`).join('');
@@ -1201,7 +1201,7 @@ function renderBoSettings() {
       ? items.map(v => {
           const used = isSettingValueUsed(key, v);
           return `
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border:1.5px solid var(--lavender);border-radius:10px;margin-bottom:8px;background:white;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border:1.5px solid var(--lavender);border-radius:10px;margin-bottom:8px;background:var(--white);">
             <span style="font-weight:600;color:var(--navy);">${escHTML(v)}</span>
             <div style="display:flex;gap:4px;">
               <button class="btn btn-ghost btn-sm" style="padding:4px 8px;" onclick="renameSettingItem('${key}','${encodeURIComponent(v)}')">✏️</button>
@@ -1248,7 +1248,7 @@ function renderQuestionsList() {
       return;
     }
     el.innerHTML = questions.map((q, i) => `
-      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid var(--lavender);border-radius:10px;margin-bottom:8px;background:white;">
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid var(--lavender);border-radius:10px;margin-bottom:8px;background:var(--white);">
         <div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0;">
           <button class="btn btn-ghost btn-sm" style="padding:1px 6px;line-height:1;" onclick="moveQuestion('${side}',${i},-1)" ${i===0?'disabled':''}>▲</button>
           <button class="btn btn-ghost btn-sm" style="padding:1px 6px;line-height:1;" onclick="moveQuestion('${side}',${i},1)" ${i===questions.length-1?'disabled':''}>▼</button>
@@ -1318,8 +1318,8 @@ let boObjCollabId = null;
 
 function switchBoObjTab(tab) {
   boObjTab = tab;
-  document.getElementById('boObjTabIndiv').style.cssText = tab === 'individuel' ? 'flex:1;padding:10px 16px;border-radius:10px;border:none;font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;background:white;color:var(--navy);box-shadow:0 2px 8px rgba(5,5,109,0.1);' : 'flex:1;padding:10px 16px;border-radius:10px;border:none;font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);';
-  document.getElementById('boObjTabEquipe').style.cssText = tab === 'equipe' ? 'flex:1;padding:10px 16px;border-radius:10px;border:none;font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;background:white;color:var(--navy);box-shadow:0 2px 8px rgba(5,5,109,0.1);' : 'flex:1;padding:10px 16px;border-radius:10px;border:none;font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);';
+  document.getElementById('boObjTabIndiv').style.cssText = tab === 'individuel' ? 'flex:1;padding:10px 16px;border-radius:10px;border:none;font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;background:var(--white);color:var(--navy);box-shadow:0 2px 8px rgba(5,5,109,0.1);' : 'flex:1;padding:10px 16px;border-radius:10px;border:none;font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);';
+  document.getElementById('boObjTabEquipe').style.cssText = tab === 'equipe' ? 'flex:1;padding:10px 16px;border-radius:10px;border:none;font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;background:var(--white);color:var(--navy);box-shadow:0 2px 8px rgba(5,5,109,0.1);' : 'flex:1;padding:10px 16px;border-radius:10px;border:none;font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);';
   renderBoObjectifs();
 }
 
@@ -1330,7 +1330,7 @@ function renderBoObjectifs() {
   // Demandes en attente
   const requests = DB.objRequests || [];
   if (requests.length) {
-    html += `<div style="background:white;border-radius:var(--radius-lg);padding:20px 24px;box-shadow:var(--shadow-md);margin-bottom:24px;border-left:4px solid var(--orange);">
+    html += `<div style="background:var(--white);border-radius:var(--radius-lg);padding:20px 24px;box-shadow:var(--shadow-md);margin-bottom:24px;border-left:4px solid var(--orange);">
       <h3 style="font-size:0.85rem;font-weight:700;color:var(--navy);margin-bottom:14px;text-transform:uppercase;letter-spacing:0.05em;">📋 Demandes en attente (${requests.length})</h3>
       ${requests.map(r => {
         const collab = getCollab(r.collaborateurId);
@@ -1496,7 +1496,7 @@ function renderFermetures() {
   const el = document.getElementById('fermeturesList');
   if (!el) return;
   el.innerHTML = list.length ? list.map((f, i) => `
-    <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1.5px solid var(--lavender);border-radius:10px;margin-bottom:8px;background:white;">
+    <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1.5px solid var(--lavender);border-radius:10px;margin-bottom:8px;background:var(--white);">
       <span style="font-weight:600;color:var(--navy);flex:1;">${escHTML(f.label)} — ${fmtDate(f.debut)} → ${fmtDate(f.fin)}</span>
       <button class="btn btn-danger btn-sm" onclick="removeFermeture(${i})">✕</button>
     </div>`).join('') : '<p style="color:var(--muted);font-size:0.85rem;font-style:italic;">Aucune période de fermeture.</p>';
@@ -2167,8 +2167,8 @@ function renderEntretiens() {
     const labels = { bilan: 'Bilan global', pointsForts: 'Points forts', axesAmelioration: 'Axes d\'amélioration', souhaitsEvolution: 'Souhaits d\'évolution', formation: 'Plan de formation', objectifsSuivants: 'Objectifs prochaine période' };
 
     return `
-    <div style="margin-bottom:10px;border-radius:14px;border:1.5px solid var(--lavender);overflow:hidden;background:white;">
-      <div onclick="toggleAcc('acc-${e.id}')" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;cursor:pointer;background:${isFirst?'linear-gradient(135deg,#F0F0FF,#FFF0F8)':'white'};">
+    <div style="margin-bottom:10px;border-radius:14px;border:1.5px solid var(--lavender);overflow:hidden;background:var(--white);">
+      <div onclick="toggleAcc('acc-${e.id}')" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;cursor:pointer;background:${isFirst?'var(--offwhite)':'white'};">
         <div style="display:flex;align-items:center;gap:10px;">
           <span style="font-size:0.95rem;font-weight:700;color:var(--navy);">📝 ${typeLabel}</span>
           <span style="font-size:0.75rem;color:var(--muted);font-weight:600;">${fmtDate(e.date)}</span>
@@ -2360,7 +2360,7 @@ const globalSearchHandler = debounce(function() {
     results.innerHTML = '<div style="padding:12px;text-align:center;color:var(--muted);font-size:0.82rem;">Aucun résultat</div>';
   } else {
     results.innerHTML = matches.map(c => `
-      <div onmousedown="navigate('collab','${c.id}');document.getElementById('globalSearch').value='';" style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;transition:background 0.1s;" onmouseover="this.style.background='#F0F0FF'" onmouseout="this.style.background='white'">
+      <div onmousedown="navigate('collab','${c.id}');document.getElementById('globalSearch').value='';" style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;transition:background 0.1s;" onmouseover="this.style.background='var(--lavender)'" onmouseout="this.style.background='var(--white)'">
         ${avatarHTML(c, 28)}
         <div>
           <div style="font-weight:700;font-size:0.85rem;color:var(--navy);">${c.prenom} ${c.nom}</div>
@@ -2448,7 +2448,7 @@ function renderTrendChart() {
   });
   const max = 100;
   return `
-    <div style="background:white;border-radius:var(--radius-lg);padding:20px 24px;box-shadow:var(--shadow-md);">
+    <div style="background:var(--white);border-radius:var(--radius-lg);padding:20px 24px;box-shadow:var(--shadow-md);">
       <div class="section-title" style="margin-top:0;">📊 Complétion des points mensuels (6 mois)</div>
       ${data.map(d => `
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">

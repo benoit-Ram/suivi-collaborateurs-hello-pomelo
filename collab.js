@@ -386,8 +386,8 @@ function renderPoints() {
       : collabQuestions.map(q => renderCollabField(q, p.id, cd[q.key] || '')).join('');
 
     return `
-    <div style="margin-bottom:12px;border-radius:14px;border:1.5px solid var(--lavender);overflow:hidden;background:white;">
-      <div onclick="toggleAcc('acc-${p.id}')" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;cursor:pointer;background:${isFirst && !locked ? 'linear-gradient(135deg,#F0F0FF,#FFF0F8)' : 'white'};">
+    <div style="margin-bottom:12px;border-radius:14px;border:1.5px solid var(--lavender);overflow:hidden;background:var(--white);">
+      <div onclick="toggleAcc('acc-${p.id}')" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;cursor:pointer;background:${isFirst && !locked ? 'var(--offwhite)' : 'white'};">
         <div style="display:flex;align-items:center;gap:10px;">
           <span style="font-size:0.95rem;font-weight:700;color:var(--navy);">📅 ${label}</span>
           ${(() => { if (locked) return `<span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);background:var(--lavender);padding:2px 8px;border-radius:99px;">🔒 Verrouillé</span>`; const st = getPointStatus(p); return `<span class="badge ${POINT_STATUS_BADGE[st].cls}" style="font-size:0.65rem;">${POINT_STATUS_BADGE[st].label}</span>`; })()}
@@ -578,7 +578,7 @@ function renderMemberList() {
     <div class="section-title">Mes collaborateurs (${myTeam.length})</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;">
       ${myTeam.map(m => `
-        <div class="collab-card" onclick="openMemberDetail('${m.id}')" style="cursor:pointer;background:white;border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow-md);border:2px solid transparent;transition:all 0.2s;">
+        <div class="collab-card" onclick="openMemberDetail('${m.id}')" style="cursor:pointer;background:var(--white);border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow-md);border:2px solid transparent;transition:all 0.2s;">
           ${avatarHTML(m, 48)}
           <div style="font-weight:700;font-size:0.95rem;color:var(--navy);margin-top:10px;">${m.prenom} ${m.nom}</div>
           <div style="font-size:0.78rem;color:var(--muted);margin-top:2px;">${m.poste || '—'}</div>
@@ -600,7 +600,7 @@ async function renderMemberDetail(member) {
 
   const container = document.getElementById('teamList');
   container.innerHTML = `
-    <button onclick="renderMemberList()" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:none;background:var(--offwhite);color:var(--navy);font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;transition:all 0.15s;margin-bottom:16px;" onmouseover="this.style.background='var(--lavender)'" onmouseout="this.style.background='var(--offwhite)'">← Retour</button>
+    <button class="btn btn-ghost btn-sm" onclick="renderMemberList()" style="margin-bottom:16px;">← Retour</button>
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
       ${avatarHTML(member, 56)}
       <div>
@@ -612,7 +612,7 @@ async function renderMemberDetail(member) {
       ${['objectifs','points','conges'].map(t => {
         const labels = { objectifs: '🎯 Objectifs', points: '📋 Points mensuels', conges: '🏖️ Congés' };
         const active = managementTab === t;
-        return `<button onclick="switchMgmtTab('${t}')" style="flex:1;padding:10px 16px;border-radius:10px;border:none;font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;transition:all 0.15s;${active ? 'background:white;color:var(--navy);box-shadow:0 2px 8px rgba(5,5,109,0.1);' : 'background:transparent;color:var(--muted);'}" onmouseover="if(!this.classList.contains('active'))this.style.color='var(--navy)'" onmouseout="if(!this.classList.contains('active'))this.style.color='var(--muted)'">${labels[t]}</button>`;
+        return `<button onclick="switchMgmtTab('${t}')" style="flex:1;padding:10px 16px;border-radius:10px;border:none;font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;transition:all 0.15s;${active ? 'background:var(--white);color:var(--navy);box-shadow:0 2px 8px rgba(5,5,109,0.1);' : 'background:transparent;color:var(--muted);'}" onmouseover="if(!this.classList.contains('active'))this.style.color='var(--navy)'" onmouseout="if(!this.classList.contains('active'))this.style.color='var(--muted)'">${labels[t]}</button>`;
       }).join('')}
     </div>
     <div id="mgmtContent"></div>`;
@@ -701,7 +701,7 @@ function renderMemberObjectifs(member) {
   if (objFormVisible) {
     const obj = objFormType === 'modifier' ? (objs.find(o => o.id === objFormObjId) || {}) : {};
     html += `
-    <div style="margin-top:16px;background:white;border-radius:var(--radius-lg);padding:24px;box-shadow:var(--shadow-md);border-top:4px solid var(--pink);animation:fadeIn 0.2s ease;">
+    <div style="margin-top:16px;background:var(--white);border-radius:var(--radius-lg);padding:24px;box-shadow:var(--shadow-md);border-top:4px solid var(--pink);animation:fadeIn 0.2s ease;">
       <div style="font-size:1rem;font-weight:700;color:var(--navy);margin-bottom:18px;">${objFormType === 'creer' ? '✨ Nouvel objectif' : '✏️ Modifier l\'objectif'}</div>
       <div class="form-grid">
         <div class="form-field full">
@@ -735,13 +735,13 @@ function renderMemberObjectifs(member) {
         </div>
       </div>
       <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
-        <button onclick="closeObjForm()" style="padding:10px 20px;border-radius:10px;border:1.5px solid var(--lavender);background:white;color:var(--navy);font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;transition:all 0.15s;">Annuler</button>
-        <button onclick="submitObjRequest()" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--pink),#C0006E);color:white;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(255,50,133,0.3);transition:all 0.15s;">✓ ${objFormType === 'creer' ? 'Créer l\'objectif' : 'Enregistrer'}</button>
+        <button class="btn btn-ghost btn-sm" onclick="closeObjForm()">Annuler</button>
+        <button class="btn btn-primary btn-sm" onclick="submitObjRequest()">✓ ${objFormType === 'creer' ? 'Créer l\'objectif' : 'Enregistrer'}</button>
       </div>
     </div>`;
   } else {
     html += `<div style="margin-top:16px;">
-      <button onclick="openObjForm('creer')" style="display:inline-flex;align-items:center;gap:6px;padding:10px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--pink),#C0006E);color:white;font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(255,50,133,0.3);transition:all 0.15s;">+ Nouvel objectif</button>
+      <button class="btn btn-primary btn-sm" onclick="openObjForm('creer')">+ Nouvel objectif</button>
     </div>`;
 
   }
@@ -895,11 +895,11 @@ function renderTeamMemberPoints(member) {
         </div>`).join('');
 
     return `
-    <div style="margin-bottom:10px;border-radius:12px;border:1.5px solid var(--lavender);overflow:hidden;background:white;">
-      <div onclick="toggleTeamAcc('${accId}','${iconId}')" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;cursor:pointer;background:${isFirst && !locked ? 'linear-gradient(135deg,#F0F0FF,#FFF0F8)' : 'white'};">
+    <div style="margin-bottom:10px;border-radius:12px;border:1.5px solid var(--lavender);overflow:hidden;background:var(--white);">
+      <div onclick="toggleTeamAcc('${accId}','${iconId}')" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;cursor:pointer;background:${isFirst && !locked ? 'var(--offwhite)' : 'white'};">
         <div style="display:flex;align-items:center;gap:8px;">
           <span style="font-size:0.92rem;font-weight:700;color:var(--navy);">📅 ${label}</span>
-          ${locked ? `<span style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);background:var(--lavender);padding:2px 7px;border-radius:99px;">🔒 Verrouillé</span>` : `<span style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--pink);background:#FFF0F8;padding:2px 7px;border-radius:99px;">✏️ En cours</span>`}
+          ${locked ? `<span style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);background:var(--lavender);padding:2px 7px;border-radius:99px;">🔒 Verrouillé</span>` : `<span style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--pink);background:var(--offwhite);padding:2px 7px;border-radius:99px;">✏️ En cours</span>`}
         </div>
         <span style="color:var(--muted);font-size:0.95rem;" id="${iconId}">${isFirst ? '▲' : '▼'}</span>
       </div>
@@ -1034,7 +1034,7 @@ function renderMemberConges(member) {
     ${memberAbsences.length ? memberAbsences.map(a => {
       const jours = countWorkDays(a.dateDebut, a.dateFin);
       return `
-      <div style="display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:12px;border:1.5px solid var(--lavender);margin-bottom:8px;background:white;">
+      <div style="display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:12px;border:1.5px solid var(--lavender);margin-bottom:8px;background:var(--white);">
         <div style="flex:1;">
           <div style="font-weight:700;font-size:0.9rem;color:var(--navy);">${ABS_TYPES[a.type]||a.type} — ${jours}j</div>
           <div style="font-size:0.78rem;color:var(--muted);margin-top:2px;">Du ${fmtDate(a.dateDebut)} au ${fmtDate(a.dateFin)}</div>
@@ -1134,7 +1134,7 @@ async function renderConges() {
 
   const container = document.getElementById('myCongesContent');
   container.innerHTML = `
-    <div style="background:linear-gradient(135deg,#F0F0FF,#FFF0F8);border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:10px;border:1.5px solid #E0D8FF;">
+    <div style="background:var(--offwhite);border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:10px;border:1.5px solid #E0D8FF;">
       <span style="font-size:1.1rem;">👔</span>
       <span style="font-size:0.85rem;font-weight:600;color:var(--navy);">Valideur : <strong>${valideurNom}</strong></span>
     </div>
@@ -1180,13 +1180,9 @@ async function renderConges() {
       <div class="form-grid">
         <div class="form-field">
           <label>Type</label>
-          <select id="absType" onchange="updateAbsMotifs()">
+          <select id="absType">
             ${Object.entries(ABS_TYPES).map(([k,v]) => `<option value="${k}">${v}</option>`).join('')}
           </select>
-        </div>
-        <div class="form-field">
-          <label>Motif</label>
-          <select id="absMotif"></select>
         </div>
         <div class="form-field">
           <label>Du</label>
@@ -1261,7 +1257,7 @@ async function renderConges() {
     ${myAbsences.length ? myAbsences.map(a => {
       const jours = a.demiJournee ? 0.5 : countWorkDays(a.dateDebut, a.dateFin);
       return `
-      <div style="display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:12px;border:1.5px solid var(--lavender);margin-bottom:8px;background:white;">
+      <div style="display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:12px;border:1.5px solid var(--lavender);margin-bottom:8px;background:var(--white);">
         <div style="flex:1;">
           <div style="font-weight:700;font-size:0.9rem;color:var(--navy);">${ABS_TYPES[a.type]||a.type}${a.demiJournee ? ` (${a.demiJournee === 'matin' ? 'matin' : 'après-midi'})` : ''}</div>
           <div style="font-size:0.78rem;color:var(--muted);margin-top:2px;">Du ${fmtDate(a.dateDebut)} au ${fmtDate(a.dateFin)} · ${jours} jour${jours>1?'s':''}</div>
@@ -1275,7 +1271,6 @@ async function renderConges() {
   `;
 
   // Init sub-components
-  updateAbsMotifs();
   updateSimu();
   calYear = new Date().getFullYear();
   calMonth = new Date().getMonth();
@@ -1389,7 +1384,7 @@ async function submitAbsence() {
   const type = document.getElementById('absType').value;
   const dateDebut = document.getElementById('absDateDebut').value;
   const dateFin = document.getElementById('absDateFin').value;
-  const commentaire = [document.getElementById('absMotif').value, document.getElementById('absCommentaire').value.trim()].filter(Boolean).join(' — ');
+  const commentaire = document.getElementById('absCommentaire').value.trim();
   const demiJournee = document.getElementById('absDemiJournee').value || null;
 
   if (!dateDebut || !dateFin) { showToast('Veuillez renseigner les dates.'); return; }
@@ -1693,9 +1688,9 @@ function renderDashboard() {
     <div class="card" style="margin-bottom:24px;">
       <div style="font-size:0.85rem;font-weight:700;color:var(--navy);margin-bottom:14px;">⚡ Actions rapides</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        ${pointStatus !== 'complet' ? `<button onclick="showTab('points')" style="padding:10px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--pink),#C0006E);color:white;font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(255,50,133,0.3);">📋 Remplir mon point mensuel</button>` : ''}
-        <button onclick="showTab('conges')" style="padding:10px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--skyblue),var(--blue));color:white;font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;">🏖️ Demander un congé</button>
-        <button onclick="showTab('objectifs')" style="padding:10px 20px;border-radius:10px;border:1.5px solid var(--lavender);background:white;color:var(--navy);font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;">🎯 Voir mes objectifs</button>
+        ${pointStatus !== 'complet' ? `<button class="btn btn-primary btn-sm" onclick="showTab('points')">📋 Remplir mon point mensuel</button>` : ''}
+        <button class="btn btn-navy btn-sm" onclick="showTab('conges')">🏖️ Demander un congé</button>
+        <button class="btn btn-ghost btn-sm" onclick="showTab('objectifs')">🎯 Voir mes objectifs</button>
       </div>
     </div>
 
