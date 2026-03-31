@@ -164,10 +164,11 @@ async function autoRenewRecurringObjectifs() {
   DB.collaborateurs.forEach(c => {
     (c.objectifs || []).forEach(o => {
       if (!o.recurrence || !o.dateFin) return;
+      // Ne renouveler que si l'objectif est terminé (atteint ou non-atteint)
+      if (o.statut !== 'atteint' && o.statut !== 'non-atteint') return;
       const fin = new Date(o.dateFin);
-      if (fin >= today) return; // pas encore expiré
+      if (fin >= today) return;
 
-      // Calculer la prochaine période
       let newDebut, newFin;
       if (o.recurrence === 'hebdo') {
         newDebut = new Date(fin); newDebut.setDate(fin.getDate() + 1);
@@ -178,10 +179,10 @@ async function autoRenewRecurringObjectifs() {
       }
       if (!newDebut || !newFin) return;
 
-      // Vérifier qu'un objectif avec le même titre et la même période n'existe pas déjà
       const newDebutStr = newDebut.toISOString().split('T')[0];
       const newFinStr = newFin.toISOString().split('T')[0];
-      const exists = c.objectifs.some(x => x.titre === o.titre && x.dateDebut === newDebutStr);
+      // Vérifier qu'un objectif avec le même titre pour ce collab n'existe pas déjà en cours
+      const exists = c.objectifs.some(x => x.titre === o.titre && (x.statut === 'en-cours' || x.statut === 'en-attente'));
       if (exists) return;
 
       rows.push({
