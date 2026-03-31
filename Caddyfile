@@ -1,0 +1,22 @@
+# Remplacer par votre domaine réel
+app.hello-pomelo.com {
+    reverse_proxy web:80
+
+    # Headers de sécurité supplémentaires
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Frame-Options "DENY"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        # CSP — à affiner selon vos CDN Supabase / Google
+        Content-Security-Policy "default-src 'self'; script-src 'self' cdn.jsdelivr.net accounts.google.com 'unsafe-inline'; connect-src 'self' *.supabase.co; img-src 'self' data: *.googleusercontent.com lh3.googleusercontent.com; style-src 'self' fonts.googleapis.com 'unsafe-inline'; font-src fonts.gstatic.com;"
+    }
+
+    # Logs
+    log {
+        output file /data/logs/access.log {
+            roll_size 10mb
+            roll_keep 5
+        }
+    }
+}

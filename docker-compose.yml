@@ -1,0 +1,21 @@
+## Développement local
+## Usage : docker compose up
+
+services:
+  web:
+    build: .
+    ports:
+      - "8080:80"
+    volumes:
+      # Rechargement à chaud des fichiers statiques en dev
+      - ./index.html:/usr/share/nginx/html/index.html:ro
+      - ./collaborateur.html:/usr/share/nginx/html/collaborateur.html:ro
+      - ./admin.js:/usr/share/nginx/html/admin.js:ro
+      - ./collab.js:/usr/share/nginx/html/collab.js:ro
+      - ./utils.js:/usr/share/nginx/html/utils.js:ro
+      - ./src:/usr/share/nginx/html/src:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      interval: 10s
+      timeout: 3s
+      retries: 3

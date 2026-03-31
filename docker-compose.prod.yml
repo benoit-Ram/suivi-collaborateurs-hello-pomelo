@@ -1,0 +1,33 @@
+## Production — déploiement sur VPS
+## Usage : TAG=sha-abc123 docker compose -f docker-compose.prod.yml up -d
+
+services:
+  web:
+    image: ghcr.io/${GITHUB_REPO:-hello-pomelo/suivi-collaborateurs}/rh-web:${TAG:-latest}
+    restart: unless-stopped
+    expose:
+      - "80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+
+volumes:
+  caddy_data:
+  caddy_config:
