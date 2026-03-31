@@ -3,8 +3,12 @@
   "version": "1.0.0",
   "description": "Outil de suivi des collaborateurs — Hello Pomelo",
   "scripts": {
-    "start": "npx serve . -p 3000",
-    "dev": "npx serve . -p 3000"
+    "start:legacy": "npx serve . -p 3000",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev": "npm run dev:backend & npm run dev:frontend",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend && npm run build"
   },
   "keywords": ["rh", "collaborateurs", "suivi", "hello-pomelo"],
   "author": "Hello Pomelo",
