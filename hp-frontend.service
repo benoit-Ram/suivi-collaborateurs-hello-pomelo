@@ -1,0 +1,14 @@
+[Unit]
+Description=Hello Pomelo Frontend (Vite React)
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/suivi-collaborateurs-hello-pomelo/frontend
+ExecStart=/usr/bin/npx vite --host 0.0.0.0 --port 3000
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

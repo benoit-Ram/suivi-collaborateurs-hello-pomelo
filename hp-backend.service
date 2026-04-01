@@ -1,0 +1,16 @@
+[Unit]
+Description=Hello Pomelo Backend (NestJS)
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/suivi-collaborateurs-hello-pomelo/backend
+ExecStart=/usr/bin/npx ts-node src/main.ts
+Restart=on-failure
+RestartSec=5
+Environment=PORT=4000
+EnvironmentFile=/home/ubuntu/suivi-collaborateurs-hello-pomelo/backend/.env
+
+[Install]
+WantedBy=multi-user.target
