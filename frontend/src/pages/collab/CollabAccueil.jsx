@@ -169,15 +169,18 @@ function CongesTab({ c, absences, solde, onReload }) {
   const [form, setForm] = useState({ type:'conge', date_debut:'', date_fin:'', commentaire:'' });
   const [submitting, setSubmitting] = useState(false);
 
+  const [error, setError] = useState('');
+
   const submit = async () => {
-    if (!form.date_debut || !form.date_fin) return;
-    if (form.date_fin < form.date_debut) return;
+    setError('');
+    if (!form.date_debut || !form.date_fin) { setError('Veuillez renseigner les dates de début et de fin.'); return; }
+    if (form.date_fin < form.date_debut) { setError('La date de fin doit être après la date de début.'); return; }
     setSubmitting(true);
     try {
       await api.createAbsence({ collaborateur_id: c.id, type: form.type, date_debut: form.date_debut, date_fin: form.date_fin, statut: 'en_attente', commentaire: form.commentaire || null });
       setForm({ type:'conge', date_debut:'', date_fin:'', commentaire:'' });
       onReload();
-    } catch(e) { console.error(e); }
+    } catch(e) { setError('Erreur: ' + e.message); }
     setSubmitting(false);
   };
 
@@ -198,8 +201,9 @@ function CongesTab({ c, absences, solde, onReload }) {
           <div className="form-field"><label>Au</label><input type="date" value={form.date_fin} onChange={e=>setForm({...form,date_fin:e.target.value})} /></div>
           <div className="form-field"><label>Commentaire</label><input type="text" value={form.commentaire} onChange={e=>setForm({...form,commentaire:e.target.value})} placeholder="Optionnel..." /></div>
         </div>
+        {error && <div style={{marginTop:10,padding:'10px 14px',background:'#FFF1F2',color:'#881337',borderRadius:10,fontSize:'0.85rem',fontWeight:600,borderLeft:'4px solid #EF4444'}}>{error}</div>}
         <div style={{display:'flex',justifyContent:'flex-end',marginTop:10}}>
-          <button className="btn btn-primary" onClick={submit} disabled={submitting || !form.date_debut || !form.date_fin}>🏖️ Demander</button>
+          <button className="btn btn-primary" onClick={submit} disabled={submitting}>🏖️ Demander</button>
         </div>
       </div>
 
