@@ -70,7 +70,7 @@ export default function CollabAccueil() {
 
       <div style={{display:'flex',gap:6,marginBottom:24,background:'var(--offwhite)',padding:6,borderRadius:12,overflowX:'auto'}}>
         {tabs.map(([k,l]) => (
-          <button key={k} onClick={()=>setTab(k)} style={{flex:1,padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',background:tab===k?'white':'transparent',color:tab===k?'var(--navy)':'var(--muted)',boxShadow:tab===k?'0 2px 8px rgba(5,5,109,0.1)':'none'}}>{l}</button>
+          <button key={k} onClick={()=>{setTab(k); if(k==='conges') loadAbsences(selectedId);}} style={{flex:1,padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',background:tab===k?'white':'transparent',color:tab===k?'var(--navy)':'var(--muted)',boxShadow:tab===k?'0 2px 8px rgba(5,5,109,0.1)':'none'}}>{l}</button>
         ))}
       </div>
 
@@ -100,7 +100,7 @@ export default function CollabAccueil() {
       </div>}
 
       {/* CONGÉS */}
-      {tab==='conges' && <CongesTab c={c} absences={absences} solde={solde} onReload={() => loadAbsences(c.id)} />}
+      {tab==='conges' && <CongesTab c={c} absences={absences} solde={solde} onReload={() => loadAbsences(c.id)} api={api} />}
 
       {/* MANAGEMENT */}
       {tab==='management' && <div>
