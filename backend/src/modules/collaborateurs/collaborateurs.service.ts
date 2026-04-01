@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { SupabaseService } from '../../config/supabase.service';
 
 @Injectable()
@@ -9,7 +9,7 @@ export class CollaborateursService {
     const { data, error } = await this.supabase.db
       .from('collaborateurs')
       .select('*, points_suivi(*), objectifs(*)');
-    if (error) throw error;
+    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
     return data;
   }
 
@@ -19,7 +19,7 @@ export class CollaborateursService {
       .select('*, points_suivi(*), objectifs(*)')
       .eq('id', id)
       .single();
-    if (error) throw error;
+    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
     return data;
   }
 
@@ -29,7 +29,7 @@ export class CollaborateursService {
       .insert(dto)
       .select()
       .single();
-    if (error) throw error;
+    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
     return data;
   }
 
@@ -40,7 +40,7 @@ export class CollaborateursService {
       .eq('id', id)
       .select()
       .single();
-    if (error) throw error;
+    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
     return data;
   }
 
@@ -49,7 +49,7 @@ export class CollaborateursService {
       .from('collaborateurs')
       .delete()
       .eq('id', id);
-    if (error) throw error;
+    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
     return { success: true };
   }
 }
