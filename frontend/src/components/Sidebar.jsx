@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useData } from '../services/DataContext';
-import { Avatar } from './UI';
+import { Avatar, useKeyboard } from './UI';
 
 export default function Sidebar() {
   const { collabs, absences } = useData();
@@ -9,8 +9,12 @@ export default function Sidebar() {
   const [showResults, setShowResults] = useState(false);
   const [dark, setDark] = useState(localStorage.getItem('hp_theme')==='dark');
   const navigate = useNavigate();
+  const searchRef = useRef(null);
 
   const pendingAbs = absences.filter(a => a.statut === 'en_attente').length;
+
+  // Ctrl+K to focus search
+  useKeyboard('ctrl+k', useCallback(() => { searchRef.current?.focus(); }, []));
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : '');
@@ -42,7 +46,8 @@ export default function Sidebar() {
         <input value={search} onChange={e => { setSearch(e.target.value); setShowResults(true); }}
           onFocus={() => setShowResults(true)}
           onBlur={() => setTimeout(()=>setShowResults(false), 200)}
-          placeholder="🔍 Rechercher..."
+          ref={searchRef}
+          placeholder="🔍 Rechercher... (Ctrl+K)"
           style={{ width:'100%', padding:'8px 12px', borderRadius:8, border:'none', fontFamily:'inherit', fontSize:'0.82rem', background:'rgba(255,255,255,0.12)', color:'white', outline:'none' }} />
         {showResults && searchResults.length > 0 && (
           <div style={{ position:'absolute', top:'100%', left:12, right:12, background:'white', borderRadius:10, boxShadow:'0 8px 32px rgba(5,5,109,0.2)', zIndex:200, maxHeight:300, overflowY:'auto', marginTop:4 }}>

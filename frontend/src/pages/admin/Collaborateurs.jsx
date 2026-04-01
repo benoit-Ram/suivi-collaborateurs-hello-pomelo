@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../../services/DataContext';
 import { api } from '../../services/api';
-import { Avatar, PageHeader, Modal, fmtDate } from '../../components/UI';
+import { Avatar, PageHeader, Modal, ConfirmModal, FadeIn, Skeleton, fmtDate } from '../../components/UI';
 
 export default function Collaborateurs() {
   const { collabs, showToast, getManagerName, reload } = useData();
@@ -41,9 +41,11 @@ export default function Collaborateurs() {
     } catch(e) { showToast('Erreur: '+e.message); }
   };
 
-  const del = async (id) => {
-    if (!window.confirm('Supprimer ?')) return;
-    try { await api.deleteCollaborateur(id); await reload(); showToast('Supprimé'); } catch(e) { showToast('Erreur: '+e.message); }
+  const [confirmDel, setConfirmDel] = useState(null);
+  const del = async () => {
+    if (!confirmDel) return;
+    try { await api.deleteCollaborateur(confirmDel); await reload(); showToast('Supprimé'); } catch(e) { showToast('Erreur: '+e.message); }
+    setConfirmDel(null);
   };
 
   return (
@@ -77,7 +79,7 @@ export default function Collaborateurs() {
               <td><div style={{display:'flex',gap:6}}>
                 <button className="btn btn-ghost btn-sm" onClick={()=>navigate(`/admin/collaborateurs/${c.id}`)}>Voir</button>
                 <button className="btn btn-ghost btn-sm" onClick={()=>openEdit(c)}>✏️</button>
-                <button className="btn btn-danger btn-sm" onClick={()=>del(c.id)}>🗑️</button>
+                <button className="btn btn-danger btn-sm" onClick={()=>setConfirmDel(c.id)}>🗑️</button>
               </div></td>
             </tr>
           ))}</tbody>
@@ -100,6 +102,7 @@ export default function Collaborateurs() {
           <button className="btn btn-primary" onClick={save}>Enregistrer</button>
         </div>
       </Modal>
+      <ConfirmModal open={!!confirmDel} onClose={()=>setConfirmDel(null)} onConfirm={del} message="Supprimer ce collaborateur ? Cette action est irréversible." />
     </div>
   );
 }

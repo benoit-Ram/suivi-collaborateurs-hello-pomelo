@@ -100,24 +100,7 @@ export default function CollabAccueil() {
       </div>}
 
       {/* CONGÉS */}
-      {tab==='conges' && <div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14,marginBottom:20}}>
-          <div className="card" style={{textAlign:'center',padding:16}}><div style={{fontSize:'1.5rem',fontWeight:700,color:'var(--green)'}}>{solde}j</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Solde</div></div>
-          <div className="card" style={{textAlign:'center',padding:16}}><div style={{fontSize:'1.5rem',fontWeight:700,color:'var(--pink)'}}>{absences.filter(a=>a.statut==='approuve').length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Approuvés</div></div>
-          <div className="card" style={{textAlign:'center',padding:16}}><div style={{fontSize:'1.5rem',fontWeight:700,color:'var(--orange)'}}>{absences.filter(a=>a.statut==='en_attente').length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>En attente</div></div>
-        </div>
-        <div className="section-title">Historique</div>
-        {absences.length===0 ? <EmptyState icon="🏖️" text="Aucune demande" /> : absences.map(a => (
-          <div key={a.id} style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',borderRadius:12,border:'1.5px solid var(--lavender)',marginBottom:8,background:'var(--white)'}}>
-            <div style={{flex:1}}>
-              <div style={{fontWeight:700,fontSize:'0.9rem',color:'var(--navy)'}}>{ABS_TYPES[a.type]||a.type}</div>
-              <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)}</div>
-              {a.motif_refus && <div style={{fontSize:'0.78rem',color:'#881337',marginTop:4,background:'#FFF1F2',padding:'4px 8px',borderRadius:6}}>Motif: {a.motif_refus}</div>}
-            </div>
-            <Badge type={a.statut==='approuve'?'green':a.statut==='refuse'?'pink':'orange'}>{ABS_STATUTS[a.statut]}</Badge>
-          </div>
-        ))}
-      </div>}
+      {tab==='conges' && <CongesTab c={c} absences={absences} solde={solde} onReload={() => loadAbsences(c.id)} />}
 
       {/* MANAGEMENT */}
       {tab==='management' && <div>
@@ -177,6 +160,60 @@ function PointCard({ p }) {
           {Object.entries(cd).filter(([k])=>k!=='objectifs').map(([k,v])=>(<div key={k} style={{marginBottom:8}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)',marginBottom:2}}>{k}</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:v?'var(--navy)':'var(--muted)',fontStyle:v?'normal':'italic'}}>{v||'Non renseigné'}</div></div>))}
         </>}
       </div>}
+    </div>
+  );
+}
+
+// ── CONGÉS TAB with request form ──
+function CongesTab({ c, absences, solde, onReload }) {
+  const [form, setForm] = useState({ type:'conge', date_debut:'', date_fin:'', commentaire:'' });
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async () => {
+    if (!form.date_debut || !form.date_fin) return;
+    if (form.date_fin < form.date_debut) return;
+    setSubmitting(true);
+    try {
+      await api.createAbsence({ collaborateur_id: c.id, type: form.type, date_debut: form.date_debut, date_fin: form.date_fin, statut: 'en_attente', commentaire: form.commentaire || null });
+      setForm({ type:'conge', date_debut:'', date_fin:'', commentaire:'' });
+      onReload();
+    } catch(e) { console.error(e); }
+    setSubmitting(false);
+  };
+
+  return (
+    <div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14,marginBottom:20}}>
+        <div className="card" style={{textAlign:'center',padding:16}}><div style={{fontSize:'1.5rem',fontWeight:700,color:'var(--green)'}}>{solde}j</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Solde</div></div>
+        <div className="card" style={{textAlign:'center',padding:16}}><div style={{fontSize:'1.5rem',fontWeight:700,color:'var(--pink)'}}>{absences.filter(a=>a.statut==='approuve').length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Approuvés</div></div>
+        <div className="card" style={{textAlign:'center',padding:16}}><div style={{fontSize:'1.5rem',fontWeight:700,color:'var(--orange)'}}>{absences.filter(a=>a.statut==='en_attente').length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>En attente</div></div>
+      </div>
+
+      {/* Formulaire de demande */}
+      <div className="card" style={{marginBottom:24}}>
+        <div className="section-title" style={{marginTop:0}}>Nouvelle demande</div>
+        <div className="form-grid">
+          <div className="form-field"><label>Type</label><select value={form.type} onChange={e=>setForm({...form,type:e.target.value})}>{Object.entries(ABS_TYPES).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></div>
+          <div className="form-field"><label>Du</label><input type="date" value={form.date_debut} onChange={e=>setForm({...form,date_debut:e.target.value})} /></div>
+          <div className="form-field"><label>Au</label><input type="date" value={form.date_fin} onChange={e=>setForm({...form,date_fin:e.target.value})} /></div>
+          <div className="form-field"><label>Commentaire</label><input type="text" value={form.commentaire} onChange={e=>setForm({...form,commentaire:e.target.value})} placeholder="Optionnel..." /></div>
+        </div>
+        <div style={{display:'flex',justifyContent:'flex-end',marginTop:10}}>
+          <button className="btn btn-primary" onClick={submit} disabled={submitting || !form.date_debut || !form.date_fin}>🏖️ Demander</button>
+        </div>
+      </div>
+
+      <div className="section-title">Historique</div>
+      {absences.length===0 ? <EmptyState icon="🏖️" text="Aucune demande" /> : absences.map(a => (
+        <div key={a.id} style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',borderRadius:12,border:'1.5px solid var(--lavender)',marginBottom:8,background:'var(--white)'}}>
+          <div style={{flex:1}}>
+            <div style={{fontWeight:700,fontSize:'0.9rem',color:'var(--navy)'}}>{ABS_TYPES[a.type]||a.type}</div>
+            <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)}</div>
+            {a.motif_refus && <div style={{fontSize:'0.78rem',color:'#881337',marginTop:4,background:'#FFF1F2',padding:'4px 8px',borderRadius:6}}>Motif: {a.motif_refus}</div>}
+          </div>
+          <Badge type={a.statut==='approuve'?'green':a.statut==='refuse'?'pink':'orange'}>{ABS_STATUTS[a.statut]}</Badge>
+        </div>
+      ))}
     </div>
   );
 }

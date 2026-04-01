@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../../services/DataContext';
 import { api } from '../../services/api';
-import { Avatar, Badge, ProgressBar, EmptyState, Modal, fmtDate, moisLabel, currentMois, STATUS_LABELS, STATUS_COLORS } from '../../components/UI';
+import { Avatar, Badge, ProgressBar, EmptyState, Modal, FadeIn, fmtDate, moisLabel, currentMois, STATUS_LABELS, STATUS_COLORS } from '../../components/UI';
 
 export default function CollabProfile() {
   const { id } = useParams();
@@ -44,7 +44,13 @@ export default function CollabProfile() {
 
   return (
     <div>
-      <button className="btn btn-ghost btn-sm" onClick={() => navigate('/admin/collaborateurs')} style={{marginBottom:16}}>← Retour</button>
+      <div style={{ display:'flex', gap:6, alignItems:'center', marginBottom:16, fontSize:'0.78rem', color:'var(--muted)', fontWeight:600 }}>
+        <a href="/admin" style={{color:'var(--muted)',textDecoration:'none'}}>Dashboard</a>
+        <span style={{opacity:0.4}}>›</span>
+        <a href="/admin/collaborateurs" style={{color:'var(--muted)',textDecoration:'none'}}>Collaborateurs</a>
+        <span style={{opacity:0.4}}>›</span>
+        <span style={{color:'var(--navy)'}}>{c.prenom} {c.nom}</span>
+      </div>
       <div className="card" style={{ display:'flex', alignItems:'flex-start', gap:20, marginBottom:24 }}>
         <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={72} />
         <div style={{ flex:1 }}>
