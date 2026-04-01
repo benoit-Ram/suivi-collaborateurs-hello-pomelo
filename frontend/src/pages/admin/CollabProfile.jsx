@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../../services/DataContext';
-import { Avatar, Badge, ProgressBar, EmptyState, fmtDate, moisLabel, STATUS_LABELS, STATUS_COLORS } from '../../components/UI';
+import { api } from '../../services/api';
+import { Avatar, Badge, ProgressBar, EmptyState, Modal, fmtDate, moisLabel, currentMois, STATUS_LABELS, STATUS_COLORS } from '../../components/UI';
 
 export default function CollabProfile() {
   const { id } = useParams();
-  const { collabs, getManagerName } = useData();
+  const { collabs, showToast, getManagerName, reload } = useData();
   const [tab, setTab] = useState('objectifs');
+  const [objModal, setObjModal] = useState(false);
+  const [objForm, setObjForm] = useState({});
+  const [editingObj, setEditingObj] = useState(null);
   const navigate = useNavigate();
   const c = collabs.find(x => x.id === id);
   if (!c) return <EmptyState icon="👤" text="Collaborateur non trouvé" />;
@@ -14,106 +18,165 @@ export default function CollabProfile() {
   const objs = c.objectifs || [];
   const objsEnCours = objs.filter(o => o.statut !== 'atteint');
   const objsAtteints = objs.filter(o => o.statut === 'atteint');
-  const points = (c.points_suivi || []).filter(p => p.type === 'mensuel').sort((a,b) => (b.mois||'') > (a.mois||'') ? 1 : -1);
+  const points = (c.points_suivi||[]).filter(p => p.type==='mensuel').sort((a,b) => (b.mois||'')>(a.mois||'')?1:-1);
+  const entretiens = (c.points_suivi||[]).filter(p => ['annuel','semestriel','fin_pe','professionnel'].includes(p.type)).sort((a,b) => (b.date||'')>(a.date||'')?1:-1);
   const manager = c.manager_id ? getManagerName(c.manager_id) : null;
+
+  const openAddObj = () => { setEditingObj(null); setObjForm({ titre:'', description:'', date_debut:'', date_fin:'', statut:'en-cours', progression:0, recurrence:'' }); setObjModal(true); };
+  const openEditObj = (o) => { setEditingObj(o.id); setObjForm({ titre:o.titre, description:o.description||'', date_debut:o.date_debut||'', date_fin:o.date_fin||'', statut:o.statut, progression:o.progression||0, recurrence:o.recurrence||'' }); setObjModal(true); };
+  const saveObj = async () => {
+    if (!objForm.titre) { showToast('Titre obligatoire'); return; }
+    const row = { collaborateur_id:id, titre:objForm.titre, description:objForm.description||null, date_debut:objForm.date_debut||null, date_fin:objForm.date_fin||null, statut:objForm.statut, progression: objForm.statut==='atteint'?100:parseInt(objForm.progression)||0, recurrence:objForm.recurrence||null };
+    try {
+      if (editingObj) await api.updateObjectif(editingObj, row);
+      else await api.createObjectif(row);
+      await reload(); setObjModal(false); showToast('Objectif enregistré !');
+    } catch(e) { showToast('Erreur: '+e.message); }
+  };
+  const deleteObj = async (oid) => {
+    if (!window.confirm('Supprimer ?')) return;
+    try { await api.deleteObjectif(oid); await reload(); showToast('Supprimé'); } catch(e) { showToast('Erreur: '+e.message); }
+  };
+
+  const voirComme = () => window.open(`/collab?impersonate=${id}`, '_blank');
+
+  const tabs = [['objectifs','🎯 Objectifs'],['points','📋 Points'],['entretiens','📝 Entretiens'],['onboarding','📁 Onboarding']];
 
   return (
     <div>
-      <button className="btn btn-ghost btn-sm" onClick={() => navigate('/admin/collaborateurs')} style={{ marginBottom: 16 }}>← Retour</button>
+      <button className="btn btn-ghost btn-sm" onClick={() => navigate('/admin/collaborateurs')} style={{marginBottom:16}}>← Retour</button>
       <div className="card" style={{ display:'flex', alignItems:'flex-start', gap:20, marginBottom:24 }}>
         <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={72} />
         <div style={{ flex:1 }}>
           <div style={{ fontSize:'1.3rem', fontWeight:700, color:'var(--navy)' }}>{c.prenom} {c.nom}</div>
           <div style={{ fontSize:'0.88rem', color:'var(--muted)', marginTop:2 }}>{c.poste}</div>
-          <div style={{ display:'flex', gap:16, flexWrap:'wrap', marginTop:10, fontSize:'0.78rem', color:'var(--muted)', fontWeight:600 }}>
+          <div style={{ display:'flex', gap:14, flexWrap:'wrap', marginTop:10, fontSize:'0.78rem', color:'var(--muted)', fontWeight:600 }}>
             {c.email && <span>✉️ {c.email}</span>}
             {c.date_entree && <span>📅 {fmtDate(c.date_entree)}</span>}
             {c.bureau && <span>🏢 {c.bureau}</span>}
             {c.equipe && <span>👥 {c.equipe}</span>}
             {c.contrat && <span>📄 {c.contrat}</span>}
             {manager && <span>👔 {manager}</span>}
+            {c.date_fin_essai && <span>⏰ Fin PE: {fmtDate(c.date_fin_essai)}</span>}
+            {c.google_drive && <a href={c.google_drive} target="_blank" rel="noreferrer" style={{color:'var(--blue)'}}>📁 Drive</a>}
           </div>
+          {c.notes && <div style={{ marginTop:10, padding:'8px 12px', background:'#FFF7ED', borderRadius:8, borderLeft:'3px solid var(--orange)', fontSize:'0.82rem', color:'#9A3412' }}>Notes: {c.notes}</div>}
+        </div>
+        <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate(`/admin/collaborateurs`).then?.(() => {})}>✏️</button>
+          <button className="btn btn-navy btn-sm" onClick={voirComme}>👁 {c.prenom}</button>
         </div>
       </div>
 
       <div style={{ display:'flex', gap:6, marginBottom:24, background:'var(--offwhite)', padding:6, borderRadius:12 }}>
-        {[['objectifs','🎯 Objectifs'],['points','📋 Points mensuels']].map(([k,l]) => (
-          <button key={k} onClick={() => setTab(k)} style={{ flex:1, padding:'10px 16px', borderRadius:10, border:'none', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', background: tab===k?'white':'transparent', color: tab===k?'var(--navy)':'var(--muted)', boxShadow: tab===k?'0 2px 8px rgba(5,5,109,0.1)':'none' }}>{l}</button>
+        {tabs.map(([k,l]) => (
+          <button key={k} onClick={()=>setTab(k)} style={{ flex:1, padding:'10px 16px', borderRadius:10, border:'none', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor:'pointer', background:tab===k?'white':'transparent', color:tab===k?'var(--navy)':'var(--muted)', boxShadow:tab===k?'0 2px 8px rgba(5,5,109,0.1)':'none' }}>{l}</button>
         ))}
       </div>
 
       {tab === 'objectifs' && <div>
-        {objsEnCours.length > 0 && <>
-          <div className="section-title">En cours ({objsEnCours.length})</div>
-          {objsEnCours.map((o,i) => <ObjCard key={o.id} o={o} i={i} />)}
-        </>}
-        {objsAtteints.length > 0 && <>
-          <div className="section-title" style={{marginTop:24}}>✅ Atteints ({objsAtteints.length})</div>
-          {objsAtteints.map((o,i) => <ObjCard key={o.id} o={o} i={i} />)}
-        </>}
-        {objs.length === 0 && <EmptyState icon="🎯" text="Aucun objectif" />}
+        <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:16 }}><button className="btn btn-primary btn-sm" onClick={openAddObj}>+ Objectif</button></div>
+        {objsEnCours.length > 0 && <><div className="section-title">En cours ({objsEnCours.length})</div>{objsEnCours.map((o,i)=><ObjCard key={o.id} o={o} i={i} onEdit={openEditObj} onDelete={deleteObj} />)}</>}
+        {objsAtteints.length > 0 && <><div className="section-title" style={{marginTop:24}}>✅ Atteints ({objsAtteints.length})</div>{objsAtteints.map((o,i)=><ObjCard key={o.id} o={o} i={i} onEdit={openEditObj} onDelete={deleteObj} />)}</>}
+        {objs.length===0 && <EmptyState icon="🎯" text="Aucun objectif" />}
+        <Modal open={objModal} onClose={()=>setObjModal(false)} title={editingObj?'Modifier':'Nouvel objectif'}>
+          <div className="form-grid">
+            <div className="form-field full"><label>Titre *</label><input value={objForm.titre||''} onChange={e=>setObjForm({...objForm,titre:e.target.value})} /></div>
+            <div className="form-field full"><label>Description</label><textarea value={objForm.description||''} onChange={e=>setObjForm({...objForm,description:e.target.value})} /></div>
+            <div className="form-field"><label>Début</label><input type="date" value={objForm.date_debut||''} onChange={e=>setObjForm({...objForm,date_debut:e.target.value})} /></div>
+            <div className="form-field"><label>Fin</label><input type="date" value={objForm.date_fin||''} onChange={e=>setObjForm({...objForm,date_fin:e.target.value})} /></div>
+            <div className="form-field"><label>Statut</label><select value={objForm.statut||'en-cours'} onChange={e=>setObjForm({...objForm,statut:e.target.value})}>{Object.entries(STATUS_LABELS).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></div>
+            <div className="form-field"><label>Progression ({objForm.progression||0}%)</label><input type="range" min="0" max="100" value={objForm.progression||0} onChange={e=>setObjForm({...objForm,progression:e.target.value})} /></div>
+            <div className="form-field full"><label>Récurrence</label><select value={objForm.recurrence||''} onChange={e=>setObjForm({...objForm,recurrence:e.target.value})}><option value="">Aucune</option><option value="hebdo">Hebdomadaire</option><option value="mensuel">Mensuel</option></select></div>
+          </div>
+          <div style={{ display:'flex', gap:10, justifyContent:'flex-end', marginTop:8 }}>
+            <button className="btn btn-ghost" onClick={()=>setObjModal(false)}>Annuler</button>
+            <button className="btn btn-primary" onClick={saveObj}>Enregistrer</button>
+          </div>
+        </Modal>
       </div>}
 
-      {tab === 'points' && <div>
-        {points.length === 0 ? <EmptyState icon="📋" text="Aucun point mensuel" /> : points.map(p => <PointCard key={p.id} p={p} />)}
+      {tab === 'points' && <div>{points.length===0?<EmptyState icon="📋" text="Aucun point" />:points.map(p=><PointCard key={p.id} p={p} />)}</div>}
+
+      {tab === 'entretiens' && <div>
+        {entretiens.length===0?<EmptyState icon="📝" text="Aucun entretien" />:entretiens.map(e=>(
+          <div key={e.id} className="card" style={{marginBottom:10,padding:16,borderLeft:'4px solid var(--pink)'}}>
+            <div style={{fontWeight:700,color:'var(--navy)',marginBottom:8}}>📝 {e.type} — {fmtDate(e.date)}</div>
+            {Object.entries(e.manager_data||{}).map(([k,v])=>(
+              <div key={k} style={{marginBottom:6}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)'}}>{k}</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:v?'var(--navy)':'var(--muted)'}}>{v||'—'}</div></div>
+            ))}
+          </div>
+        ))}
+      </div>}
+
+      {tab === 'onboarding' && <div className="card">
+        <div className="section-title" style={{marginTop:0}}>Informations onboarding</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+          <div><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)'}}>Notes</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',marginTop:4}}>{c.onboarding?.notes||'—'}</div></div>
+          <div><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)'}}>Matériel</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',marginTop:4}}>{c.onboarding?.materiel||'—'}</div></div>
+          <div style={{gridColumn:'1/-1'}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)'}}>Accès créés</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',marginTop:4}}>{c.onboarding?.acces||'—'}</div></div>
+        </div>
       </div>}
     </div>
   );
 }
 
-function ObjCard({ o, i }) {
-  const pct = o.statut === 'atteint' ? 100 : (o.progression || 0);
-  const colors = { 'en-cours': 'linear-gradient(90deg,var(--pink),var(--blue))', 'atteint': 'var(--green)', 'non-atteint': 'var(--orange)', 'en-attente': 'var(--lavender)' };
+function ObjCard({ o, i, onEdit, onDelete }) {
+  const pct = o.statut==='atteint'?100:(o.progression||0);
+  const colors = { 'en-cours':'linear-gradient(90deg,var(--pink),var(--blue))', 'atteint':'var(--green)', 'non-atteint':'var(--orange)', 'en-attente':'var(--lavender)' };
+  const [showHist, setShowHist] = useState(false);
   return (
-    <div className="card" style={{ marginBottom:10, padding:16, borderLeft:`4px solid ${o.statut==='atteint'?'var(--green)':'var(--pink)'}`, opacity: o.statut==='atteint'?0.85:1 }}>
+    <div className="card" style={{ marginBottom:10, padding:16, borderLeft:`4px solid ${o.statut==='atteint'?'var(--green)':'var(--pink)'}`, opacity:o.statut==='atteint'?0.85:1 }}>
       <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
-        <span style={{ background: o.statut==='atteint'?'var(--green)':'var(--pink)', color:'white', borderRadius:'50%', width:24, height:24, display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:'0.75rem', fontWeight:800 }}>{o.statut==='atteint'?'✓':i+1}</span>
+        <span style={{ background:o.statut==='atteint'?'var(--green)':'var(--pink)', color:'white', borderRadius:'50%', width:24, height:24, display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:'0.75rem', fontWeight:800 }}>{o.statut==='atteint'?'✓':i+1}</span>
         <span style={{ flex:1, fontWeight:700, color:'var(--navy)' }}>{o.titre}</span>
         <Badge type={STATUS_COLORS[o.statut]}>{STATUS_LABELS[o.statut]}</Badge>
         {o.recurrence && <Badge type="blue">🔄 {o.recurrence==='hebdo'?'Hebdo':'Mensuel'}</Badge>}
+        <button className="btn btn-ghost btn-sm" onClick={()=>onEdit(o)}>✏️</button>
+        <button className="btn btn-danger btn-sm" onClick={()=>onDelete(o.id)}>🗑️</button>
       </div>
       {o.description && <div style={{ fontSize:'0.82rem', color:'var(--muted)', marginBottom:8 }}>{o.description}</div>}
-      <div style={{ marginBottom:6 }}>
-        <div style={{ display:'flex', justifyContent:'space-between', fontSize:'0.7rem', fontWeight:700, color:'var(--muted)', marginBottom:4 }}><span>Progression</span><span>{pct}%</span></div>
-        <ProgressBar value={pct} color={colors[o.statut]} />
+      <div style={{marginBottom:6}}><div style={{display:'flex',justifyContent:'space-between',fontSize:'0.7rem',fontWeight:700,color:'var(--muted)',marginBottom:4}}><span>Progression</span><span>{pct}%</span></div><ProgressBar value={pct} color={colors[o.statut]} /></div>
+      <div style={{ display:'flex', justifyContent:'space-between', fontSize:'0.72rem', color:'var(--muted)' }}>
+        <span>📅 Du {fmtDate(o.date_debut)} au {fmtDate(o.date_fin)}</span>
+        {o.historique?.length > 0 && <button onClick={()=>setShowHist(!showHist)} style={{background:'none',border:'none',color:'var(--muted)',fontSize:'0.72rem',fontWeight:700,cursor:'pointer',textDecoration:'underline'}}>📜 Historique ({o.historique.length})</button>}
       </div>
-      <div style={{ fontSize:'0.72rem', color:'var(--muted)' }}>📅 Du {fmtDate(o.date_debut)} au {fmtDate(o.date_fin)}</div>
+      {showHist && o.historique && <div style={{marginTop:10,paddingTop:10,borderTop:'1px dashed var(--lavender)'}}>
+        {[...o.historique].reverse().map((h,hi) => (
+          <div key={hi} style={{display:'flex',gap:10,padding:'6px 8px',background:'var(--offwhite)',borderRadius:6,marginBottom:4,fontSize:'0.78rem'}}>
+            <span style={{color:'var(--muted)',fontWeight:600,minWidth:70}}>{fmtDate(h.date)}</span>
+            <div style={{flex:1}}><strong>{h.auteur}</strong>{h.changes?.map((ch,ci)=><div key={ci} style={{color:'var(--muted)',marginTop:2}}>{ch.champ}: <span style={{textDecoration:'line-through',color:'var(--red)'}}>{ch.avant}</span> → <span style={{color:'var(--green)',fontWeight:600}}>{ch.apres}</span></div>)}</div>
+          </div>
+        ))}
+      </div>}
     </div>
   );
 }
 
 function PointCard({ p }) {
   const [open, setOpen] = useState(false);
-  const md = p.manager_data || {};
-  const cd = p.collab_data || {};
-  const hasManager = Object.keys(md).some(k => k !== 'objectifs' && md[k]);
-  const hasCollab = Object.keys(cd).some(k => k !== 'objectifs' && cd[k]);
-  const status = hasManager && hasCollab ? 'green' : hasManager || hasCollab ? 'orange' : 'pink';
-
+  const md = p.manager_data||{}; const cd = p.collab_data||{};
+  const hasM = Object.keys(md).filter(k=>k!=='objectifs').some(k=>md[k]);
+  const hasC = Object.keys(cd).filter(k=>k!=='objectifs').some(k=>cd[k]);
+  const status = hasM&&hasC?'green':hasM||hasC?'orange':'pink';
   return (
-    <div className="card" style={{ marginBottom:10, padding:0, overflow:'hidden' }}>
-      <div onClick={() => setOpen(!open)} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'14px 18px', cursor:'pointer' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          <span style={{ fontWeight:700, color:'var(--navy)' }}>📅 {moisLabel(p.mois)}</span>
+    <div className="card" style={{marginBottom:10,padding:0,overflow:'hidden'}}>
+      <div onClick={()=>setOpen(!open)} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'14px 18px',cursor:'pointer'}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <span style={{fontWeight:700,color:'var(--navy)'}}>📅 {moisLabel(p.mois)}</span>
           <Badge type={status}>{status==='green'?'✅ Complet':status==='orange'?'🟡 Partiel':'🔴 Vide'}</Badge>
         </div>
-        <span style={{ color:'var(--muted)' }}>{open ? '▲' : '▼'}</span>
+        <span style={{color:'var(--muted)'}}>{open?'▲':'▼'}</span>
       </div>
-      {open && <div style={{ padding:'0 18px 18px', borderTop:'1px solid var(--lavender)' }}>
-        <div style={{ marginTop:14, fontSize:'0.72rem', fontWeight:700, textTransform:'uppercase', color:'var(--skyblue)', marginBottom:8 }}>👔 Manager</div>
-        {Object.entries(md).filter(([k])=>k!=='objectifs').map(([k,v]) => (
-          <div key={k} style={{ marginBottom:8 }}>
-            <div style={{ fontSize:'0.72rem', fontWeight:700, color:'var(--muted)', marginBottom:2 }}>{k}</div>
-            <div style={{ background:'var(--offwhite)', borderRadius:8, padding:'8px 12px', fontSize:'0.85rem', color: v?'var(--navy)':'var(--muted)', fontStyle: v?'normal':'italic' }}>{v||'Non renseigné'}</div>
-          </div>
+      {open && <div style={{padding:'0 18px 18px',borderTop:'1px solid var(--lavender)'}}>
+        <div style={{marginTop:14,fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--skyblue)',marginBottom:8}}>👔 Manager</div>
+        {Object.entries(md).filter(([k])=>k!=='objectifs').map(([k,v])=>(
+          <div key={k} style={{marginBottom:8}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)',marginBottom:2}}>{k}</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:v?'var(--navy)':'var(--muted)',fontStyle:v?'normal':'italic'}}>{v||'Non renseigné'}</div></div>
         ))}
-        {Object.keys(cd).filter(k=>k!=='objectifs').length > 0 && <>
-          <div style={{ marginTop:14, fontSize:'0.72rem', fontWeight:700, textTransform:'uppercase', color:'var(--pink)', marginBottom:8 }}>👤 Collaborateur</div>
-          {Object.entries(cd).filter(([k])=>k!=='objectifs').map(([k,v]) => (
-            <div key={k} style={{ marginBottom:8 }}>
-              <div style={{ fontSize:'0.72rem', fontWeight:700, color:'var(--muted)', marginBottom:2 }}>{k}</div>
-              <div style={{ background:'var(--offwhite)', borderRadius:8, padding:'8px 12px', fontSize:'0.85rem', color: v?'var(--navy)':'var(--muted)', fontStyle: v?'normal':'italic' }}>{v||'Non renseigné'}</div>
-            </div>
+        {Object.keys(cd).filter(k=>k!=='objectifs').length>0 && <>
+          <div style={{marginTop:14,fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--pink)',marginBottom:8}}>👤 Collaborateur</div>
+          {Object.entries(cd).filter(([k])=>k!=='objectifs').map(([k,v])=>(
+            <div key={k} style={{marginBottom:8}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)',marginBottom:2}}>{k}</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:v?'var(--navy)':'var(--muted)',fontStyle:v?'normal':'italic'}}>{v||'Non renseigné'}</div></div>
           ))}
         </>}
       </div>}
