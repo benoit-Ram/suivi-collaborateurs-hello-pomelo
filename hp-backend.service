@@ -6,10 +6,11 @@ After=network.target
 Type=simple
 User=ubuntu
 WorkingDirectory=/home/ubuntu/suivi-collaborateurs-hello-pomelo/backend
-ExecStart=/usr/bin/npx ts-node src/main.ts
+ExecStart=/home/ubuntu/.local/share/fnm/node-versions/v20.20.2/installation/bin/npx ts-node src/main.ts
 Restart=on-failure
 RestartSec=5
 Environment=PORT=4000
+Environment=PATH=/home/ubuntu/.local/share/fnm/node-versions/v20.20.2/installation/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 EnvironmentFile=/home/ubuntu/suivi-collaborateurs-hello-pomelo/backend/.env
 
 [Install]

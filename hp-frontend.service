@@ -6,9 +6,10 @@ After=network.target
 Type=simple
 User=ubuntu
 WorkingDirectory=/home/ubuntu/suivi-collaborateurs-hello-pomelo/frontend
-ExecStart=/usr/bin/npx vite --host 0.0.0.0 --port 3000
+ExecStart=/home/ubuntu/.local/share/fnm/node-versions/v20.20.2/installation/bin/npx vite --host 0.0.0.0 --port 3000
 Restart=on-failure
 RestartSec=5
+Environment=PATH=/home/ubuntu/.local/share/fnm/node-versions/v20.20.2/installation/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 
 [Install]
 WantedBy=multi-user.target
