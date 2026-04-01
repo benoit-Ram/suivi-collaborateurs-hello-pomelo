@@ -28,7 +28,7 @@ export class PointsSuiviService {
   }
 
   async update(id: string, dto: any) {
-    const { data, error } = await this.supabase.db.from('points_suivi').update(dto).eq('id', id).select().single();
+    const { data, error } = await this.supabase.db.from('points_suivi').update(dto).eq('id', id).select();
     if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
     return data;
   }

@@ -102,7 +102,7 @@ export default function CollabProfile() {
         </Modal>
       </div>}
 
-      {tab === 'points' && <div>{points.length===0?<EmptyState icon="📋" text="Aucun point" />:points.map(p=><PointCard key={p.id} p={p} />)}</div>}
+      {tab === 'points' && <div>{points.length===0?<EmptyState icon="📋" text="Aucun point" />:points.map(p=><PointCard key={p.id} p={p} onSave={async(pid,md)=>{try{await api.updatePointSuivi(pid,{manager_data:md});await reload();showToast('Point enregistré !')}catch(e){showToast('Erreur: '+e.message)}}} />)}</div>}
 
       {tab === 'entretiens' && <div>
         {entretiens.length===0?<EmptyState icon="📝" text="Aucun entretien" />:entretiens.map(e=>(
@@ -159,12 +159,18 @@ function ObjCard({ o, i, onEdit, onDelete }) {
   );
 }
 
-function PointCard({ p }) {
+function PointCard({ p, onSave }) {
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [formData, setFormData] = useState({});
   const md = p.manager_data||{}; const cd = p.collab_data||{};
   const hasM = Object.keys(md).filter(k=>k!=='objectifs').some(k=>md[k]);
   const hasC = Object.keys(cd).filter(k=>k!=='objectifs').some(k=>cd[k]);
   const status = hasM&&hasC?'green':hasM||hasC?'orange':'pink';
+
+  const startEdit = () => { setFormData({...md}); setEditing(true); };
+  const save = () => { onSave(p.id, formData); setEditing(false); };
+
   return (
     <div className="card" style={{marginBottom:10,padding:0,overflow:'hidden'}}>
       <div onClick={()=>setOpen(!open)} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'14px 18px',cursor:'pointer'}}>
@@ -175,9 +181,21 @@ function PointCard({ p }) {
         <span style={{color:'var(--muted)'}}>{open?'▲':'▼'}</span>
       </div>
       {open && <div style={{padding:'0 18px 18px',borderTop:'1px solid var(--lavender)'}}>
-        <div style={{marginTop:14,fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--skyblue)',marginBottom:8}}>👔 Manager</div>
-        {Object.entries(md).filter(([k])=>k!=='objectifs').map(([k,v])=>(
-          <div key={k} style={{marginBottom:8}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)',marginBottom:2}}>{k}</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:v?'var(--navy)':'var(--muted)',fontStyle:v?'normal':'italic'}}>{v||'Non renseigné'}</div></div>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:14}}>
+          <div style={{fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--skyblue)'}}>👔 Manager</div>
+          {!editing && <button className="btn btn-ghost btn-sm" onClick={startEdit}>✏️ Modifier</button>}
+        </div>
+        {editing ? <>
+          {Object.keys(formData).filter(k=>k!=='objectifs').map(k=>(
+            <div key={k} style={{marginBottom:8,marginTop:8}}><label style={{fontSize:'0.72rem',fontWeight:700,color:'var(--pink)',display:'block',marginBottom:4}}>{k}</label>
+            <textarea value={formData[k]||''} onChange={e=>setFormData({...formData,[k]:e.target.value})} style={{width:'100%',border:'1.5px solid var(--lavender)',borderRadius:8,padding:'8px 12px',fontFamily:'inherit',fontSize:'0.85rem',minHeight:60,resize:'vertical',outline:'none'}} /></div>
+          ))}
+          <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:8}}>
+            <button className="btn btn-ghost btn-sm" onClick={()=>setEditing(false)}>Annuler</button>
+            <button className="btn btn-primary btn-sm" onClick={save}>💾 Enregistrer</button>
+          </div>
+        </> : Object.entries(md).filter(([k])=>k!=='objectifs').map(([k,v])=>(
+          <div key={k} style={{marginBottom:8,marginTop:8}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)',marginBottom:2}}>{k}</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:v?'var(--navy)':'var(--muted)',fontStyle:v?'normal':'italic'}}>{v||'Non renseigné'}</div></div>
         ))}
         {Object.keys(cd).filter(k=>k!=='objectifs').length>0 && <>
           <div style={{marginTop:14,fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--pink)',marginBottom:8}}>👤 Collaborateur</div>

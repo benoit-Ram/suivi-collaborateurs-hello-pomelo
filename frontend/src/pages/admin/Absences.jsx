@@ -75,6 +75,38 @@ export default function Absences() {
           })}</tbody>
         </table>
       </div>
+
+      {/* Solde congés */}
+      <div className="section-title" style={{marginTop:28}}>Soldes de congés</div>
+      <div className="card" style={{overflowX:'auto'}}>
+        <table>
+          <thead><tr><th>Collaborateur</th><th>Solde initial</th><th>Acquisition/mois</th><th>Pris</th><th>Solde</th><th></th></tr></thead>
+          <tbody>{collabs.map(c => {
+            const pris = absences.filter(a => a.collaborateur_id===c.id && a.statut==='approuve' && a.type==='conge').length;
+            const soldeInit = c.solde_conges||0;
+            const acq = c.acquisition_conges||2.08;
+            let moisAcq = 0;
+            if (c.date_entree) { const e=new Date(c.date_entree); const n=new Date(); moisAcq=Math.max(0,(n.getFullYear()-e.getFullYear())*12+(n.getMonth()-e.getMonth())); }
+            const acquis = Math.round(moisAcq*acq*100)/100;
+            const solde = Math.round((soldeInit+acquis-pris)*100)/100;
+            const color = solde<=0?'var(--red)':solde<=5?'var(--orange)':'var(--green)';
+            return <tr key={c.id}>
+              <td style={{fontWeight:700}}>{c.prenom} {c.nom}</td>
+              <td>{soldeInit}j</td>
+              <td>{acq}j/mois</td>
+              <td>{pris}j</td>
+              <td style={{fontWeight:700,color}}>{solde}j</td>
+              <td><button className="btn btn-ghost btn-sm" onClick={async()=>{
+                const newSolde = window.prompt('Solde initial :',soldeInit);
+                if(newSolde===null) return;
+                const newAcq = window.prompt('Acquisition/mois :',acq);
+                if(newAcq===null) return;
+                try { await api.updateCollaborateur(c.id,{solde_conges:parseFloat(newSolde),acquisition_conges:parseFloat(newAcq)}); await reload(); showToast('Mis à jour'); } catch(e2) { showToast('Erreur: '+e2.message); }
+              }}>✏️</button></td>
+            </tr>;
+          })}</tbody>
+        </table>
+      </div>
     </div>
   );
 }
