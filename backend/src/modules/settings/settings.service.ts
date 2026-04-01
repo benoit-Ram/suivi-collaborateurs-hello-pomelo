@@ -15,6 +15,12 @@ export class SettingsService {
     return data;
   }
 
+  async upsertByKey(key: string, value: any) {
+    const { error } = await this.supabase.db.from('settings').upsert({ key, value }, { onConflict: 'key' });
+    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+    return { success: true };
+  }
+
   async findOne(id: string) {
     const { data, error } = await this.supabase.db.from('settings').select('*').eq('id', id).single();
     if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
@@ -28,9 +34,9 @@ export class SettingsService {
   }
 
   async update(id: string, dto: any) {
-    const { data, error } = await this.supabase.db.from('settings').update(dto).eq('id', id).select().single();
+    const { data, error } = await this.supabase.db.from('settings').update(dto).eq('id', id).select();
     if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
-    return data;
+    return data?.[0] || null;
   }
 
   async delete(id: string) {

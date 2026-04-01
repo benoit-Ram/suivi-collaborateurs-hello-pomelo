@@ -14,6 +14,9 @@ export class SettingsController {
   @Post()
   create(@Body() dto: any) { return this.service.create(dto); }
 
+  @Post('upsert')
+  upsert(@Body() dto: { key: string; value: any }) { return this.service.upsertByKey(dto.key, dto.value); }
+
   @Put(':id')
   update(@Param('id') id: string, @Body() dto: any) { return this.service.update(id, dto); }
 

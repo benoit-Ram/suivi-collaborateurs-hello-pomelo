@@ -41,4 +41,5 @@ export const api = {
   // Settings
   getSettings: () => request('/settings'),
   updateSetting: (id, data) => request(`/settings/${id}`, { method: 'PUT', body: data }),
+  upsertSetting: (key, value) => request('/settings/upsert', { method: 'POST', body: { key, value } }),
 };

@@ -87,9 +87,42 @@ export default function Collaborateurs() {
       </div>
       <Modal open={modalOpen} onClose={()=>setModalOpen(false)} title={editing ? 'Modifier' : 'Ajouter'}>
         <div className="form-grid">
-          {[['prenom','Prénom *'],['nom','Nom *'],['poste','Poste *'],['email','Email'],['telephone','Tél'],['date_entree','Date entrée','date'],['bureau','Bureau'],['equipe','Équipe'],['contrat','Contrat'],['type_poste','Type poste']].map(([k,l,t])=>(
+          {[['prenom','Prénom *'],['nom','Nom *'],['poste','Poste *'],['email','Email'],['telephone','Tél'],['date_entree','Date entrée','date']].map(([k,l,t])=>(
             <div className="form-field" key={k}><label>{l}</label><input type={t||'text'} value={form[k]||''} onChange={e=>setForm({...form,[k]:e.target.value})} /></div>
           ))}
+          <div className="form-field"><label>Bureau</label>
+            <select value={form.bureau||''} onChange={e=>setForm({...form,bureau:e.target.value})}>
+              <option value="">— Choisir —</option>
+              {(settings.bureaux||[]).map(v=><option key={v} value={v}>{v}</option>)}
+            </select>
+          </div>
+          <div className="form-field"><label>Contrat</label>
+            <select value={form.contrat||''} onChange={e=>setForm({...form,contrat:e.target.value})}>
+              <option value="">— Choisir —</option>
+              {(settings.contrats||[]).map(v=><option key={v} value={v}>{v}</option>)}
+            </select>
+          </div>
+          <div className="form-field"><label>Type de poste</label>
+            <select value={form.type_poste||''} onChange={e=>setForm({...form,type_poste:e.target.value})}>
+              <option value="">— Choisir —</option>
+              {(settings.typePostes||[]).map(v=><option key={v} value={v}>{v}</option>)}
+            </select>
+          </div>
+          <div className="form-field full"><label>Équipe(s)</label>
+            <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+              {(settings.equipes||[]).map(eq=>{
+                const selected = (form.equipe||'').split(',').map(s=>s.trim()).filter(Boolean);
+                const checked = selected.includes(eq);
+                return <label key={eq} style={{display:'flex',alignItems:'center',gap:6,padding:'6px 10px',borderRadius:8,border:'1.5px solid var(--lavender)',cursor:'pointer',fontSize:'0.82rem',background:checked?'#FFF0F6':'white'}}>
+                  <input type="checkbox" checked={checked} onChange={()=>{
+                    const next = checked ? selected.filter(s=>s!==eq) : [...selected,eq];
+                    setForm({...form, equipe: next.join(',')});
+                  }} style={{accentColor:'var(--pink)',width:16,height:16}} />
+                  {eq}
+                </label>;
+              })}
+            </div>
+          </div>
           <div className="form-field full"><label>Manager</label>
             <select value={form.manager_id||''} onChange={e=>setForm({...form,manager_id:e.target.value})}>
               <option value="">— Aucun —</option>
