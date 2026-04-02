@@ -72,7 +72,7 @@ export default function CollabAccueil() {
       <div>
         <h2 style={{fontSize:'1.3rem',fontWeight:700,color:'var(--navy)',marginBottom:8}}>Choisir un compte</h2>
         <p style={{color:'var(--muted)',marginBottom:20}}>Sélectionnez un collaborateur.</p>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:12}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:12}}>
           {collabs.map(c => (
             <div key={c.id} className="card" onClick={() => { setSelectedId(c.id); loadAbsences(c.id); loadTeamPendingAbs(c.id); }} style={{cursor:'pointer',padding:16,transition:'all 0.15s',border:'2px solid transparent'}}
               onMouseOver={e=>{e.currentTarget.style.borderColor='var(--pink)';e.currentTarget.style.background='var(--hover-surface, var(--offwhite))';}} onMouseOut={e=>{e.currentTarget.style.borderColor='transparent';e.currentTarget.style.background='';}}>
@@ -138,7 +138,7 @@ export default function CollabAccueil() {
     <div>
       <button className="btn btn-ghost btn-sm" onClick={()=>{setSelectedId('');setTab('accueil');}} style={{marginBottom:16}}>← Changer de compte</button>
 
-      <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:24,background:'var(--bg-highlight)',borderRadius:16,padding:24,border:'1.5px solid var(--border-highlight)'}}>
+      <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:24,background:'var(--bg-highlight)',borderRadius:16,padding:'clamp(14px, 3vw, 24px)',border:'1.5px solid var(--border-highlight)',flexWrap:'wrap'}}>
         <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={64} />
         <div>
           <div style={{fontSize:'1.2rem',fontWeight:700,color:'var(--navy)'}}>{c.prenom} {c.nom}</div>
@@ -382,7 +382,7 @@ function CongesTab({ c, absences, solde, onReload }) {
 
   return (
     <div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14,marginBottom:20}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(100px,1fr))',gap:10,marginBottom:20}}>
         <div className="card" style={{textAlign:'center',padding:16}}><div style={{fontSize:'1.5rem',fontWeight:700,color:'var(--green)'}}>{solde}j</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Solde</div></div>
         <div className="card" style={{textAlign:'center',padding:16}}><div style={{fontSize:'1.5rem',fontWeight:700,color:'var(--pink)'}}>{absences.filter(a=>a.statut==='approuve').length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Approuvés</div></div>
         <div className="card" style={{textAlign:'center',padding:16}}><div style={{fontSize:'1.5rem',fontWeight:700,color:'var(--orange)'}}>{absences.filter(a=>a.statut==='en_attente').length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>En attente</div></div>
@@ -843,7 +843,7 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
 
       {/* Congés */}
       {memberTab==='conges' && <div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14,marginBottom:16}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(100px,1fr))',gap:10,marginBottom:16}}>
           <div className="card" style={{textAlign:'center',padding:14}}><div style={{fontSize:'1.5rem',fontWeight:700,color:'var(--green)'}}>{m.solde_conges||0}j</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Solde</div></div>
           <div className="card" style={{textAlign:'center',padding:14}}><div style={{fontSize:'1.5rem',fontWeight:700,color:'var(--pink)'}}>{memberAbs.filter(a=>a.statut==='approuve').length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Approuvés</div></div>
           <div className="card" style={{textAlign:'center',padding:14}}><div style={{fontSize:'1.5rem',fontWeight:700,color:'var(--orange)'}}>{memberAbs.filter(a=>a.statut==='en_attente').length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>En attente</div></div>

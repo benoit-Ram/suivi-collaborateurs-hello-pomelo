@@ -86,7 +86,7 @@ export default function Settings() {
     <div>
       <PageHeader title="Paramètres" subtitle="Listes de référence et configuration" />
 
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:24 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))', gap:20, marginBottom:24 }}>
         {SETTINGS_KEYS.map(({ key, label, placeholder }) => (
           <div key={key} className="card">
             <div className="section-title" style={{ marginTop:0 }}>{label}</div>
@@ -112,7 +112,7 @@ export default function Settings() {
       {/* Questions */}
       <div className="section-title" title="Les modifications s'appliqueront aux entretiens du mois prochain">Questions de l'entretien RH mensuel</div>
       <div style={{background:'var(--bg-warning)',borderRadius:10,padding:'10px 14px',marginBottom:16,fontSize:'0.82rem',color:'var(--text-warning)',fontWeight:600,borderLeft:'4px solid var(--border-warning)'}}>⚠️ Les modifications s'appliqueront aux entretiens du <strong>mois prochain</strong> uniquement. Les entretiens déjà créés ne sont pas impactés.</div>
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:24 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))', gap:20, marginBottom:24 }}>
         {['questions_manager','questions_collab'].map(key => <QuestionEditor key={key} settingsKey={key} label={key==='questions_manager'?'👔 Manager':'👤 Collaborateur'} questions={settings[key]||[]} onSave={async(list)=>{await api.upsertSetting(key,list);await reload();showToast('Questions mises à jour !');}} />)}
       </div>
 

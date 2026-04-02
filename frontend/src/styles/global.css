@@ -126,8 +126,28 @@ tr:hover td { background: var(--hover-row, #F0F0FF); }
 [data-theme="dark"] .btn:focus-visible { box-shadow: 0 0 0 4px rgba(255,50,133,0.15); }
 
 @media (max-width: 768px) {
+  :root { --sidebar-w: 0px; }
   .form-grid { grid-template-columns: 1fr; }
   .stat-card { padding: 14px; }
+  .card { padding: 16px; }
+  .btn { padding: 10px 16px; font-size: 0.8rem; }
+  .btn-sm { padding: 8px 12px; }
+  .modal-overlay-react { padding: 10px; }
+  .modal-content-react { padding: 20px; border-radius: 14px; max-width: 100% !important; }
+  .form-field input, .form-field select, .form-field textarea { font-size: 16px; padding: 12px 14px; }
+  th { padding: 8px 10px; font-size: 0.65rem; }
+  td { padding: 10px; font-size: 0.8rem; }
+  .section-title { font-size: 0.7rem; margin: 18px 0 10px; }
+  .divider { margin: 12px 0 20px; }
+  /* Sidebar mobile */
+  .sidebar-desktop { display: none; }
+  .sidebar-mobile-toggle { display: flex !important; }
+  .sidebar-overlay { display: block !important; }
+}
+
+@media (min-width: 769px) {
+  .sidebar-mobile-toggle { display: none !important; }
+  .sidebar-overlay { display: none !important; }
 }
 
 /* Animations */

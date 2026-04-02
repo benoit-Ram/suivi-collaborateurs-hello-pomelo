@@ -116,7 +116,7 @@ export default function Organigramme() {
       <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:16 }}>
         <button className="btn btn-ghost" onClick={exportPDF}>📄 Exporter en PDF</button>
       </div>
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:24 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(300px,1fr))', gap:20, marginBottom:24 }}>
         <div className="card">
           <div className="section-title" style={{marginTop:0}}>Organigramme</div>
           {roots.length ? roots.map(r => <TreeNode key={r.id} c={r} childrenMap={childrenMap} depth={0} navigate={navigate} />) : <p style={{color:'var(--muted)'}}>Aucun collaborateur</p>}

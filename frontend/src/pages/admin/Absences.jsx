@@ -39,7 +39,7 @@ export default function Absences() {
     <div>
       <PageHeader title="Congés & Absences" subtitle="Gestion des demandes et suivi des soldes" />
 
-      <div style={{display:'flex',gap:6,marginBottom:24,background:'var(--offwhite)',padding:6,borderRadius:12,maxWidth:500}}>
+      <div style={{display:'flex',gap:6,marginBottom:24,background:'var(--offwhite)',padding:6,borderRadius:12,maxWidth:560,flexWrap:'wrap'}}>
         {[['pending',`⏳ En attente (${pending.length})`],['history','📋 Historique'],['calendar','📅 Calendrier'],['soldes','💰 Soldes']].map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)} style={{flex:1,padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',background:tab===k?'var(--pink)':'transparent',color:tab===k?'white':'var(--muted)',border:tab===k?'none':'1.5px solid var(--lavender)',boxShadow:tab===k?'0 4px 14px rgba(255,50,133,0.3)':'none'}}>{l}</button>
         ))}

@@ -83,7 +83,7 @@ export default function CollabProfile() {
         <span style={{opacity:0.4}}>›</span>
         <span style={{color:'var(--navy)'}}>{c.prenom} {c.nom}</span>
       </div>
-      <div className="card" style={{ display:'flex', alignItems:'flex-start', gap:20, marginBottom:24 }}>
+      <div className="card" style={{ display:'flex', alignItems:'flex-start', gap:16, marginBottom:24, flexWrap:'wrap' }}>
         <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={72} />
         <div style={{ flex:1 }}>
           <div style={{ fontSize:'1.3rem', fontWeight:700, color:'var(--navy)' }}>{c.prenom} {c.nom}</div>

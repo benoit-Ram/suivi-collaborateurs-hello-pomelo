@@ -99,7 +99,7 @@ export default function Dashboard() {
     <div>
       <PageHeader title="Tableau de bord" subtitle="Vue d'ensemble de vos collaborateurs" />
 
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:16, marginBottom:24 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))', gap:16, marginBottom:24 }}>
         <StatCard value={total} label="Collaborateurs" color="pink" />
         <StatCard value={thisMonth} label="Arrivées ce mois" color="blue" />
         <StatCard value={`${pointsComplete}/${total}`} label="Points complets" color="skyblue" />
@@ -121,7 +121,7 @@ export default function Dashboard() {
       )}
 
       {/* Analytics */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:24 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))', gap:16, marginBottom:24 }}>
         <div className="card">
           <div className="section-title" style={{marginTop:0}}>Objectifs par statut</div>
           {Object.entries(objByStatus).map(([k,v]) => (
@@ -161,7 +161,7 @@ export default function Dashboard() {
 
       {/* Collaborateurs */}
       <div className="section-title">Collaborateurs</div>
-      <div style={{ display:'flex', gap:12, marginBottom:16, flexWrap:'wrap' }}>
+      <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
         <input type="text" placeholder="🔍 Rechercher..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex:1, minWidth:200, border:'1.5px solid var(--lavender)', borderRadius:10, padding:'10px 16px', fontFamily:'inherit', fontSize:'0.9rem', outline:'none', background:'var(--offwhite)', color:'var(--navy)' }} />
         <select value={filterEquipe} onChange={e => setFilterEquipe(e.target.value)} style={{ border:'1.5px solid var(--lavender)', borderRadius:10, padding:'8px 12px', fontFamily:'inherit', fontSize:'0.82rem', background:'var(--offwhite)', color:'var(--navy)' }}>
           <option value="">Toutes équipes</option>
@@ -170,7 +170,7 @@ export default function Dashboard() {
         <span style={{ fontSize:'0.78rem', color:'var(--muted)', fontWeight:600, alignSelf:'center' }}>{filtered.length} résultat{filtered.length>1?'s':''}</span>
       </div>
       {filtered.length === 0 ? <EmptyState icon="👤" text="Aucun collaborateur trouvé" /> : (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))', gap:16 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))', gap:12 }}>
           {filtered.map(c => (
             <div key={c.id} className="card" onClick={() => navigate(`/admin/collaborateurs/${c.id}`)} style={{ cursor:'pointer', padding:20, transition:'all 0.2s', border:'2px solid transparent' }}
               onMouseOver={e => { e.currentTarget.style.transform='translateY(-3px)'; e.currentTarget.style.borderColor='var(--lavender)'; }}
