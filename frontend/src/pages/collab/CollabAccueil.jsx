@@ -74,7 +74,7 @@ export default function CollabAccueil() {
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:12}}>
           {collabs.map(c => (
             <div key={c.id} className="card" onClick={() => { setSelectedId(c.id); loadAbsences(c.id); }} style={{cursor:'pointer',padding:16,transition:'all 0.15s',border:'2px solid transparent'}}
-              onMouseOver={e=>e.currentTarget.style.borderColor='var(--pink)'} onMouseOut={e=>e.currentTarget.style.borderColor='transparent'}>
+              onMouseOver={e=>{e.currentTarget.style.borderColor='var(--pink)';e.currentTarget.style.background='var(--hover-surface, var(--offwhite))';}} onMouseOut={e=>{e.currentTarget.style.borderColor='transparent';e.currentTarget.style.background='';}}>
               <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={36} />
               <div style={{fontWeight:700,fontSize:'0.88rem',color:'var(--navy)',marginTop:8}}>{c.prenom} {c.nom}</div>
               <div style={{fontSize:'0.72rem',color:'var(--muted)'}}>{c.poste}</div>
@@ -402,7 +402,7 @@ function CongesTab({ c, absences, solde, onReload }) {
             <div style={{fontWeight:700,fontSize:'0.9rem',color:'var(--navy)'}}>{ABS_TYPES[a.type]||a.type}</div>
             <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)} · {countWorkDays(a.date_debut,a.date_fin)}j ouvré{countWorkDays(a.date_debut,a.date_fin)>1?'s':''}</div>
             {a.commentaire && <div style={{fontSize:'0.78rem',color:'var(--muted)',fontStyle:'italic',marginTop:2}}>{a.commentaire}</div>}
-            {a.statut==='refuse' && a.motif_refus && <div style={{fontSize:'0.78rem',color:'#881337',marginTop:4,background:'white',padding:'6px 10px',borderRadius:6,borderLeft:'3px solid #F43F5E'}}>❌ Motif du refus : {a.motif_refus}</div>}
+            {a.statut==='refuse' && a.motif_refus && <div style={{fontSize:'0.78rem',color:'#881337',marginTop:4,background:'var(--white)',padding:'6px 10px',borderRadius:6,borderLeft:'3px solid #F43F5E'}}>❌ Motif du refus : {a.motif_refus}</div>}
           </div>
           <Badge type={a.statut==='approuve'?'green':'pink'}>{a.statut==='approuve'?'✅ Approuvé':'❌ Refusé'}</Badge>
         </div>

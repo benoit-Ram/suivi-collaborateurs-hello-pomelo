@@ -12,6 +12,9 @@
   --shadow-md: 0 4px 16px rgba(5,5,109,0.08);
   --shadow-lg: 0 8px 32px rgba(5,5,109,0.12);
   --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px;
+  --hover-row: #F0F0FF;
+  --hover-surface: rgba(5,5,109,0.04);
+  --hover-ghost: rgba(255,50,133,0.06);
 }
 
 body { font-family: 'Quicksand', sans-serif; background: var(--offwhite); color: var(--text); min-height: 100vh; }
@@ -60,30 +63,52 @@ body { font-family: 'Quicksand', sans-serif; background: var(--offwhite); color:
   font-family: inherit; font-size: 0.9rem; color: var(--navy); background: var(--offwhite);
   outline: none; transition: border-color 0.2s; width: 100%;
 }
-.form-field input:focus, .form-field select:focus, .form-field textarea:focus { border-color: var(--pink); background: white; }
+.form-field input:focus, .form-field select:focus, .form-field textarea:focus { border-color: var(--pink); background: var(--white); }
 .form-field textarea { resize: vertical; min-height: 80px; }
 
 /* TABLE */
 table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.85rem; }
 th { text-align: left; padding: 10px 14px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--muted); border-bottom: 2px solid var(--lavender); }
 td { padding: 12px 14px; border-bottom: 1px solid var(--lavender); color: var(--navy); }
-tr:hover td { background: #F0F0FF; }
+tr:hover td { background: var(--hover-row, #F0F0FF); }
 
 /* DARK MODE */
 [data-theme="dark"] {
   --offwhite: #1a1a2e; --text: #e0e0f0; --navy: #e0e0f0; --muted: #9999bb;
   --lavender: #2a2a4a; --white: #1e1e38;
+  --hover-row: rgba(255,255,255,0.04);
+  --hover-ghost: rgba(255,50,133,0.12);
+  --hover-surface: rgba(255,255,255,0.06);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.35);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.4);
 }
 [data-theme="dark"] body { background: #0f0f23; color: #e0e0f0; }
 [data-theme="dark"] .card, [data-theme="dark"] .stat-card { background: #1e1e38; color: #e0e0f0; }
 [data-theme="dark"] .badge-green { background: #1d3a1a; color: #86EFAC; }
 [data-theme="dark"] .badge-orange { background: #3a2a1a; color: #FCD34D; }
 [data-theme="dark"] .badge-blue { background: #1a2a3a; color: #93C5FD; }
-[data-theme="dark"] .btn-ghost { border-color: #4a4a6a; color: #9999bb; }
+[data-theme="dark"] .badge-pink { background: #3a1a2a; color: #F9A8D4; }
+[data-theme="dark"] .badge-gray { background: #2a2a3a; color: #9999bb; }
+[data-theme="dark"] .btn-ghost { border-color: #3a3a5a; color: #b0b0cc; }
+[data-theme="dark"] .btn-ghost:hover { border-color: rgba(255,50,133,0.5); color: #F9A8D4; background: var(--hover-ghost); }
+[data-theme="dark"] .btn-primary:hover { box-shadow: 0 6px 20px rgba(255,50,133,0.25); }
+[data-theme="dark"] .btn-danger:hover { box-shadow: 0 4px 14px rgba(239,68,68,0.25); }
 [data-theme="dark"] .form-field input, [data-theme="dark"] .form-field select, [data-theme="dark"] .form-field textarea { background: #16162a; color: #e0e0f0; border-color: #2a2a4a; }
+[data-theme="dark"] .form-field input:focus, [data-theme="dark"] .form-field select:focus, [data-theme="dark"] .form-field textarea:focus { border-color: rgba(255,50,133,0.6); background: #1a1a34; }
 [data-theme="dark"] table { color: #e0e0f0; }
 [data-theme="dark"] th { background: #1e1e38; color: #9999bb; }
 [data-theme="dark"] td { border-bottom-color: #2a2a4a; }
+[data-theme="dark"] tbody tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+[data-theme="dark"] thead th { background: #1e1e38; }
+[data-theme="dark"] .card:hover { box-shadow: 0 6px 24px rgba(0,0,0,0.4); }
+[data-theme="dark"] .modal-overlay-react { background: rgba(0,0,0,0.6); }
+[data-theme="dark"] .modal-content-react { background: #1e1e38; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+[data-theme="dark"] .section-title { color: #F9A8D4; }
+[data-theme="dark"] .section-title::after { background: #2a2a4a; }
+[data-theme="dark"] .divider { opacity: 0.7; }
+[data-theme="dark"] *:focus-visible { outline-color: rgba(255,50,133,0.7); }
+[data-theme="dark"] .btn:focus-visible { box-shadow: 0 0 0 4px rgba(255,50,133,0.15); }
 
 @media (max-width: 768px) {
   .form-grid { grid-template-columns: 1fr; }

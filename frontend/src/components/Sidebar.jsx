@@ -50,13 +50,13 @@ export default function Sidebar() {
           placeholder="🔍 Rechercher... (Ctrl+K)"
           style={{ width:'100%', padding:'8px 12px', borderRadius:8, border:'none', fontFamily:'inherit', fontSize:'0.82rem', background:'rgba(255,255,255,0.12)', color:'white', outline:'none' }} />
         {showResults && searchResults.length > 0 && (
-          <div style={{ position:'absolute', top:'100%', left:12, right:12, background:'white', borderRadius:10, boxShadow:'0 8px 32px rgba(5,5,109,0.2)', zIndex:200, maxHeight:300, overflowY:'auto', marginTop:4 }}>
+          <div style={{ position:'absolute', top:'100%', left:12, right:12, background:'var(--white)', borderRadius:10, boxShadow:'var(--shadow-lg)', zIndex:200, maxHeight:300, overflowY:'auto', marginTop:4 }}>
             {searchResults.map(c => (
               <div key={c.id} onMouseDown={() => { navigate(`/admin/collaborateurs/${c.id}`); setSearch(''); }}
-                style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', cursor:'pointer', transition:'background 0.1s' }}
-                onMouseOver={e=>e.currentTarget.style.background='#F0F0FF'} onMouseOut={e=>e.currentTarget.style.background='white'}>
+                style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', cursor:'pointer', transition:'background 0.15s' }}
+                onMouseOver={e=>e.currentTarget.style.background='var(--hover-surface, #F0F0FF)'} onMouseOut={e=>e.currentTarget.style.background='transparent'}>
                 <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={28} />
-                <div><div style={{fontWeight:700,fontSize:'0.85rem',color:'#05056D'}}>{c.prenom} {c.nom}</div><div style={{fontSize:'0.72rem',color:'#6B6B9A'}}>{c.poste}</div></div>
+                <div><div style={{fontWeight:700,fontSize:'0.85rem',color:'var(--navy)'}}>{c.prenom} {c.nom}</div><div style={{fontSize:'0.72rem',color:'var(--muted)'}}>{c.poste}</div></div>
               </div>
             ))}
           </div>

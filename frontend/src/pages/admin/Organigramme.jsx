@@ -64,8 +64,8 @@ export default function Organigramme() {
             <div style={{position:'relative'}}>
               <input value={searchCollab} onChange={e=>{setSearchCollab(e.target.value);setSelCollab('');}} placeholder="Taper 2 lettres..." style={{width:'100%',border:'1.5px solid var(--lavender)',borderRadius:10,padding:'10px 14px',fontFamily:'inherit',fontSize:'0.9rem',outline:'none'}} />
               {selCollab && <div style={{fontSize:'0.78rem',color:'var(--green)',fontWeight:700,marginTop:4}}>✓ {collabName(selCollab)}</div>}
-              {filteredCollab.length > 0 && !selCollab && <div style={{position:'absolute',top:'100%',left:0,right:0,background:'white',borderRadius:10,boxShadow:'0 8px 32px rgba(5,5,109,0.2)',zIndex:10,maxHeight:200,overflowY:'auto',marginTop:4}}>
-                {filteredCollab.map(c=><div key={c.id} onMouseDown={()=>{setSelCollab(c.id);setSearchCollab(c.prenom+' '+c.nom);}} style={{padding:'8px 14px',cursor:'pointer',fontSize:'0.85rem'}} onMouseOver={e=>e.currentTarget.style.background='var(--offwhite)'} onMouseOut={e=>e.currentTarget.style.background='white'}>{c.prenom} {c.nom} — {c.poste}</div>)}
+              {filteredCollab.length > 0 && !selCollab && <div style={{position:'absolute',top:'100%',left:0,right:0,background:'var(--white)',borderRadius:10,boxShadow:'var(--shadow-lg)',zIndex:10,maxHeight:200,overflowY:'auto',marginTop:4}}>
+                {filteredCollab.map(c=><div key={c.id} onMouseDown={()=>{setSelCollab(c.id);setSearchCollab(c.prenom+' '+c.nom);}} style={{padding:'8px 14px',cursor:'pointer',fontSize:'0.85rem',transition:'background 0.15s'}} onMouseOver={e=>e.currentTarget.style.background='var(--hover-surface, var(--offwhite))'} onMouseOut={e=>e.currentTarget.style.background='transparent'}>{c.prenom} {c.nom} — {c.poste}</div>)}
               </div>}
             </div>
           </div>
@@ -74,8 +74,8 @@ export default function Organigramme() {
             <div style={{position:'relative'}}>
               <input value={searchManager} onChange={e=>{setSearchManager(e.target.value);setSelManager('');}} placeholder="Taper 2 lettres (vide = aucun)..." style={{width:'100%',border:'1.5px solid var(--lavender)',borderRadius:10,padding:'10px 14px',fontFamily:'inherit',fontSize:'0.9rem',outline:'none'}} />
               {selManager && <div style={{fontSize:'0.78rem',color:'var(--green)',fontWeight:700,marginTop:4}}>✓ {collabName(selManager)}</div>}
-              {filteredManager.length > 0 && !selManager && <div style={{position:'absolute',top:'100%',left:0,right:0,background:'white',borderRadius:10,boxShadow:'0 8px 32px rgba(5,5,109,0.2)',zIndex:10,maxHeight:200,overflowY:'auto',marginTop:4}}>
-                {filteredManager.map(c=><div key={c.id} onMouseDown={()=>{setSelManager(c.id);setSearchManager(c.prenom+' '+c.nom);}} style={{padding:'8px 14px',cursor:'pointer',fontSize:'0.85rem'}} onMouseOver={e=>e.currentTarget.style.background='var(--offwhite)'} onMouseOut={e=>e.currentTarget.style.background='white'}>{c.prenom} {c.nom} — {c.poste}</div>)}
+              {filteredManager.length > 0 && !selManager && <div style={{position:'absolute',top:'100%',left:0,right:0,background:'var(--white)',borderRadius:10,boxShadow:'var(--shadow-lg)',zIndex:10,maxHeight:200,overflowY:'auto',marginTop:4}}>
+                {filteredManager.map(c=><div key={c.id} onMouseDown={()=>{setSelManager(c.id);setSearchManager(c.prenom+' '+c.nom);}} style={{padding:'8px 14px',cursor:'pointer',fontSize:'0.85rem',transition:'background 0.15s'}} onMouseOver={e=>e.currentTarget.style.background='var(--hover-surface, var(--offwhite))'} onMouseOut={e=>e.currentTarget.style.background='transparent'}>{c.prenom} {c.nom} — {c.poste}</div>)}
               </div>}
             </div>
           </div>
