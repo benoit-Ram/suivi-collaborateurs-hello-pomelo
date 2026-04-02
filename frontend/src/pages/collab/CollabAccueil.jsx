@@ -401,81 +401,207 @@ function TeamCalendar({ collab }) {
 }
 
 function ManagementTab({ manager, team, collabs }) {
+  const [view, setView] = useState('overview'); // overview | detail
   const [selectedMember, setSelectedMember] = useState(null);
   const [memberTab, setMemberTab] = useState('objectifs');
   const [memberAbs, setMemberAbs] = useState([]);
+  const [overviewTab, setOverviewTab] = useState('objectifs');
+  const [objModal, setObjModal] = useState(false);
+  const [editingObj, setEditingObj] = useState(null);
+  const [objForm, setObjForm] = useState({});
+  const [editingPoint, setEditingPoint] = useState(null);
+  const [pointForm, setPointForm] = useState({});
 
-  const loadMemberAbs = async (id) => {
-    const data = await api.getAbsences({ collaborateur_id: id });
-    setMemberAbs(data || []);
-  };
+  const loadMemberAbs = async (id) => { const data = await api.getAbsences({collaborateur_id:id}); setMemberAbs(data||[]); };
+  const managerName = manager.prenom+' '+manager.nom;
 
-  if (!selectedMember) {
+  // ── OVERVIEW ──
+  if (view === 'overview') {
     return (
       <div>
-        <div className="section-title">Mes collaborateurs ({team.length})</div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:14}}>
-          {team.map(m => (
-            <div key={m.id} className="card" style={{padding:16,cursor:'pointer',transition:'all 0.15s',border:'2px solid transparent'}}
-              onClick={()=>{setSelectedMember(m);setMemberTab('objectifs');loadMemberAbs(m.id);}}
-              onMouseOver={e=>e.currentTarget.style.borderColor='var(--pink)'} onMouseOut={e=>e.currentTarget.style.borderColor='transparent'}>
-              <Avatar prenom={m.prenom} nom={m.nom} photoUrl={m.photo_url} size={40} />
-              <div style={{fontWeight:700,fontSize:'0.9rem',color:'var(--navy)',marginTop:8}}>{m.prenom} {m.nom}</div>
-              <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>{m.poste}</div>
-              <div style={{fontSize:'0.72rem',color:'var(--muted)',marginTop:4}}>{(m.objectifs||[]).filter(o=>o.statut==='en-cours').length} objectifs en cours</div>
-            </div>
+        <div style={{display:'flex',gap:6,marginBottom:20,background:'var(--offwhite)',padding:6,borderRadius:12}}>
+          {[['objectifs','🎯 Objectifs'],['points','📋 Entretiens RH'],['conges','🏖️ Congés']].map(([k,l])=>(
+            <button key={k} onClick={()=>setOverviewTab(k)} style={{flex:1,padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',background:overviewTab===k?'white':'transparent',color:overviewTab===k?'var(--navy)':'var(--muted)',boxShadow:overviewTab===k?'0 2px 8px rgba(5,5,109,0.1)':'none'}}>{l}</button>
           ))}
         </div>
+
+        {/* Vue objectifs de tous les managés */}
+        {overviewTab==='objectifs' && team.map(m => {
+          const objs = m.objectifs||[];
+          return <div key={m.id} className="card" style={{marginBottom:16,padding:16}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12,cursor:'pointer'}} onClick={()=>{setSelectedMember(m);setView('detail');setMemberTab('objectifs');}}>
+              <Avatar prenom={m.prenom} nom={m.nom} photoUrl={m.photo_url} size={36} />
+              <div><div style={{fontWeight:700,color:'var(--blue)',fontSize:'0.9rem'}}>{m.prenom} {m.nom}</div><div style={{fontSize:'0.72rem',color:'var(--muted)'}}>{m.poste}</div></div>
+            </div>
+            {objs.filter(o=>o.statut!=='atteint').map(o=>(
+              <div key={o.id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 0',borderBottom:'1px solid var(--lavender)'}}>
+                <span style={{flex:1,fontWeight:600,color:'var(--navy)',fontSize:'0.85rem'}}>{o.titre}</span>
+                <Badge type={STATUS_COLORS[o.statut]}>{STATUS_LABELS[o.statut]}</Badge>
+                <span style={{fontSize:'0.78rem',fontWeight:700,color:'var(--pink)'}}>{o.progression||0}%</span>
+              </div>
+            ))}
+            {objs.length===0 && <p style={{color:'var(--muted)',fontSize:'0.82rem',fontStyle:'italic'}}>Aucun objectif</p>}
+          </div>;
+        })}
+
+        {/* Vue entretiens de tous les managés */}
+        {overviewTab==='points' && team.map(m => {
+          const pts = (m.points_suivi||[]).filter(p=>p.type==='mensuel').sort((a,b)=>(b.mois||'')>(a.mois||'')?1:-1);
+          const last = pts[0];
+          const md = last?.manager_data||{};
+          const hasM = Object.keys(md).filter(k=>k!=='objectifs').some(k=>md[k]);
+          return <div key={m.id} className="card" style={{marginBottom:12,padding:16}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8,cursor:'pointer'}} onClick={()=>{setSelectedMember(m);setView('detail');setMemberTab('points');}}>
+              <Avatar prenom={m.prenom} nom={m.nom} photoUrl={m.photo_url} size={36} />
+              <div style={{flex:1}}><div style={{fontWeight:700,color:'var(--blue)',fontSize:'0.9rem'}}>{m.prenom} {m.nom}</div></div>
+              <Badge type={hasM?'green':'orange'}>{hasM?'✅ Rempli':'⏳ À remplir'}</Badge>
+            </div>
+          </div>;
+        })}
+
+        {/* Vue congés de tous les managés */}
+        {overviewTab==='conges' && team.map(m => {
+          return <div key={m.id} className="card" style={{marginBottom:12,padding:16,cursor:'pointer'}} onClick={()=>{setSelectedMember(m);setView('detail');setMemberTab('conges');loadMemberAbs(m.id);}}>
+            <div style={{display:'flex',alignItems:'center',gap:10}}>
+              <Avatar prenom={m.prenom} nom={m.nom} photoUrl={m.photo_url} size={36} />
+              <div style={{flex:1}}><div style={{fontWeight:700,color:'var(--blue)',fontSize:'0.9rem'}}>{m.prenom} {m.nom}</div></div>
+              <span style={{fontSize:'0.82rem',fontWeight:700,color:'var(--navy)'}}>{m.solde_conges||0}j</span>
+            </div>
+          </div>;
+        })}
       </div>
     );
   }
 
+  // ── DETAIL VIEW ──
   const m = selectedMember;
-  const mObjs = m.objectifs || [];
+  if (!m) return null;
+  const mObjs = m.objectifs||[];
   const mPoints = (m.points_suivi||[]).filter(p=>p.type==='mensuel').sort((a,b)=>(b.mois||'')>(a.mois||'')?1:-1);
+
+  const openAddObj = () => { setEditingObj(null); setObjForm({titre:'',description:'',date_debut:'',date_fin:'',statut:'en-cours',progression:0}); setObjModal(true); };
+  const openEditObj = (o) => { setEditingObj(o.id); setObjForm({titre:o.titre,description:o.description||'',date_debut:o.date_debut||'',date_fin:o.date_fin||'',statut:o.statut,progression:o.progression||0}); setObjModal(true); };
+
+  const saveObj = async () => {
+    if (!objForm.titre) return;
+    const prog = objForm.statut==='atteint'?100:parseInt(objForm.progression)||0;
+    const row = {collaborateur_id:m.id,titre:objForm.titre,description:objForm.description||null,date_debut:objForm.date_debut||null,date_fin:objForm.date_fin||null,statut:objForm.statut,progression:prog};
+    if (editingObj) {
+      const existing = mObjs.find(o=>o.id===editingObj);
+      const changes = [];
+      if (existing) {
+        if (existing.titre!==objForm.titre) changes.push({champ:'Titre',avant:existing.titre,apres:objForm.titre});
+        if (existing.statut!==objForm.statut) changes.push({champ:'Statut',avant:STATUS_LABELS[existing.statut],apres:STATUS_LABELS[objForm.statut]});
+        if ((existing.progression||0)!==prog) changes.push({champ:'Progression',avant:(existing.progression||0)+'%',apres:prog+'%'});
+      }
+      if (changes.length) row.historique = [...(existing?.historique||[]),{date:new Date().toISOString().split('T')[0],auteur:managerName,changes}];
+      await api.updateObjectif(editingObj, row);
+    } else {
+      row.historique = [{date:new Date().toISOString().split('T')[0],auteur:managerName,changes:[{champ:'Création',avant:'',apres:objForm.titre}]}];
+      await api.createObjectif(row);
+    }
+    setObjModal(false);
+    // Refresh member data
+    const fresh = await api.getCollaborateur(m.id);
+    setSelectedMember(fresh);
+  };
+
+  const deleteObj = async (oid) => {
+    if (!window.confirm('Supprimer ?')) return;
+    await api.deleteObjectif(oid);
+    const fresh = await api.getCollaborateur(m.id);
+    setSelectedMember(fresh);
+  };
+
+  const startEditPoint = (p) => { setEditingPoint(p.id); setPointForm({...p.manager_data}); };
+  const savePoint = async () => {
+    await api.updatePointSuivi(editingPoint, {manager_data:pointForm});
+    setEditingPoint(null);
+    const fresh = await api.getCollaborateur(m.id);
+    setSelectedMember(fresh);
+  };
 
   return (
     <div>
-      <button className="btn btn-ghost btn-sm" onClick={()=>setSelectedMember(null)} style={{marginBottom:16}}>← Retour</button>
+      <button className="btn btn-ghost btn-sm" onClick={()=>{setView('overview');setSelectedMember(null);}} style={{marginBottom:16}}>← Retour</button>
       <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:20}}>
         <Avatar prenom={m.prenom} nom={m.nom} photoUrl={m.photo_url} size={56} />
         <div><div style={{fontSize:'1.1rem',fontWeight:700,color:'var(--navy)'}}>{m.prenom} {m.nom}</div><div style={{fontSize:'0.85rem',color:'var(--muted)'}}>{m.poste}</div></div>
       </div>
       <div style={{display:'flex',gap:6,marginBottom:20,background:'var(--offwhite)',padding:6,borderRadius:12}}>
         {[['objectifs','🎯 Objectifs'],['points','📋 Entretien RH'],['conges','🏖️ Congés']].map(([k,l])=>(
-          <button key={k} onClick={()=>setMemberTab(k)} style={{flex:1,padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',background:memberTab===k?'white':'transparent',color:memberTab===k?'var(--navy)':'var(--muted)',boxShadow:memberTab===k?'0 2px 8px rgba(5,5,109,0.1)':'none'}}>{l}</button>
+          <button key={k} onClick={()=>{setMemberTab(k);if(k==='conges')loadMemberAbs(m.id);}} style={{flex:1,padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',background:memberTab===k?'white':'transparent',color:memberTab===k?'var(--navy)':'var(--muted)',boxShadow:memberTab===k?'0 2px 8px rgba(5,5,109,0.1)':'none'}}>{l}</button>
         ))}
       </div>
 
-      {/* Objectifs */}
+      {/* Objectifs CRUD */}
       {memberTab==='objectifs' && <div>
+        <div style={{display:'flex',justifyContent:'flex-end',marginBottom:12}}><button className="btn btn-primary btn-sm" onClick={openAddObj}>+ Objectif</button></div>
         {mObjs.filter(o=>o.statut!=='atteint').map((o,i)=>(
           <div key={o.id} className="card" style={{marginBottom:8,padding:14,borderLeft:'4px solid var(--pink)'}}>
             <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
               <span style={{fontWeight:700,color:'var(--navy)',flex:1}}>{o.titre}</span>
               <Badge type={STATUS_COLORS[o.statut]}>{STATUS_LABELS[o.statut]}</Badge>
+              <button className="btn btn-ghost btn-sm" style={{padding:'4px 8px'}} onClick={()=>openEditObj(o)}>✏️</button>
+              <button className="btn btn-danger btn-sm" style={{padding:'4px 8px'}} onClick={()=>deleteObj(o.id)}>🗑️</button>
             </div>
-            <ProgressBar value={o.progression||0} />
+            {o.description && <div style={{fontSize:'0.82rem',color:'var(--muted)',marginBottom:6}}>{o.description}</div>}
+            <div style={{marginBottom:4}}><div style={{display:'flex',justifyContent:'space-between',fontSize:'0.7rem',fontWeight:700,color:'var(--muted)',marginBottom:4}}><span>Progression</span><span>{o.progression||0}%</span></div><ProgressBar value={o.progression||0} /></div>
+            {o.date_debut && <div style={{fontSize:'0.72rem',color:'var(--muted)'}}>📅 {fmtDate(o.date_debut)} → {fmtDate(o.date_fin)}</div>}
+            {o.historique?.length>0 && <details style={{marginTop:8}}><summary style={{fontSize:'0.72rem',color:'var(--muted)',cursor:'pointer',fontWeight:700}}>📜 Historique ({o.historique.length})</summary>
+              {[...o.historique].reverse().map((h,hi)=><div key={hi} style={{display:'flex',gap:8,padding:'6px 8px',background:'var(--offwhite)',borderRadius:6,marginTop:4,fontSize:'0.75rem'}}><span style={{color:'var(--muted)',fontWeight:600,minWidth:70}}>{fmtDate(h.date)}</span><div><strong>{h.auteur}</strong>{h.changes?.map((ch,ci)=><div key={ci} style={{color:'var(--muted)'}}>{ch.champ}: <span style={{textDecoration:'line-through',color:'var(--red)'}}>{ch.avant}</span> → <span style={{color:'var(--green)',fontWeight:600}}>{ch.apres}</span></div>)}</div></div>)}
+            </details>}
           </div>
         ))}
-        {mObjs.filter(o=>o.statut==='atteint').length>0 && <>
-          <div className="section-title" style={{marginTop:16}}>✅ Atteints</div>
-          {mObjs.filter(o=>o.statut==='atteint').map(o=>(
-            <div key={o.id} className="card" style={{marginBottom:8,padding:14,borderLeft:'4px solid var(--green)',opacity:0.85}}>
-              <span style={{fontWeight:700,color:'var(--navy)'}}>{o.titre}</span>
-            </div>
-          ))}
-        </>}
+        {mObjs.filter(o=>o.statut==='atteint').length>0 && <><div className="section-title" style={{marginTop:16}}>✅ Atteints</div>{mObjs.filter(o=>o.statut==='atteint').map(o=>(<div key={o.id} className="card" style={{marginBottom:8,padding:14,borderLeft:'4px solid var(--green)',opacity:0.85}}><span style={{fontWeight:700,color:'var(--navy)'}}>{o.titre}</span></div>))}</>}
         {mObjs.length===0 && <EmptyState icon="🎯" text="Aucun objectif" />}
+        {/* Obj Modal */}
+        {objModal && <div className="modal-overlay-react" onClick={e=>{if(e.target===e.currentTarget)setObjModal(false)}}><div className="modal-content-react" style={{maxWidth:560}}>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}><h2 style={{fontSize:'1rem',fontWeight:700,color:'var(--navy)'}}>{editingObj?'Modifier':'Nouvel objectif'}</h2><button onClick={()=>setObjModal(false)} style={{background:'none',border:'none',fontSize:'1.3rem',cursor:'pointer',color:'var(--muted)'}}>✕</button></div>
+          <div className="form-grid">
+            <div className="form-field full"><label>Titre *</label><input value={objForm.titre||''} onChange={e=>setObjForm({...objForm,titre:e.target.value})} /></div>
+            <div className="form-field full"><label>Description</label><textarea value={objForm.description||''} onChange={e=>setObjForm({...objForm,description:e.target.value})} /></div>
+            <div className="form-field"><label>Début</label><input type="date" value={objForm.date_debut||''} onChange={e=>setObjForm({...objForm,date_debut:e.target.value})} /></div>
+            <div className="form-field"><label>Fin</label><input type="date" value={objForm.date_fin||''} onChange={e=>setObjForm({...objForm,date_fin:e.target.value})} /></div>
+            <div className="form-field"><label>Statut</label><select value={objForm.statut||'en-cours'} onChange={e=>setObjForm({...objForm,statut:e.target.value})}>{Object.entries(STATUS_LABELS).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></div>
+            <div className="form-field"><label>Progression ({objForm.progression||0}%)</label><input type="range" min="0" max="100" value={objForm.progression||0} onChange={e=>setObjForm({...objForm,progression:e.target.value})} style={{accentColor:'var(--pink)'}} /></div>
+          </div>
+          <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:12}}><button className="btn btn-ghost" onClick={()=>setObjModal(false)}>Annuler</button><button className="btn btn-primary" onClick={saveObj}>Enregistrer</button></div>
+        </div></div>}
       </div>}
 
-      {/* Entretien RH */}
+      {/* Entretien RH — éditable */}
       {memberTab==='points' && <div>
         {mPoints.length===0 ? <EmptyState icon="📋" text="Aucun entretien" /> : mPoints.map(p=>{
           const md=p.manager_data||{};
+          const cd=p.collab_data||{};
+          const isEditing = editingPoint===p.id;
           return <div key={p.id} className="card" style={{marginBottom:10,padding:16,borderLeft:'4px solid var(--skyblue)'}}>
-            <div style={{fontWeight:700,color:'var(--navy)',marginBottom:8}}>📅 {moisLabel(p.mois)}</div>
-            {Object.entries(md).filter(([k])=>k!=='objectifs').map(([k,v])=>(<div key={k} style={{marginBottom:6}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)'}}>{k}</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:v?'var(--navy)':'var(--muted)',fontStyle:v?'normal':'italic'}}>{v||'—'}</div></div>))}
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+              <div style={{fontWeight:700,color:'var(--navy)'}}>📅 {moisLabel(p.mois)}</div>
+              {!isEditing && <button className="btn btn-ghost btn-sm" onClick={()=>startEditPoint(p)}>✏️ Remplir</button>}
+            </div>
+            {/* Manager section */}
+            <div style={{fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--skyblue)',marginBottom:8}}>👔 Mes retours</div>
+            {isEditing ? <>
+              {Object.keys(pointForm).filter(k=>k!=='objectifs').map(k=>(
+                <div key={k} style={{marginBottom:8}}><label style={{fontSize:'0.72rem',fontWeight:700,color:'var(--pink)',display:'block',marginBottom:4}}>{k}</label>
+                <textarea value={pointForm[k]||''} onChange={e=>setPointForm({...pointForm,[k]:e.target.value})} style={{width:'100%',border:'1.5px solid var(--lavender)',borderRadius:8,padding:'8px 12px',fontFamily:'inherit',fontSize:'0.85rem',minHeight:60,resize:'vertical',outline:'none'}} /></div>
+              ))}
+              <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:8}}>
+                <button className="btn btn-ghost btn-sm" onClick={()=>setEditingPoint(null)}>Annuler</button>
+                <button className="btn btn-primary btn-sm" onClick={savePoint}>💾 Enregistrer</button>
+              </div>
+            </> : Object.entries(md).filter(([k])=>k!=='objectifs').map(([k,v])=>(
+              <div key={k} style={{marginBottom:6}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)'}}>{k}</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:v?'var(--navy)':'var(--muted)',fontStyle:v?'normal':'italic'}}>{v||'Non renseigné'}</div></div>
+            ))}
+            {/* Collab responses (read-only) */}
+            {Object.keys(cd).filter(k=>k!=='objectifs').length>0 && <>
+              <div style={{marginTop:12,fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--pink)',marginBottom:8}}>👤 Réponses de {m.prenom}</div>
+              {Object.entries(cd).filter(([k])=>k!=='objectifs').map(([k,v])=>(
+                <div key={k} style={{marginBottom:6}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)'}}>{k}</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:v?'var(--navy)':'var(--muted)',fontStyle:v?'normal':'italic'}}>{v||'—'}</div></div>
+              ))}
+            </>}
           </div>;
         })}
       </div>}
@@ -496,7 +622,7 @@ function ManagementTab({ manager, team, collabs }) {
             <Badge type={a.statut==='approuve'?'green':a.statut==='refuse'?'pink':'orange'}>{ABS_STATUTS[a.statut]}</Badge>
             {a.statut==='en_attente' && <>
               <button className="btn btn-sm" style={{background:'var(--green)',color:'white',padding:'4px 10px'}} onClick={async()=>{await api.updateAbsence(a.id,{statut:'approuve'});loadMemberAbs(m.id);}}>✓</button>
-              <button className="btn btn-danger btn-sm" style={{padding:'4px 10px'}} onClick={async()=>{const motif=window.prompt('Motif du refus :');if(!motif)return;await api.updateAbsence(a.id,{statut:'refuse',motif_refus:motif});loadMemberAbs(m.id);}}>✕</button>
+              <button className="btn btn-danger btn-sm" style={{padding:'4px 10px'}} onClick={async()=>{const motif=window.prompt('Motif :');if(!motif)return;await api.updateAbsence(a.id,{statut:'refuse',motif_refus:motif});loadMemberAbs(m.id);}}>✕</button>
             </>}
           </div>
         ))}
