@@ -49,9 +49,73 @@ export default function Organigramme() {
 
   const collabName = (id) => { const c = collabs.find(x=>x.id===id); return c ? `${c.prenom} ${c.nom}` : ''; };
 
+  const exportPDF = () => {
+    const win = window.open('','_blank');
+    if (!win) { showToast('Le popup a été bloqué. Autorisez les popups pour exporter.'); return; }
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+    const timeStr = now.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+
+    const renderNode = (c, depth) => {
+      const children = childrenMap[c.id] || [];
+      const indent = depth * 28;
+      const borderLeft = depth ? 'border-left:2px solid #CFD0E5;' : '';
+      const paddingLeft = depth ? 'padding-left:16px;' : '';
+      let html = `<div style="margin-left:${indent}px;${borderLeft}${paddingLeft}margin-top:${depth?6:12}px;">`;
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:#F8F7FC;border-radius:10px;margin-bottom:4px;">`;
+      const initials = (c.prenom||'')[0] + (c.nom||'')[0];
+      html += `<div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#FF3285,#0000EA);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.75rem;">${initials}</div>`;
+      html += `<div><div style="font-weight:700;font-size:0.85rem;color:#05056D;">${c.prenom} ${c.nom}</div>`;
+      html += `<div style="font-size:0.72rem;color:#6B6B9A;">${c.poste||''}${c.equipe ? ' · '+c.equipe : ''}</div></div></div>`;
+      children.forEach(ch => { html += renderNode(ch, depth + 1); });
+      html += '</div>';
+      return html;
+    };
+
+    win.document.write(`<html><head><title>Organigramme — Hello Pomelo</title>
+    <style>
+      body{font-family:Quicksand,Arial,sans-serif;padding:32px 40px;max-width:900px;margin:0 auto;color:#05056D;font-size:14px;line-height:1.5}
+      h1{font-size:1.4rem;margin-bottom:2px}
+      .meta{font-size:0.82rem;color:#6B6B9A;margin-bottom:24px}
+      .stats{display:flex;gap:24px;margin-bottom:24px;padding:14px 20px;background:#F8F7FC;border-radius:12px;border-left:4px solid #FF3285}
+      .stat-item{text-align:center}.stat-val{font-size:1.3rem;font-weight:700;color:#FF3285}.stat-label{font-size:0.7rem;color:#6B6B9A;text-transform:uppercase;font-weight:600}
+      @media print{body{padding:16px 20px} .stats{break-inside:avoid}}
+    </style></head><body>`);
+
+    // Header
+    win.document.write(`<h1>Organigramme</h1>`);
+    win.document.write(`<div class="meta">Hello Pomelo · Export du ${dateStr} à ${timeStr}</div>`);
+
+    // Stats
+    const nbManagers = new Set(collabs.filter(c=>c.manager_id).map(c=>c.manager_id)).size;
+    const nbEquipes = new Set(collabs.map(c=>c.equipe).filter(Boolean)).size;
+    win.document.write(`<div class="stats">`);
+    win.document.write(`<div class="stat-item"><div class="stat-val">${collabs.length}</div><div class="stat-label">Collaborateurs</div></div>`);
+    win.document.write(`<div class="stat-item"><div class="stat-val">${nbManagers}</div><div class="stat-label">Managers</div></div>`);
+    win.document.write(`<div class="stat-item"><div class="stat-val">${nbEquipes}</div><div class="stat-label">Équipes</div></div>`);
+    win.document.write(`<div class="stat-item"><div class="stat-val">${roots.length}</div><div class="stat-label">Sans manager</div></div>`);
+    win.document.write(`</div>`);
+
+    // Tree
+    if (roots.length) {
+      roots.forEach(r => { win.document.write(renderNode(r, 0)); });
+    } else {
+      win.document.write(`<p style="color:#6B6B9A;font-style:italic;">Aucun collaborateur.</p>`);
+    }
+
+    // Footer
+    win.document.write(`<div style="margin-top:40px;font-size:0.75rem;color:#6B6B9A;border-top:1px solid #CFD0E5;padding-top:12px;">Organigramme généré le ${dateStr} à ${timeStr} — Hello Pomelo</div>`);
+    win.document.write(`</body></html>`);
+    win.document.close();
+    setTimeout(() => win.print(), 300);
+  };
+
   return (
     <div>
       <PageHeader title="Organigramme" subtitle="Hiérarchie de l'équipe" />
+      <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:16 }}>
+        <button className="btn btn-ghost" onClick={exportPDF}>📄 Exporter en PDF</button>
+      </div>
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:24 }}>
         <div className="card">
           <div className="section-title" style={{marginTop:0}}>Organigramme</div>
