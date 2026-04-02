@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../../services/DataContext';
 import { api } from '../../services/api';
-import { PageHeader, Badge, Avatar, fmtDate, ABS_TYPES, ABS_STATUTS } from '../../components/UI';
+import { PageHeader, Badge, Avatar, fmtDate, countWorkDays, ABS_TYPES, ABS_STATUTS } from '../../components/UI';
 
 const ABS_BADGE = { en_attente:'orange', approuve:'green', refuse:'pink' };
 
@@ -54,7 +54,7 @@ export default function Absences() {
               {c && <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={36} />}
               <div style={{flex:1}}>
                 <div style={{fontWeight:700,color:'var(--blue)',cursor:'pointer',fontSize:'0.9rem'}} onClick={()=>c&&navigate(`/admin/collaborateurs/${c.id}`)}>{getName(a.collaborateur_id)}</div>
-                <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>{ABS_TYPES[a.type]||a.type} · Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)}</div>
+                <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>{ABS_TYPES[a.type]||a.type} · Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)} · {countWorkDays(a.date_debut,a.date_fin)}j ouvrés</div>
                 {a.commentaire && <div style={{fontSize:'0.78rem',color:'var(--muted)',fontStyle:'italic',marginTop:2}}>{a.commentaire}</div>}
               </div>
               <div style={{display:'flex',gap:6}}>
@@ -76,13 +76,14 @@ export default function Absences() {
         </div>
         <div className="card" style={{overflowX:'auto'}}>
           <table>
-            <thead><tr><th>Collaborateur</th><th>Type</th><th>Du</th><th>Au</th><th>Statut</th><th>Motif</th></tr></thead>
+            <thead><tr><th>Collaborateur</th><th>Type</th><th>Du</th><th>Au</th><th>Jours</th><th>Statut</th><th>Motif</th></tr></thead>
             <tbody>{filteredHist.length===0 ? <tr><td colSpan={6} style={{textAlign:'center',color:'var(--muted)',padding:32}}>Aucun historique</td></tr> : filteredHist.map(a=>(
               <tr key={a.id}>
                 <td style={{fontWeight:700,cursor:'pointer',color:'var(--blue)'}} onClick={()=>navigate(`/admin/collaborateurs/${collabs.find(x=>x.id===a.collaborateur_id)?.id}`)}>{getName(a.collaborateur_id)}</td>
                 <td>{ABS_TYPES[a.type]||a.type}</td>
                 <td>{fmtDate(a.date_debut)}</td>
                 <td>{fmtDate(a.date_fin)}</td>
+                <td style={{fontWeight:700}}>{countWorkDays(a.date_debut,a.date_fin)}j</td>
                 <td><Badge type={ABS_BADGE[a.statut]}>{ABS_STATUTS[a.statut]}</Badge></td>
                 <td style={{fontSize:'0.78rem',color:'#881337'}}>{a.motif_refus||'—'}</td>
               </tr>
@@ -132,7 +133,7 @@ export default function Absences() {
         <table>
           <thead><tr><th>Collaborateur</th><th>Solde initial</th><th>Acquisition/mois</th><th>Acquis</th><th>Pris</th><th>Solde</th><th></th></tr></thead>
           <tbody>{collabs.map(c => {
-            const pris = absences.filter(a => a.collaborateur_id===c.id && a.statut==='approuve' && a.type==='conge').length;
+            const pris = absences.filter(a => a.collaborateur_id===c.id && a.statut==='approuve' && a.type==='conge').reduce((s,a)=>s+countWorkDays(a.date_debut,a.date_fin),0);
             const soldeInit = c.solde_conges||0;
             const acq = c.acquisition_conges||2.08;
             let moisAcq = 0;

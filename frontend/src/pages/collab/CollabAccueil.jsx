@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
-import { Avatar, Badge, ProgressBar, EmptyState, fmtDate, moisLabel, currentMois, STATUS_LABELS, STATUS_COLORS, ABS_TYPES, ABS_STATUTS, isEntretienLocked, getEntretienStatus, ENTRETIEN_STATUS_BADGE } from '../../components/UI';
+import { Avatar, Badge, ProgressBar, EmptyState, fmtDate, moisLabel, currentMois, countWorkDays, STATUS_LABELS, STATUS_COLORS, ABS_TYPES, ABS_STATUTS, isEntretienLocked, getEntretienStatus, ENTRETIEN_STATUS_BADGE } from '../../components/UI';
 
 export default function CollabAccueil() {
   const [collabs, setCollabs] = useState([]);
@@ -66,7 +66,7 @@ export default function CollabAccueil() {
   let moisAcq = 0;
   if (c.date_entree) { const e2=new Date(c.date_entree); const n2=new Date(); moisAcq=Math.max(0,(n2.getFullYear()-e2.getFullYear())*12+(n2.getMonth()-e2.getMonth())); }
   const acquis = Math.round(moisAcq*acq*100)/100;
-  const pris = absences.filter(a=>a.statut==='approuve'&&a.type==='conge').length;
+  const pris = absences.filter(a=>a.statut==='approuve'&&a.type==='conge').reduce((s,a)=>s+countWorkDays(a.date_debut,a.date_fin),0);
   const solde = Math.round((soldeInit+acquis-pris)*100)/100;
 
   const tabs = [['accueil','🏠 Accueil'],['objectifs','🎯 Objectifs'],['points','📋 Entretien RH'],['conges','🏖️ Congés']];
@@ -98,9 +98,23 @@ export default function CollabAccueil() {
           <div className="card" style={{textAlign:'center',padding:18}}><div style={{fontSize:'2rem',fontWeight:700,color:'var(--green)'}}>{atteints.length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Atteints</div></div>
           <div className="card" style={{textAlign:'center',padding:18}}><div style={{fontSize:'2rem',fontWeight:700,color:'var(--navy)'}}>{solde}j</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Congés</div></div>
         </div>
-        {enCours.length > 0 && <div className="card"><div className="section-title" style={{marginTop:0}}>🎯 Objectifs en cours</div>
-          {enCours.slice(0,3).map(o => <div key={o.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 0',borderBottom:'1px solid var(--lavender)'}}><div style={{flex:1,fontWeight:600,color:'var(--navy)',fontSize:'0.88rem'}}>{o.titre}</div><span style={{fontWeight:700,fontSize:'0.82rem',color:'var(--pink)'}}>{o.progression||0}%</span></div>)}
-        </div>}
+        <div className="card">
+          {/* Team objectives */}
+          {(() => {
+            const equipes2 = (c.equipe||'').split(',').map(s=>s.trim()).filter(Boolean);
+            const tObjs = [];
+            equipes2.forEach(eq => { (settings['team_objectifs_'+eq]||[]).forEach(o => tObjs.push({...( typeof o==='string'?{titre:o}:o),equipe:eq})); });
+            return tObjs.length > 0 && <>
+              <div className="section-title" style={{marginTop:0}}>👥 Objectifs d'équipe</div>
+              {tObjs.map((o,i) => <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 0',borderBottom:'1px solid var(--lavender)'}}><div style={{flex:1,fontWeight:600,color:'var(--navy)',fontSize:'0.88rem'}}>{o.titre}</div><Badge type="blue">{o.equipe}</Badge><span style={{fontWeight:700,fontSize:'0.82rem',color:'var(--blue)'}}>{o.progression||0}%</span></div>)}
+            </>;
+          })()}
+          {/* Individual objectives */}
+          {enCours.length > 0 && <>
+            <div className="section-title" style={{marginTop: 12}}>🎯 Objectifs individuels</div>
+            {enCours.slice(0,3).map(o => <div key={o.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 0',borderBottom:'1px solid var(--lavender)'}}><div style={{flex:1,fontWeight:600,color:'var(--navy)',fontSize:'0.88rem'}}>{o.titre}</div><span style={{fontWeight:700,fontSize:'0.82rem',color:'var(--pink)'}}>{o.progression||0}%</span></div>)}
+          </>}
+        </div>
       </div>}
 
       {/* OBJECTIFS */}
@@ -337,7 +351,7 @@ function CongesTab({ c, absences, solde, onReload }) {
           <div key={a.id} style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',borderRadius:12,border:'1.5px solid var(--orange)',marginBottom:8,background:'#FFF7ED'}}>
             <div style={{flex:1}}>
               <div style={{fontWeight:700,fontSize:'0.9rem',color:'var(--navy)'}}>{ABS_TYPES[a.type]||a.type}</div>
-              <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)}</div>
+              <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)} · {countWorkDays(a.date_debut,a.date_fin)}j ouvré{countWorkDays(a.date_debut,a.date_fin)>1?'s':''}</div>
               {a.commentaire && <div style={{fontSize:'0.78rem',color:'var(--muted)',fontStyle:'italic',marginTop:2}}>{a.commentaire}</div>}
             </div>
             <Badge type="orange">En attente</Badge>
@@ -351,7 +365,7 @@ function CongesTab({ c, absences, solde, onReload }) {
         <div key={a.id} style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',borderRadius:12,border:`1.5px solid ${a.statut==='approuve'?'#86EFAC':'#F43F5E'}`,marginBottom:8,background:a.statut==='approuve'?'#F0FDF4':'#FFF1F2'}}>
           <div style={{flex:1}}>
             <div style={{fontWeight:700,fontSize:'0.9rem',color:'var(--navy)'}}>{ABS_TYPES[a.type]||a.type}</div>
-            <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)}</div>
+            <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)} · {countWorkDays(a.date_debut,a.date_fin)}j ouvré{countWorkDays(a.date_debut,a.date_fin)>1?'s':''}</div>
             {a.commentaire && <div style={{fontSize:'0.78rem',color:'var(--muted)',fontStyle:'italic',marginTop:2}}>{a.commentaire}</div>}
             {a.statut==='refuse' && a.motif_refus && <div style={{fontSize:'0.78rem',color:'#881337',marginTop:4,background:'white',padding:'6px 10px',borderRadius:6,borderLeft:'3px solid #F43F5E'}}>❌ Motif du refus : {a.motif_refus}</div>}
           </div>
@@ -714,7 +728,7 @@ function ManagementTab({ manager, team, collabs, settings }) {
           <div key={a.id} style={{display:'flex',alignItems:'center',gap:14,padding:'12px 16px',borderRadius:10,border:'1.5px solid var(--lavender)',marginBottom:8}}>
             <div style={{flex:1}}>
               <div style={{fontWeight:700,color:'var(--navy)',fontSize:'0.88rem'}}>{ABS_TYPES[a.type]||a.type}</div>
-              <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)}</div>
+              <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)} · {countWorkDays(a.date_debut,a.date_fin)}j ouvré{countWorkDays(a.date_debut,a.date_fin)>1?'s':''}</div>
             </div>
             <Badge type={a.statut==='approuve'?'green':a.statut==='refuse'?'pink':'orange'}>{ABS_STATUTS[a.statut]}</Badge>
             {a.statut==='en_attente' && <>

@@ -164,6 +164,48 @@ export function fmtDate(d) {
   return `${day}/${m}/${y}`;
 }
 
+// ── WORK DAYS CALCULATION (excludes weekends + French holidays) ──
+const FERIES_FIXES = [[1,1],[5,1],[5,8],[7,14],[8,15],[11,1],[11,11],[12,25]];
+
+function getEasterDate(year) {
+  const a=year%19, b=Math.floor(year/100), c2=year%100;
+  const d=Math.floor(b/4), e=b%4, f=Math.floor((b+8)/25);
+  const g=Math.floor((b-f+1)/3), h=(19*a+b-d-g+15)%30;
+  const i=Math.floor(c2/4), k=c2%4;
+  const l=(32+2*e+2*i-h-k)%7;
+  const m2=Math.floor((a+11*h+22*l)/451);
+  const month=Math.floor((h+l-7*m2+114)/31);
+  const day2=((h+l-7*m2+114)%31)+1;
+  return new Date(year, month-1, day2);
+}
+
+function getFeriesSet(year) {
+  const set = new Set();
+  FERIES_FIXES.forEach(([m,d]) => set.add(`${year}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`));
+  const easter = getEasterDate(year);
+  [1,39,50].forEach(offset => {
+    const d2 = new Date(easter); d2.setDate(easter.getDate()+offset);
+    set.add(d2.toISOString().split('T')[0]);
+  });
+  return set;
+}
+
+export function countWorkDays(d1, d2) {
+  if (!d1 || !d2) return 0;
+  let count = 0;
+  const start = new Date(d1);
+  const end = new Date(d2);
+  const years = new Set();
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate()+1)) years.add(d.getFullYear());
+  const feries = new Set();
+  years.forEach(y => getFeriesSet(y).forEach(f => feries.add(f)));
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate()+1)) {
+    const dow = d.getDay();
+    if (dow !== 0 && dow !== 6 && !feries.has(d.toISOString().split('T')[0])) count++;
+  }
+  return count;
+}
+
 export function currentMois() {
   const n = new Date();
   return n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0');
