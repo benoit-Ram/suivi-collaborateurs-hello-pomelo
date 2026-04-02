@@ -72,7 +72,7 @@ export default function Collaborateurs() {
       <PageHeader title="Collaborateurs" subtitle="Gérer les membres de l'équipe" />
       <div style={{ display:'flex', justifyContent:'space-between', gap:12, marginBottom:16 }}>
         <input type="text" placeholder="🔍 Rechercher..." value={search} onChange={e => setSearch(e.target.value)}
-          style={{ flex:1, maxWidth:400, border:'1.5px solid var(--lavender)', borderRadius:10, padding:'10px 16px', fontFamily:'inherit', fontSize:'0.9rem', outline:'none' }} />
+          style={{ flex:1, maxWidth:400, border:'1.5px solid var(--lavender)', borderRadius:10, padding:'10px 16px', fontFamily:'inherit', fontSize:'0.9rem', outline:'none', background:'var(--offwhite)', color:'var(--navy)' }} />
         <button className="btn btn-primary" onClick={openAdd}>+ Ajouter</button>
       </div>
       <div className="card" style={{ overflowX:'auto' }}>

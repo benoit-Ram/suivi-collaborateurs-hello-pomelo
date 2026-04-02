@@ -76,7 +76,7 @@ tr:hover td { background: var(--hover-row, #F0F0FF); }
 [data-theme="dark"] {
   --offwhite: #1a1a2e; --text: #e0e0f0; --navy: #e0e0f0; --muted: #9999bb;
   --lavender: #2a2a4a; --white: #1e1e38;
-  --hover-row: rgba(255,255,255,0.04);
+  --hover-row: rgba(255,255,255,0.06);
   --hover-ghost: rgba(255,50,133,0.12);
   --hover-surface: rgba(255,255,255,0.06);
   --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
@@ -100,6 +100,7 @@ tr:hover td { background: var(--hover-row, #F0F0FF); }
 [data-theme="dark"] th { background: #1e1e38; color: #9999bb; }
 [data-theme="dark"] td { border-bottom-color: #2a2a4a; }
 [data-theme="dark"] tbody tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+[data-theme="dark"] tr:hover td { background: var(--hover-row) !important; }
 [data-theme="dark"] thead th { background: #1e1e38; }
 [data-theme="dark"] .card:hover { box-shadow: 0 6px 24px rgba(0,0,0,0.4); }
 [data-theme="dark"] .modal-overlay-react { background: rgba(0,0,0,0.6); }
