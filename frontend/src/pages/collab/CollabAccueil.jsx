@@ -56,7 +56,7 @@ function LoginPage({ collabs, onLogin }) {
         client_id: GOOGLE_CLIENT_ID,
         callback: (response) => {
           const base64 = response.credential.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
-          const payload = JSON.parse(atob(base64));
+          const payload = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(base64), c => c.charCodeAt(0))));
           handleLogin(payload.email, payload.name, payload.picture);
         },
         auto_select: false,
@@ -75,6 +75,10 @@ function LoginPage({ collabs, onLogin }) {
     }
     const session = { email, name: name || `${collab.prenom} ${collab.nom}`, picture: picture || null };
     sessionStorage.setItem('hp_collab_session', JSON.stringify(session));
+    // Save Google photo to database if available
+    if (picture && picture !== collab.photo_url) {
+      api.updateCollaborateur(collab.id, { photo_url: picture }).catch(() => {});
+    }
     onLogin(collab.id, session);
   }
 
@@ -289,7 +293,7 @@ export default function CollabAccueil() {
       <button className="btn btn-ghost btn-sm" onClick={()=>{setSelectedId('');setTab('accueil');}} style={{marginBottom:16}}>← Changer de compte</button>
 
       <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:24,background:'var(--bg-highlight)',borderRadius:16,padding:'clamp(14px, 3vw, 24px)',border:'1.5px solid var(--border-highlight)',flexWrap:'wrap'}}>
-        <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={64} />
+        <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url || currentUser?.picture} size={64} />
         <div>
           <div style={{fontSize:'1.2rem',fontWeight:700,color:'var(--navy)'}}>{c.prenom} {c.nom}</div>
           <div style={{fontSize:'0.85rem',color:'var(--muted)',marginTop:2}}>{c.poste}{c.equipe ? ` · ${c.equipe}` : ''}</div>
