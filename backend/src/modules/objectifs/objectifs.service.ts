@@ -17,7 +17,7 @@ export class ObjectifsService {
 
   async findOne(id: string) {
     const { data, error } = await this.supabase.db.from('objectifs').select('*').eq('id', id).single();
-    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+    if (error) throw new HttpException(error.message, HttpStatus.NOT_FOUND);
     return data;
   }
 

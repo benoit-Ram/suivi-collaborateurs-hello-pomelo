@@ -69,7 +69,7 @@ export default function Absences() {
       {/* HISTORY */}
       {tab==='history' && <div>
         <div style={{marginBottom:16}}>
-          <select value={histFilter} onChange={e=>setHistFilter(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:10,padding:'8px 12px',fontFamily:'inherit',fontSize:'0.82rem',minWidth:250}}>
+          <select value={histFilter} onChange={e=>setHistFilter(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:10,padding:'8px 12px',fontFamily:'inherit',fontSize:'0.82rem',minWidth:250,background:'var(--offwhite)',color:'var(--navy)'}}>
             <option value="">Tous les collaborateurs</option>
             {collabs.map(c=><option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>)}
           </select>
@@ -77,7 +77,7 @@ export default function Absences() {
         <div className="card" style={{overflowX:'auto'}}>
           <table>
             <thead><tr><th>Collaborateur</th><th>Type</th><th>Du</th><th>Au</th><th>Jours</th><th>Statut</th><th>Motif</th></tr></thead>
-            <tbody>{filteredHist.length===0 ? <tr><td colSpan={6} style={{textAlign:'center',color:'var(--muted)',padding:32}}>Aucun historique</td></tr> : filteredHist.map(a=>(
+            <tbody>{filteredHist.length===0 ? <tr><td colSpan={7} style={{textAlign:'center',color:'var(--muted)',padding:32}}>Aucun historique</td></tr> : filteredHist.map(a=>(
               <tr key={a.id}>
                 <td style={{fontWeight:700,cursor:'pointer',color:'var(--blue)'}} onClick={()=>navigate(`/admin/collaborateurs/${collabs.find(x=>x.id===a.collaborateur_id)?.id}`)}>{getName(a.collaborateur_id)}</td>
                 <td>{ABS_TYPES[a.type]||a.type}</td>
@@ -85,7 +85,7 @@ export default function Absences() {
                 <td>{fmtDate(a.date_fin)}</td>
                 <td style={{fontWeight:700}}>{countWorkDays(a.date_debut,a.date_fin)}j</td>
                 <td><Badge type={ABS_BADGE[a.statut]}>{ABS_STATUTS[a.statut]}</Badge></td>
-                <td style={{fontSize:'0.78rem',color:'#881337'}}>{a.motif_refus||'—'}</td>
+                <td style={{fontSize:'0.78rem',color:'var(--text-danger)'}}>{a.motif_refus||'—'}</td>
               </tr>
             ))}</tbody>
           </table>
@@ -114,7 +114,7 @@ export default function Absences() {
                   const isWE=dow===0||dow===6;
                   const a=cAbs.find(x=>ds>=x.date_debut&&ds<=x.date_fin);
                   let bg=isWE?'var(--lavender)':'transparent';
-                  if(a) bg=a.statut==='approuve'?'#DCFCE7':'#FFF7ED';
+                  if(a) bg=a.statut==='approuve'?'var(--bg-success)':'var(--bg-warning)';
                   return <td key={d} style={{padding:1,background:bg,borderRadius:2}} />;
                 })}
               </tr>;
@@ -122,8 +122,8 @@ export default function Absences() {
           </table>
         </div>
         <div style={{display:'flex',gap:12,marginTop:12,fontSize:'0.7rem',color:'var(--muted)',fontWeight:600}}>
-          <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'#DCFCE7'}} /> Approuvé</div>
-          <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'#FFF7ED'}} /> En attente</div>
+          <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'var(--bg-success)'}} /> Approuvé</div>
+          <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'var(--bg-warning)'}} /> En attente</div>
           <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'var(--lavender)'}} /> Weekend</div>
         </div>
       </div>}

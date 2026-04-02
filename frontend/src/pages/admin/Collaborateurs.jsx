@@ -60,7 +60,7 @@ export default function Collaborateurs() {
     // Reassign managed people first
     if (managedBy.length > 0) {
       for (const m of managedBy) {
-        try { await api.updateCollaborateur(m.id, { manager_id: reassignTo || null }); } catch(e) {}
+        try { await api.updateCollaborateur(m.id, { manager_id: reassignTo || null }); } catch(e) { showToast(`Erreur réassignation ${m.prenom}: ${e.message}`); }
       }
     }
     try { await api.deleteCollaborateur(confirmDel); await reload(); showToast('Supprimé'); } catch(e) { showToast('Erreur: '+e.message); }
@@ -132,7 +132,7 @@ export default function Collaborateurs() {
               {(settings.equipes||[]).map(eq=>{
                 const selected = (form.equipe||'').split(',').map(s=>s.trim()).filter(Boolean);
                 const checked = selected.includes(eq);
-                return <label key={eq} style={{display:'flex',alignItems:'center',gap:6,padding:'6px 10px',borderRadius:8,border:'1.5px solid var(--lavender)',cursor:'pointer',fontSize:'0.82rem',background:checked?'#FFF0F6':'white'}}>
+                return <label key={eq} style={{display:'flex',alignItems:'center',gap:6,padding:'6px 10px',borderRadius:8,border:'1.5px solid var(--lavender)',cursor:'pointer',fontSize:'0.82rem',background:checked?'var(--bg-accent)':'var(--white)'}}>
                   <input type="checkbox" checked={checked} onChange={()=>{
                     const next = checked ? selected.filter(s=>s!==eq) : [...selected,eq];
                     setForm({...form, equipe: next.join(',')});
@@ -160,9 +160,9 @@ export default function Collaborateurs() {
           <div style={{fontSize:'0.95rem',fontWeight:700,color:'var(--navy)'}}>Supprimer ce collaborateur ?</div>
           <div style={{fontSize:'0.82rem',color:'var(--muted)',marginTop:4}}>Cette action est irréversible.</div>
         </div>
-        {managedBy.length > 0 && <div style={{background:'#FFF7ED',borderRadius:10,padding:'12px 16px',marginBottom:16,borderLeft:'4px solid var(--orange)'}}>
-          <div style={{fontSize:'0.82rem',fontWeight:700,color:'#9A3412',marginBottom:8}}>Ce collaborateur manage {managedBy.length} personne{managedBy.length>1?"s":""} :</div>
-          <div style={{fontSize:'0.82rem',color:'#9A3412',marginBottom:10}}>{managedBy.map(m=>`${m.prenom} ${m.nom}`).join(', ')}</div>
+        {managedBy.length > 0 && <div style={{background:'var(--bg-warning)',borderRadius:10,padding:'12px 16px',marginBottom:16,borderLeft:'4px solid var(--border-warning)'}}>
+          <div style={{fontSize:'0.82rem',fontWeight:700,color:'var(--text-warning)',marginBottom:8}}>Ce collaborateur manage {managedBy.length} personne{managedBy.length>1?"s":""} :</div>
+          <div style={{fontSize:'0.82rem',color:'var(--text-warning)',marginBottom:10}}>{managedBy.map(m=>`${m.prenom} ${m.nom}`).join(', ')}</div>
           <div className="form-field"><label>Nouveau manager pour ces personnes</label>
             <select value={reassignTo} onChange={e=>setReassignTo(e.target.value)} style={{width:'100%'}}>
               <option value="">— Aucun manager —</option>

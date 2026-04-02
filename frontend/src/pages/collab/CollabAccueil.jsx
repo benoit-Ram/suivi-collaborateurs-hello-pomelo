@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
-import { Avatar, Badge, ProgressBar, EmptyState, fmtDate, moisLabel, currentMois, countWorkDays, STATUS_LABELS, STATUS_COLORS, ABS_TYPES, ABS_STATUTS, isEntretienLocked, getEntretienStatus, ENTRETIEN_STATUS_BADGE } from '../../components/UI';
+import { Avatar, Badge, ProgressBar, EmptyState, fmtDate, moisLabel, countWorkDays, STATUS_LABELS, STATUS_COLORS, ABS_TYPES, ABS_STATUTS, isEntretienLocked, getEntretienStatus, ENTRETIEN_STATUS_BADGE } from '../../components/UI';
 
 // ── UTILS ──
 
@@ -122,7 +122,7 @@ export default function CollabAccueil() {
     <div>
       <button className="btn btn-ghost btn-sm" onClick={()=>{setSelectedId('');setTab('accueil');}} style={{marginBottom:16}}>← Changer de compte</button>
 
-      <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:24,background:'linear-gradient(135deg,#F0F0FF,#FFF0F8)',borderRadius:16,padding:24,border:'1.5px solid #E0D8FF'}}>
+      <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:24,background:'var(--bg-highlight)',borderRadius:16,padding:24,border:'1.5px solid var(--border-highlight)'}}>
         <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={64} />
         <div>
           <div style={{fontSize:'1.2rem',fontWeight:700,color:'var(--navy)'}}>{c.prenom} {c.nom}</div>
@@ -361,7 +361,7 @@ function CongesTab({ c, absences, solde, onReload }) {
           <div className="form-field"><label>Au</label><input type="date" value={form.date_fin} onChange={e=>setForm({...form,date_fin:e.target.value})} /></div>
           <div className="form-field"><label>Commentaire</label><input type="text" value={form.commentaire} onChange={e=>setForm({...form,commentaire:e.target.value})} placeholder="Optionnel..." /></div>
         </div>
-        {error && <div style={{marginTop:10,padding:'10px 14px',background:'#FFF1F2',color:'#881337',borderRadius:10,fontSize:'0.85rem',fontWeight:600,borderLeft:'4px solid #EF4444'}}>{error}</div>}
+        {error && <div style={{marginTop:10,padding:'10px 14px',background:'var(--bg-danger)',color:'var(--text-danger)',borderRadius:10,fontSize:'0.85rem',fontWeight:600,borderLeft:'4px solid var(--border-danger)'}}>{error}</div>}
         <div style={{display:'flex',justifyContent:'flex-end',marginTop:10}}>
           <button className="btn btn-primary" onClick={submit} disabled={submitting}>🏖️ Demander</button>
         </div>
@@ -383,7 +383,7 @@ function CongesTab({ c, absences, solde, onReload }) {
       {absences.filter(a=>a.statut==='en_attente').length > 0 && <>
         <div className="section-title">⏳ Demandes en attente</div>
         {absences.filter(a=>a.statut==='en_attente').map(a => (
-          <div key={a.id} style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',borderRadius:12,border:'1.5px solid var(--orange)',marginBottom:8,background:'#FFF7ED'}}>
+          <div key={a.id} style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',borderRadius:12,border:'1.5px solid var(--orange)',marginBottom:8,background:'var(--bg-warning)'}}>
             <div style={{flex:1}}>
               <div style={{fontWeight:700,fontSize:'0.9rem',color:'var(--navy)'}}>{ABS_TYPES[a.type]||a.type}</div>
               <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)} · {countWorkDays(a.date_debut,a.date_fin)}j ouvré{countWorkDays(a.date_debut,a.date_fin)>1?'s':''}</div>
@@ -397,12 +397,12 @@ function CongesTab({ c, absences, solde, onReload }) {
       {/* Historique (approuvés + refusés) */}
       <div className="section-title">📋 Historique</div>
       {absences.filter(a=>a.statut!=='en_attente').length===0 ? <p style={{color:'var(--muted)',fontSize:'0.82rem',fontStyle:'italic'}}>Aucun historique.</p> : absences.filter(a=>a.statut!=='en_attente').map(a => (
-        <div key={a.id} style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',borderRadius:12,border:`1.5px solid ${a.statut==='approuve'?'#86EFAC':'#F43F5E'}`,marginBottom:8,background:a.statut==='approuve'?'#F0FDF4':'#FFF1F2'}}>
+        <div key={a.id} style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',borderRadius:12,border:`1.5px solid ${a.statut==='approuve'?'var(--text-success)':'var(--border-danger)'}`,marginBottom:8,background:a.statut==='approuve'?'var(--bg-success)':'var(--bg-danger)'}}>
           <div style={{flex:1}}>
             <div style={{fontWeight:700,fontSize:'0.9rem',color:'var(--navy)'}}>{ABS_TYPES[a.type]||a.type}</div>
             <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)} · {countWorkDays(a.date_debut,a.date_fin)}j ouvré{countWorkDays(a.date_debut,a.date_fin)>1?'s':''}</div>
             {a.commentaire && <div style={{fontSize:'0.78rem',color:'var(--muted)',fontStyle:'italic',marginTop:2}}>{a.commentaire}</div>}
-            {a.statut==='refuse' && a.motif_refus && <div style={{fontSize:'0.78rem',color:'#881337',marginTop:4,background:'var(--white)',padding:'6px 10px',borderRadius:6,borderLeft:'3px solid #F43F5E'}}>❌ Motif du refus : {a.motif_refus}</div>}
+            {a.statut==='refuse' && a.motif_refus && <div style={{fontSize:'0.78rem',color:'var(--text-danger)',marginTop:4,background:'var(--white)',padding:'6px 10px',borderRadius:6,borderLeft:'3px solid var(--border-danger)'}}>❌ Motif du refus : {a.motif_refus}</div>}
           </div>
           <Badge type={a.statut==='approuve'?'green':'pink'}>{a.statut==='approuve'?'✅ Approuvé':'❌ Refusé'}</Badge>
         </div>
@@ -443,8 +443,8 @@ function LeaveCalendar({ absences }) {
         const abs = absences.find(a => ds>=a.date_debut && ds<=a.date_fin);
         let bg='transparent',color='var(--navy)';
         if(isWE) { bg='var(--offwhite)'; color='var(--muted)'; }
-        if(isFerie) { bg='#EFF6FF'; color='#1E40AF'; }
-        if(abs) { bg=abs.statut==='approuve'?'#DCFCE7':abs.statut==='en_attente'?'#FFF7ED':'#FFF1F2'; color=abs.statut==='approuve'?'#166534':abs.statut==='en_attente'?'#9A3412':'#881337'; }
+        if(isFerie) { bg='var(--bg-info)'; color='var(--text-info)'; }
+        if(abs) { bg=abs.statut==='approuve'?'var(--bg-success)':abs.statut==='en_attente'?'var(--bg-warning)':'var(--bg-danger)'; color=abs.statut==='approuve'?'var(--text-success)':abs.statut==='en_attente'?'var(--text-warning)':'var(--text-danger)'; }
         if(isToday) { bg='var(--pink)'; color='white'; }
         cells.push(<td key={col} style={{padding:2,textAlign:'center'}}><div style={{width:28,height:28,lineHeight:'28px',margin:'0 auto',borderRadius:8,background:bg,color,fontWeight:isToday||abs?700:500,fontSize:'0.78rem'}}>{dayNum}</div></td>);
         dayNum++;
@@ -465,9 +465,9 @@ function LeaveCalendar({ absences }) {
         <tbody>{rows}</tbody>
       </table>
       <div style={{display:'flex',gap:12,flexWrap:'wrap',marginTop:12,fontSize:'0.7rem',fontWeight:600,color:'var(--muted)'}}>
-        <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'#DCFCE7'}} /> Approuvé</div>
-        <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'#FFF7ED'}} /> En attente</div>
-        <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'#EFF6FF'}} /> Férié</div>
+        <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'var(--bg-success)'}} /> Approuvé</div>
+        <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'var(--bg-warning)'}} /> En attente</div>
+        <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'var(--bg-info)'}} /> Férié</div>
         <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'var(--pink)'}} /> Aujourd'hui</div>
       </div>
     </div>
@@ -526,7 +526,7 @@ function TeamCalendar({ collab }) {
                 const isWE = dow===0||dow===6;
                 const a = abs.find(x=>ds>=x.date_debut&&ds<=x.date_fin);
                 let bg = isWE?'var(--lavender)':'transparent';
-                if(a) bg = a.statut==='approuve'?'#DCFCE7':'#FFF7ED';
+                if(a) bg = a.statut==='approuve'?'var(--bg-success)':'var(--bg-warning)';
                 return <td key={d} style={{padding:2,textAlign:'center',background:bg,borderRadius:2}} />;
               })}
             </tr>;
@@ -650,9 +650,14 @@ function ManagementTab({ manager, team, collabs, settings }) {
 
   const deleteObj = async (oid) => {
     if (!window.confirm('Supprimer ?')) return;
-    await api.deleteObjectif(oid);
-    const fresh = await api.getCollaborateur(m.id);
-    setSelectedMember(fresh);
+    try {
+      await api.deleteObjectif(oid);
+      const fresh = await api.getCollaborateur(m.id);
+      setSelectedMember(fresh);
+    } catch(e) {
+      console.error('Erreur suppression objectif:', e);
+      alert('Erreur lors de la suppression.');
+    }
   };
 
   const startEditPoint = (p) => {
@@ -778,8 +783,8 @@ function ManagementTab({ manager, team, collabs, settings }) {
             </div>
             <Badge type={a.statut==='approuve'?'green':a.statut==='refuse'?'pink':'orange'}>{ABS_STATUTS[a.statut]}</Badge>
             {a.statut==='en_attente' && <>
-              <button className="btn btn-sm" style={{background:'var(--green)',color:'white',padding:'4px 10px'}} onClick={async()=>{await api.updateAbsence(a.id,{statut:'approuve'});loadMemberAbs(m.id);}}>✓</button>
-              <button className="btn btn-danger btn-sm" style={{padding:'4px 10px'}} onClick={async()=>{const motif=window.prompt('Motif :');if(!motif)return;await api.updateAbsence(a.id,{statut:'refuse',motif_refus:motif});loadMemberAbs(m.id);}}>✕</button>
+              <button className="btn btn-sm" style={{background:'var(--green)',color:'white',padding:'4px 10px'}} onClick={async()=>{try{await api.updateAbsence(a.id,{statut:'approuve'});loadMemberAbs(m.id);}catch(e){alert('Erreur: '+e.message);}}}>✓</button>
+              <button className="btn btn-danger btn-sm" style={{padding:'4px 10px'}} onClick={async()=>{const motif=window.prompt('Motif :');if(!motif)return;try{await api.updateAbsence(a.id,{statut:'refuse',motif_refus:motif});loadMemberAbs(m.id);}catch(e){alert('Erreur: '+e.message);}}}>✕</button>
             </>}
           </div>
         ))}

@@ -28,9 +28,9 @@ export class AbsencesService {
   }
 
   async update(id: string, dto: any) {
-    const { data, error } = await this.supabase.db.from('absences').update(dto).eq('id', id).select();
+    const { data, error } = await this.supabase.db.from('absences').update(dto).eq('id', id).select().single();
     if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
-    return data?.[0] || null;
+    return data;
   }
 
   async delete(id: string) {

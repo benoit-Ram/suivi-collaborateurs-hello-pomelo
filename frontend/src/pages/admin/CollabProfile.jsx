@@ -98,7 +98,7 @@ export default function CollabProfile() {
             {c.date_fin_essai && <span>⏰ Fin PE: {fmtDate(c.date_fin_essai)}</span>}
             {c.google_drive && <a href={c.google_drive} target="_blank" rel="noreferrer" style={{color:'var(--blue)'}}>📁 Drive</a>}
           </div>
-          {c.notes && <div style={{ marginTop:10, padding:'8px 12px', background:'#FFF7ED', borderRadius:8, borderLeft:'3px solid var(--orange)', fontSize:'0.82rem', color:'#9A3412' }}>Notes: {c.notes}</div>}
+          {c.notes && <div style={{ marginTop:10, padding:'8px 12px', background:'var(--bg-warning)', borderRadius:8, borderLeft:'3px solid var(--border-warning)', fontSize:'0.82rem', color:'var(--text-warning)' }}>Notes: {c.notes}</div>}
         </div>
         <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
           <button className="btn btn-ghost btn-sm" onClick={() => navigate(`/admin/collaborateurs?edit=${c.id}`)}>✏️ Modifier</button>

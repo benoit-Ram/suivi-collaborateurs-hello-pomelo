@@ -17,7 +17,7 @@ export class PointsSuiviService {
 
   async findOne(id: string) {
     const { data, error } = await this.supabase.db.from('points_suivi').select('*').eq('id', id).single();
-    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+    if (error) throw new HttpException(error.message, HttpStatus.NOT_FOUND);
     return data;
   }
 
@@ -28,7 +28,7 @@ export class PointsSuiviService {
   }
 
   async update(id: string, dto: any) {
-    const { data, error } = await this.supabase.db.from('points_suivi').update(dto).eq('id', id).select();
+    const { data, error } = await this.supabase.db.from('points_suivi').update(dto).eq('id', id).select().single();
     if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
     return data;
   }
