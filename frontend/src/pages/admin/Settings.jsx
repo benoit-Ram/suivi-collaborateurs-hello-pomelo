@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useData } from '../../services/DataContext';
+import { useAuth } from '../../services/AuthContext';
 import { api } from '../../services/api';
-import { PageHeader, Badge, Modal, fmtDate } from '../../components/UI';
+import { PageHeader, Badge, Avatar, Modal, fmtDate } from '../../components/UI';
 
 const SETTINGS_KEYS = [
   { key: 'equipes', label: 'Équipes', placeholder: 'Nouvelle équipe...' },
@@ -12,6 +13,8 @@ const SETTINGS_KEYS = [
 
 export default function Settings() {
   const { settings, collabs, showToast, reload } = useData();
+  const { isSuperAdmin, reloadCollabs } = useAuth();
+  const SUPER_ADMIN_EMAIL = 'benoit@hello-pomelo.com';
   const [newVals, setNewVals] = useState({});
   const [newFerm, setNewFerm] = useState({ label:'', debut:'', fin:'' });
   const [renameModal, setRenameModal] = useState(null); // { key, oldVal }
@@ -139,6 +142,44 @@ export default function Settings() {
         </div>
         <div style={{display:'flex',justifyContent:'flex-end',marginTop:8}}><button className="btn btn-primary btn-sm" onClick={addFermeture}>+ Ajouter</button></div>
       </div>
+
+      {/* Gestion des administrateurs — super admin uniquement */}
+      {isSuperAdmin && (
+        <>
+          <div className="section-title">Administrateurs</div>
+          <div className="card" style={{marginBottom:24}}>
+            <p style={{color:'var(--muted)',fontSize:'0.82rem',marginBottom:16}}>Les administrateurs peuvent accéder à l'espace de gestion.</p>
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {collabs.map(c => {
+                const isSA = (c.email||'').toLowerCase() === SUPER_ADMIN_EMAIL;
+                const isAdm = c.is_admin === true;
+                return (
+                  <div key={c.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',borderRadius:10,border:'1.5px solid var(--lavender)',background: isAdm ? 'var(--bg-success, #DCFCE7)' : 'transparent'}}>
+                    <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={32} />
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:700,fontSize:'0.88rem',color:'var(--navy)'}}>{c.prenom} {c.nom}</div>
+                      <div style={{fontSize:'0.72rem',color:'var(--muted)'}}>{c.email || '(pas d\'email)'}{isSA ? ' — Super Admin' : ''}</div>
+                    </div>
+                    {isSA ? (
+                      <span style={{fontSize:'0.7rem',color:'var(--muted)',fontWeight:700}}>🔒 Permanent</span>
+                    ) : (
+                      <button className={`btn btn-sm ${isAdm ? 'btn-danger' : 'btn-primary'}`}
+                        onClick={async () => {
+                          await api.updateCollaborateur(c.id, { is_admin: !isAdm });
+                          await reload();
+                          await reloadCollabs();
+                          showToast(isAdm ? `${c.prenom} n'est plus admin.` : `${c.prenom} est maintenant admin !`);
+                        }}>
+                        {isAdm ? 'Retirer admin' : 'Rendre admin'}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* RENAME MODAL */}
       <Modal open={!!renameModal} onClose={()=>setRenameModal(null)} title="Renommer">

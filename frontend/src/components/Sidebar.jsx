@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useData } from '../services/DataContext';
+import { useAuth } from '../services/AuthContext';
 import { Avatar, useKeyboard } from './UI';
 
 export default function Sidebar() {
   const { collabs, absences } = useData();
+  const { user, logout } = useAuth();
   const [search, setSearch] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [dark, setDark] = useState(localStorage.getItem('hp_theme')==='dark');
@@ -80,8 +82,25 @@ export default function Sidebar() {
         ))}
       </div>
 
-      <div style={{ padding:'12px 16px', borderTop:'1px solid rgba(255,255,255,0.1)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-        <span style={{ fontSize:'0.65rem', color:'#8F8FBC', fontWeight:600, textTransform:'uppercase' }}>Hello Pomelo © 2025</span>
+      {/* User info */}
+      {user && (
+        <div style={{ padding:'12px 16px', borderTop:'1px solid rgba(255,255,255,0.1)' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
+            {user.picture ? <img src={user.picture} alt="" style={{ width:32, height:32, borderRadius:'50%', objectFit:'cover' }} />
+              : <div style={{ width:32, height:32, borderRadius:'50%', background:'linear-gradient(135deg,#FF3285,#0000EA)', display:'flex', alignItems:'center', justifyContent:'center', color:'white', fontSize:'0.75rem', fontWeight:700 }}>{(user.name||'').split(' ').map(w=>w[0]||'').join('').toUpperCase().slice(0,2)}</div>}
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ color:'white', fontSize:'0.8rem', fontWeight:700, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{user.name}</div>
+              <div style={{ color:'#8F8FBC', fontSize:'0.65rem', fontWeight:600 }}>{user.isSuperAdmin ? 'Super Admin' : 'Admin'}</div>
+            </div>
+          </div>
+          <div style={{ display:'flex', gap:6 }}>
+            <button onClick={() => { setMobileOpen(false); navigate('/collab'); }} style={{ flex:1, padding:'7px 0', borderRadius:8, border:'1px solid rgba(255,255,255,0.15)', background:'transparent', color:'rgba(255,255,255,0.7)', fontSize:'0.7rem', fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>👤 Mon espace</button>
+            <button onClick={logout} style={{ flex:1, padding:'7px 0', borderRadius:8, border:'1px solid rgba(255,255,255,0.15)', background:'transparent', color:'rgba(255,255,255,0.7)', fontSize:'0.7rem', fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>Déconnexion</button>
+          </div>
+        </div>
+      )}
+      <div style={{ padding:'8px 16px', borderTop:'1px solid rgba(255,255,255,0.06)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+        <span style={{ fontSize:'0.6rem', color:'#8F8FBC', fontWeight:600, textTransform:'uppercase' }}>Hello Pomelo © 2025</span>
         <button onClick={() => setDark(!dark)} style={{ background:'none', border:'none', fontSize:'1rem', cursor:'pointer' }}>{dark?'☀️':'🌙'}</button>
       </div>
     </>

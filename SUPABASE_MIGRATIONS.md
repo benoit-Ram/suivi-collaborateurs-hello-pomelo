@@ -112,3 +112,13 @@ CREATE TABLE IF NOT EXISTS activity_log (
   created_at timestamptz DEFAULT now()
 );
 ```
+
+## Migration v6 — Rôles Admin
+
+```sql
+-- Colonne admin sur les collaborateurs
+ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS is_admin boolean DEFAULT false;
+
+-- Super admin
+UPDATE collaborateurs SET is_admin = true WHERE email = 'benoit@hello-pomelo.com';
+```

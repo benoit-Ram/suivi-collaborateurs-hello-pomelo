@@ -1,14 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
+import React from 'react';
+import { Outlet, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../services/AuthContext';
 
 export default function CollabLayout() {
-  const [user, setUser] = useState(window.__collabUser || null);
-
-  useEffect(() => {
-    const handler = () => setUser(window.__collabUser || null);
-    window.addEventListener('collab-auth-change', handler);
-    return () => window.removeEventListener('collab-auth-change', handler);
-  }, []);
+  const { user, logout, isAdmin } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <div>
@@ -23,7 +19,15 @@ export default function CollabLayout() {
           <span style={{ background: 'rgba(255,50,133,0.25)', color: '#FF3285', fontSize: '0.65rem', fontWeight: 700, padding: '3px 8px', borderRadius: 6, textTransform: 'uppercase' }}>Mon espace</span>
         </div>
         {user && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {isAdmin && (
+              <button onClick={() => navigate('/admin')}
+                style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '6px 14px', borderRadius: 8, fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit' }}
+                onMouseOver={e => e.currentTarget.style.background = 'rgba(255,50,133,0.3)'}
+                onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>
+                🛠️ Admin
+              </button>
+            )}
             {user.picture ? (
               <img src={user.picture} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} />
             ) : (
@@ -32,11 +36,10 @@ export default function CollabLayout() {
               </div>
             )}
             <span style={{ color: 'white', fontSize: '0.85rem', fontWeight: 600 }}>{user.name}</span>
-            <button onClick={() => { if (window.__collabLogout) window.__collabLogout(); }}
-              style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '6px 14px', borderRadius: 8, fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' }}
-              onMouseOver={e => { e.currentTarget.style.background = 'rgba(255,50,133,0.3)'; }}
-              onMouseOut={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
-            >
+            <button onClick={() => { logout(); navigate('/'); }}
+              style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '6px 14px', borderRadius: 8, fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit' }}
+              onMouseOver={e => e.currentTarget.style.background = 'rgba(255,50,133,0.3)'}
+              onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>
               Déconnexion
             </button>
           </div>
