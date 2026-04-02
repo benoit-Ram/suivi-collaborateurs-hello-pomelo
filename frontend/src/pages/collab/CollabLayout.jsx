@@ -5,7 +5,7 @@ export default function CollabLayout() {
   return (
     <div>
       <header style={{
-        background: '#05056D', padding: '0 32px', height: 64,
+        background: '#05056D', padding: '0 clamp(16px, 3vw, 32px)', height: 56,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         position: 'sticky', top: 0, zIndex: 50
       }}>
@@ -15,7 +15,7 @@ export default function CollabLayout() {
           <span style={{ background: 'rgba(255,50,133,0.25)', color: '#FF3285', fontSize: '0.65rem', fontWeight: 700, padding: '3px 8px', borderRadius: 6, textTransform: 'uppercase' }}>Mon espace</span>
         </div>
       </header>
-      <div style={{ maxWidth: 860, margin: '0 auto', padding: '36px 24px' }}>
+      <div style={{ maxWidth: 860, margin: '0 auto', padding: 'clamp(16px, 3vw, 36px) clamp(12px, 3vw, 24px)' }}>
         <Outlet />
       </div>
     </div>

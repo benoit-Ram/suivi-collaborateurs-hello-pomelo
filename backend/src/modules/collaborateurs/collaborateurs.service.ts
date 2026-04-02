@@ -19,7 +19,7 @@ export class CollaborateursService {
       .select('*, points_suivi(*), objectifs(*)')
       .eq('id', id)
       .single();
-    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+    if (error) throw new HttpException(error.message, HttpStatus.NOT_FOUND);
     return data;
   }
 

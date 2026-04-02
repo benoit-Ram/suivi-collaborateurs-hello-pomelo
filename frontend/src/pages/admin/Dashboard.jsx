@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../../services/DataContext';
-import { Avatar, StatCard, PageHeader, EmptyState, Badge, ProgressBar, currentMois, moisLabel, fmtDate, STATUS_LABELS, ABS_TYPES } from '../../components/UI';
+import { Avatar, StatCard, PageHeader, EmptyState, Badge, ProgressBar, Skeleton, currentMois, moisLabel, fmtDate, STATUS_LABELS, ABS_TYPES } from '../../components/UI';
 
 export default function Dashboard() {
   const { collabs, absences, loading, settings } = useData();
@@ -9,7 +9,7 @@ export default function Dashboard() {
   const [filterEquipe, setFilterEquipe] = useState('');
   const navigate = useNavigate();
 
-  if (loading) return <div style={{ textAlign: 'center', padding: 48, color: 'var(--muted)' }}>Chargement...</div>;
+  if (loading) return <div style={{maxWidth:600,margin:'40px auto'}}><Skeleton lines={5} /></div>;
 
   const total = collabs.length;
   const now = new Date();
@@ -99,7 +99,7 @@ export default function Dashboard() {
     <div>
       <PageHeader title="Tableau de bord" subtitle="Vue d'ensemble de vos collaborateurs" />
 
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:16, marginBottom:24 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))', gap:16, marginBottom:24 }}>
         <StatCard value={total} label="Collaborateurs" color="pink" />
         <StatCard value={thisMonth} label="Arrivées ce mois" color="blue" />
         <StatCard value={`${pointsComplete}/${total}`} label="Points complets" color="skyblue" />
@@ -111,17 +111,17 @@ export default function Dashboard() {
         <div className="card" style={{ marginBottom:24, borderLeft:'4px solid var(--orange)', padding:'20px 24px' }}>
           <h3 style={{ fontSize:'0.85rem', fontWeight:700, color:'var(--navy)', marginBottom:12, textTransform:'uppercase' }}>⚠️ Actions requises ({alerts.length})</h3>
           {alerts.slice(0,10).map((a,i) => (
-            <div key={i} onClick={() => navigate(`/admin/collaborateurs/${a.id}`)} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderRadius:10, marginBottom:6, fontSize:'0.82rem', fontWeight:600, cursor:'pointer', background: a.type==='danger'?'#FFF1F2':a.type==='warning'?'#FFF7ED':'#EFF6FF', color: a.type==='danger'?'#881337':a.type==='warning'?'#9A3412':'#1E40AF' }}>
+            <div key={i} onClick={() => navigate(`/admin/collaborateurs/${a.id}`)} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderRadius:10, marginBottom:6, fontSize:'0.82rem', fontWeight:600, cursor:'pointer', background: a.type==='danger'?'var(--bg-danger)':a.type==='warning'?'var(--bg-warning)':'var(--bg-info)', color: a.type==='danger'?'var(--text-danger)':a.type==='warning'?'var(--text-warning)':'var(--text-info)' }}>
               <span>{a.icon}</span>
               <span style={{ flex:1 }}>{a.text}</span>
-              {a.email && <a href={`mailto:${a.email}?subject=Rappel — Point de suivi ${moisLabel(prevMois)}&body=Bonjour ${a.prenom||''},\n\nN'oublie pas de compléter ton point de suivi.\n\nMerci !`} onClick={e=>e.stopPropagation()} className="btn btn-sm" style={{ background:'var(--navy)', color:'white', padding:'3px 8px', fontSize:'0.68rem' }}>📧</a>}
+              {a.email && <a href={`mailto:${a.email}?subject=Rappel — Point de suivi ${moisLabel(prevMois)}&body=Bonjour ${a.prenom||''},\n\nN'oublie pas de compléter ton point de suivi.\n\nMerci !`} onClick={e=>e.stopPropagation()} className="btn btn-navy btn-sm" style={{ padding:'3px 8px', fontSize:'0.68rem' }}>📧</a>}
             </div>
           ))}
         </div>
       )}
 
       {/* Analytics */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:24 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))', gap:16, marginBottom:24 }}>
         <div className="card">
           <div className="section-title" style={{marginTop:0}}>Objectifs par statut</div>
           {Object.entries(objByStatus).map(([k,v]) => (
@@ -161,16 +161,16 @@ export default function Dashboard() {
 
       {/* Collaborateurs */}
       <div className="section-title">Collaborateurs</div>
-      <div style={{ display:'flex', gap:12, marginBottom:16, flexWrap:'wrap' }}>
-        <input type="text" placeholder="🔍 Rechercher..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex:1, minWidth:200, border:'1.5px solid var(--lavender)', borderRadius:10, padding:'10px 16px', fontFamily:'inherit', fontSize:'0.9rem', outline:'none' }} />
-        <select value={filterEquipe} onChange={e => setFilterEquipe(e.target.value)} style={{ border:'1.5px solid var(--lavender)', borderRadius:10, padding:'8px 12px', fontFamily:'inherit', fontSize:'0.82rem' }}>
+      <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
+        <input type="text" placeholder="🔍 Rechercher..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex:1, minWidth:200, border:'1.5px solid var(--lavender)', borderRadius:10, padding:'10px 16px', fontFamily:'inherit', fontSize:'0.9rem', outline:'none', background:'var(--offwhite)', color:'var(--navy)' }} />
+        <select value={filterEquipe} onChange={e => setFilterEquipe(e.target.value)} style={{ border:'1.5px solid var(--lavender)', borderRadius:10, padding:'8px 12px', fontFamily:'inherit', fontSize:'0.82rem', background:'var(--offwhite)', color:'var(--navy)' }}>
           <option value="">Toutes équipes</option>
           {equipes.map(e => <option key={e} value={e}>{e}</option>)}
         </select>
         <span style={{ fontSize:'0.78rem', color:'var(--muted)', fontWeight:600, alignSelf:'center' }}>{filtered.length} résultat{filtered.length>1?'s':''}</span>
       </div>
       {filtered.length === 0 ? <EmptyState icon="👤" text="Aucun collaborateur trouvé" /> : (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))', gap:16 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))', gap:12 }}>
           {filtered.map(c => (
             <div key={c.id} className="card" onClick={() => navigate(`/admin/collaborateurs/${c.id}`)} style={{ cursor:'pointer', padding:20, transition:'all 0.2s', border:'2px solid transparent' }}
               onMouseOver={e => { e.currentTarget.style.transform='translateY(-3px)'; e.currentTarget.style.borderColor='var(--lavender)'; }}

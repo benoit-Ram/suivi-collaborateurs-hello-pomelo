@@ -119,7 +119,7 @@ export function ConfirmModal({ open, onClose, onConfirm, message }) {
 export function Toast({ message }) {
   if (!message) return null;
   return (
-    <div style={{ position:'fixed', bottom:24, right:24, background:'#05056D', color:'white', padding:'12px 20px', borderRadius:12, fontSize:'0.85rem', fontWeight:700, boxShadow:'0 8px 24px rgba(5,5,109,0.3)', zIndex:500, animation:'slideUp 0.3s ease' }}>
+    <div style={{ position:'fixed', bottom:24, right:24, background:'var(--navy)', color:'var(--white)', padding:'12px 20px', borderRadius:12, fontSize:'0.85rem', fontWeight:700, boxShadow:'0 8px 24px rgba(5,5,109,0.3)', zIndex:500, animation:'slideUp 0.3s ease' }}>
       ✓ {message}
     </div>
   );
@@ -130,7 +130,7 @@ export function Skeleton({ lines = 3 }) {
   return (
     <div style={{ padding: 24 }}>
       {Array(lines).fill(0).map((_, i) => (
-        <div key={i} style={{ height: i===0?20:14, background:'linear-gradient(90deg, var(--lavender) 25%, #E8E8F0 50%, var(--lavender) 75%)', backgroundSize:'200%', borderRadius:6, marginBottom:10, width: i===0?'60%':i===1?'80%':'45%', animation:'shimmer 1.5s infinite' }} />
+        <div key={i} style={{ height: i===0?20:14, background:'linear-gradient(90deg, var(--lavender) 25%, var(--shimmer-mid) 50%, var(--lavender) 75%)', backgroundSize:'200%', borderRadius:6, marginBottom:10, width: i===0?'60%':i===1?'80%':'45%', animation:'shimmer 1.5s infinite' }} />
       ))}
     </div>
   );

@@ -18,6 +18,7 @@ export default function SynthesePDFModal({ open, onClose, collab, absences, getM
 
   const generate = () => {
     const win = window.open('','_blank');
+    if (!win) { alert('Le popup a été bloqué. Autorisez les popups pour générer la synthèse.'); return; }
     win.document.write(`<html><head><title>Synthèse — ${c.prenom} ${c.nom}</title>
     <style>
       body{font-family:Quicksand,Arial,sans-serif;padding:32px;max-width:850px;margin:0 auto;color:#05056D;font-size:14px;line-height:1.6}

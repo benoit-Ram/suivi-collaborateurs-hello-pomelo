@@ -2,34 +2,53 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../../services/DataContext';
 import { api } from '../../services/api';
-import { PageHeader, Badge, Avatar, fmtDate, countWorkDays, ABS_TYPES, ABS_STATUTS } from '../../components/UI';
+import { PageHeader, Badge, Avatar, Modal, FadeIn, Skeleton, fmtDate, countWorkDays, ABS_TYPES, ABS_STATUTS } from '../../components/UI';
 
 const ABS_BADGE = { en_attente:'orange', approuve:'green', refuse:'pink' };
 
 export default function Absences() {
-  const { absences, collabs, showToast, reload } = useData();
+  const { absences, collabs, showToast, reload, loading } = useData();
   const navigate = useNavigate();
   const [tab, setTab] = useState('pending');
   const [histFilter, setHistFilter] = useState('');
   const [calYear, setCalYear] = useState(new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
+  // Refuse modal
+  const [refuseId, setRefuseId] = useState(null);
+  const [refuseMotif, setRefuseMotif] = useState('');
+  const [refuseLoading, setRefuseLoading] = useState(false);
+  // Solde modal
+  const [soldeModal, setSoldeModal] = useState(null);
+  const [soldeForm, setSoldeForm] = useState({ solde: 0, acq: 2.08 });
+  const [soldeLoading, setSoldeLoading] = useState(false);
+  // Action loading
+  const [approving, setApproving] = useState(null);
+
+  if (loading) return <div style={{maxWidth:600,margin:'40px auto'}}><Skeleton lines={5} /></div>;
 
   const pending = absences.filter(a => a.statut === 'en_attente');
   const history = absences.filter(a => a.statut !== 'en_attente');
   const filteredHist = histFilter ? history.filter(a => a.collaborateur_id === histFilter) : history;
 
   const approve = async (id) => {
-    try { await api.updateAbsence(id, { statut: 'approuve' }); await reload(); showToast('Approuvé ✓'); } catch(e) { showToast('Erreur: '+e.message); }
+    setApproving(id);
+    try { await api.updateAbsence(id, { statut: 'approuve' }); await reload(); showToast('Congé approuvé ✓'); } catch(e) { showToast('Erreur: '+e.message); }
+    setApproving(null);
   };
-  const refuse = async (id) => {
-    const motif = window.prompt('Motif du refus :');
-    if (!motif) return;
-    try { await api.updateAbsence(id, { statut: 'refuse', motif_refus: motif }); await reload(); showToast('Refusé'); } catch(e) { showToast('Erreur: '+e.message); }
+  const submitRefuse = async () => {
+    if (!refuseMotif.trim()) return;
+    setRefuseLoading(true);
+    try { await api.updateAbsence(refuseId, { statut: 'refuse', motif_refus: refuseMotif.trim() }); await reload(); showToast('Congé refusé'); setRefuseId(null); setRefuseMotif(''); } catch(e) { showToast('Erreur: '+e.message); }
+    setRefuseLoading(false);
+  };
+  const submitSolde = async () => {
+    setSoldeLoading(true);
+    try { await api.updateCollaborateur(soldeModal, { solde_conges: parseFloat(soldeForm.solde), acquisition_conges: parseFloat(soldeForm.acq) }); await reload(); showToast('Solde mis à jour ✓'); setSoldeModal(null); } catch(e) { showToast('Erreur: '+e.message); }
+    setSoldeLoading(false);
   };
 
   const getName = (id) => { const c = collabs.find(x=>x.id===id); return c ? `${c.prenom} ${c.nom}` : '—'; };
 
-  // Calendar data
   const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
   const monthLabel = new Date(calYear, calMonth, 1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
   const calPrev = () => { if(calMonth===0){setCalMonth(11);setCalYear(calYear-1)}else setCalMonth(calMonth-1) };
@@ -39,37 +58,37 @@ export default function Absences() {
     <div>
       <PageHeader title="Congés & Absences" subtitle="Gestion des demandes et suivi des soldes" />
 
-      <div style={{display:'flex',gap:6,marginBottom:24,background:'var(--offwhite)',padding:6,borderRadius:12,maxWidth:500}}>
+      <div style={{display:'flex',gap:6,marginBottom:24,background:'var(--offwhite)',padding:6,borderRadius:12,maxWidth:560,flexWrap:'wrap'}}>
         {[['pending',`⏳ En attente (${pending.length})`],['history','📋 Historique'],['calendar','📅 Calendrier'],['soldes','💰 Soldes']].map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)} style={{flex:1,padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',background:tab===k?'var(--pink)':'transparent',color:tab===k?'white':'var(--muted)',border:tab===k?'none':'1.5px solid var(--lavender)',boxShadow:tab===k?'0 4px 14px rgba(255,50,133,0.3)':'none'}}>{l}</button>
         ))}
       </div>
 
       {/* PENDING */}
-      {tab==='pending' && <div>
+      {tab==='pending' && <FadeIn><div>
         {pending.length===0 ? <div className="card" style={{textAlign:'center',padding:32,color:'var(--muted)'}}>✅ Aucune demande en attente</div> : pending.map(a => {
           const c = collabs.find(x=>x.id===a.collaborateur_id);
           return <div key={a.id} className="card" style={{marginBottom:10,padding:16,borderLeft:'4px solid var(--orange)'}}>
-            <div style={{display:'flex',alignItems:'center',gap:12}}>
+            <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
               {c && <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={36} />}
-              <div style={{flex:1}}>
+              <div style={{flex:1,minWidth:200}}>
                 <div style={{fontWeight:700,color:'var(--blue)',cursor:'pointer',fontSize:'0.9rem'}} onClick={()=>c&&navigate(`/admin/collaborateurs/${c.id}`)}>{getName(a.collaborateur_id)}</div>
                 <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>{ABS_TYPES[a.type]||a.type} · Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)} · {countWorkDays(a.date_debut,a.date_fin)}j ouvrés</div>
                 {a.commentaire && <div style={{fontSize:'0.78rem',color:'var(--muted)',fontStyle:'italic',marginTop:2}}>{a.commentaire}</div>}
               </div>
               <div style={{display:'flex',gap:6}}>
-                <button className="btn btn-sm" style={{background:'var(--green)',color:'white'}} onClick={()=>approve(a.id)}>✓ Approuver</button>
-                <button className="btn btn-danger btn-sm" onClick={()=>refuse(a.id)}>✕ Refuser</button>
+                <button className="btn btn-sm" style={{background:'var(--green)',color:'white'}} onClick={()=>approve(a.id)} disabled={approving===a.id}>{approving===a.id ? '⏳...' : '✓ Approuver'}</button>
+                <button className="btn btn-danger btn-sm" onClick={()=>{setRefuseId(a.id);setRefuseMotif('');}}>✕ Refuser</button>
               </div>
             </div>
           </div>;
         })}
-      </div>}
+      </div></FadeIn>}
 
       {/* HISTORY */}
-      {tab==='history' && <div>
+      {tab==='history' && <FadeIn><div>
         <div style={{marginBottom:16}}>
-          <select value={histFilter} onChange={e=>setHistFilter(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:10,padding:'8px 12px',fontFamily:'inherit',fontSize:'0.82rem',minWidth:250}}>
+          <select value={histFilter} onChange={e=>setHistFilter(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:10,padding:'8px 12px',fontFamily:'inherit',fontSize:'0.82rem',minWidth:250,background:'var(--offwhite)',color:'var(--navy)'}}>
             <option value="">Tous les collaborateurs</option>
             {collabs.map(c=><option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>)}
           </select>
@@ -77,7 +96,7 @@ export default function Absences() {
         <div className="card" style={{overflowX:'auto'}}>
           <table>
             <thead><tr><th>Collaborateur</th><th>Type</th><th>Du</th><th>Au</th><th>Jours</th><th>Statut</th><th>Motif</th></tr></thead>
-            <tbody>{filteredHist.length===0 ? <tr><td colSpan={6} style={{textAlign:'center',color:'var(--muted)',padding:32}}>Aucun historique</td></tr> : filteredHist.map(a=>(
+            <tbody>{filteredHist.length===0 ? <tr><td colSpan={7} style={{textAlign:'center',color:'var(--muted)',padding:32}}>Aucun historique</td></tr> : filteredHist.map(a=>(
               <tr key={a.id}>
                 <td style={{fontWeight:700,cursor:'pointer',color:'var(--blue)'}} onClick={()=>navigate(`/admin/collaborateurs/${collabs.find(x=>x.id===a.collaborateur_id)?.id}`)}>{getName(a.collaborateur_id)}</td>
                 <td>{ABS_TYPES[a.type]||a.type}</td>
@@ -85,15 +104,15 @@ export default function Absences() {
                 <td>{fmtDate(a.date_fin)}</td>
                 <td style={{fontWeight:700}}>{countWorkDays(a.date_debut,a.date_fin)}j</td>
                 <td><Badge type={ABS_BADGE[a.statut]}>{ABS_STATUTS[a.statut]}</Badge></td>
-                <td style={{fontSize:'0.78rem',color:'#881337'}}>{a.motif_refus||'—'}</td>
+                <td style={{fontSize:'0.78rem',color:'var(--text-danger)'}}>{a.motif_refus||'—'}</td>
               </tr>
             ))}</tbody>
           </table>
         </div>
-      </div>}
+      </div></FadeIn>}
 
       {/* CALENDAR */}
-      {tab==='calendar' && <div className="card">
+      {tab==='calendar' && <FadeIn><div className="card">
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
           <button className="btn btn-ghost btn-sm" onClick={calPrev}>←</button>
           <span style={{fontWeight:700,color:'var(--navy)',fontSize:'0.95rem',textTransform:'capitalize'}}>{monthLabel}</span>
@@ -114,22 +133,22 @@ export default function Absences() {
                   const isWE=dow===0||dow===6;
                   const a=cAbs.find(x=>ds>=x.date_debut&&ds<=x.date_fin);
                   let bg=isWE?'var(--lavender)':'transparent';
-                  if(a) bg=a.statut==='approuve'?'#DCFCE7':'#FFF7ED';
+                  if(a) bg=a.statut==='approuve'?'var(--bg-success)':'var(--bg-warning)';
                   return <td key={d} style={{padding:1,background:bg,borderRadius:2}} />;
                 })}
               </tr>;
             })}</tbody>
           </table>
         </div>
-        <div style={{display:'flex',gap:12,marginTop:12,fontSize:'0.7rem',color:'var(--muted)',fontWeight:600}}>
-          <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'#DCFCE7'}} /> Approuvé</div>
-          <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'#FFF7ED'}} /> En attente</div>
+        <div style={{display:'flex',gap:12,marginTop:12,fontSize:'0.7rem',color:'var(--muted)',fontWeight:600,flexWrap:'wrap'}}>
+          <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'var(--bg-success)'}} /> Approuvé</div>
+          <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'var(--bg-warning)'}} /> En attente</div>
           <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'var(--lavender)'}} /> Weekend</div>
         </div>
-      </div>}
+      </div></FadeIn>}
 
       {/* SOLDES */}
-      {tab==='soldes' && <div className="card" style={{overflowX:'auto'}}>
+      {tab==='soldes' && <FadeIn><div className="card" style={{overflowX:'auto'}}>
         <table>
           <thead><tr><th>Collaborateur</th><th>Solde initial</th><th>Acquisition/mois</th><th>Acquis</th><th>Pris</th><th>Solde</th><th></th></tr></thead>
           <tbody>{collabs.map(c => {
@@ -148,17 +167,42 @@ export default function Absences() {
               <td>{acquis}j</td>
               <td>{pris}j</td>
               <td style={{fontWeight:700,color}}>{solde}j</td>
-              <td><button className="btn btn-ghost btn-sm" onClick={async()=>{
-                const newSolde = window.prompt('Solde initial :',soldeInit);
-                if(newSolde===null) return;
-                const newAcq = window.prompt('Acquisition/mois :',acq);
-                if(newAcq===null) return;
-                try { await api.updateCollaborateur(c.id,{solde_conges:parseFloat(newSolde),acquisition_conges:parseFloat(newAcq)}); await reload(); showToast('Mis à jour'); } catch(e2) { showToast('Erreur: '+e2.message); }
-              }}>✏️</button></td>
+              <td><button className="btn btn-ghost btn-sm" aria-label="Modifier le solde" onClick={()=>{setSoldeModal(c.id);setSoldeForm({solde:soldeInit,acq});}}>✏️</button></td>
             </tr>;
           })}</tbody>
         </table>
-      </div>}
+      </div></FadeIn>}
+
+      {/* REFUSE MODAL */}
+      <Modal open={!!refuseId} onClose={()=>setRefuseId(null)} title="Refuser la demande">
+        <p style={{fontSize:'0.88rem',color:'var(--muted)',marginBottom:16}}>Veuillez indiquer le motif du refus :</p>
+        <div className="form-field">
+          <label>Motif <span style={{color:'var(--red)'}}>*</span></label>
+          <textarea autoFocus value={refuseMotif} onChange={e=>setRefuseMotif(e.target.value)} placeholder="Ex: Période de forte activité, chevauchement avec un collègue..." style={{minHeight:80}} />
+        </div>
+        <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:16}}>
+          <button className="btn btn-ghost" onClick={()=>setRefuseId(null)}>Annuler</button>
+          <button className="btn btn-danger" onClick={submitRefuse} disabled={refuseLoading || !refuseMotif.trim()}>{refuseLoading ? '⏳ En cours...' : '✕ Refuser'}</button>
+        </div>
+      </Modal>
+
+      {/* SOLDE MODAL */}
+      <Modal open={!!soldeModal} onClose={()=>setSoldeModal(null)} title="Modifier le solde congés">
+        <div className="form-grid">
+          <div className="form-field">
+            <label>Solde initial (jours)</label>
+            <input type="number" autoFocus value={soldeForm.solde} onChange={e=>setSoldeForm({...soldeForm,solde:e.target.value})} />
+          </div>
+          <div className="form-field">
+            <label>Acquisition/mois (jours)</label>
+            <input type="number" step="0.01" value={soldeForm.acq} onChange={e=>setSoldeForm({...soldeForm,acq:e.target.value})} />
+          </div>
+        </div>
+        <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:16}}>
+          <button className="btn btn-ghost" onClick={()=>setSoldeModal(null)}>Annuler</button>
+          <button className="btn btn-primary" onClick={submitSolde} disabled={soldeLoading}>{soldeLoading ? '⏳ En cours...' : '💾 Enregistrer'}</button>
+        </div>
+      </Modal>
     </div>
   );
 }
