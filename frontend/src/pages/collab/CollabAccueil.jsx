@@ -303,15 +303,32 @@ function CongesTab({ c, absences, solde, onReload }) {
         <TeamCalendar collab={c} />
       </div>
 
-      <div className="section-title">Historique</div>
-      {absences.length===0 ? <EmptyState icon="🏖️" text="Aucune demande" /> : absences.map(a => (
-        <div key={a.id} style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',borderRadius:12,border:'1.5px solid var(--lavender)',marginBottom:8,background:'var(--white)'}}>
+      {/* En attente */}
+      {absences.filter(a=>a.statut==='en_attente').length > 0 && <>
+        <div className="section-title">⏳ Demandes en attente</div>
+        {absences.filter(a=>a.statut==='en_attente').map(a => (
+          <div key={a.id} style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',borderRadius:12,border:'1.5px solid var(--orange)',marginBottom:8,background:'#FFF7ED'}}>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:700,fontSize:'0.9rem',color:'var(--navy)'}}>{ABS_TYPES[a.type]||a.type}</div>
+              <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)}</div>
+              {a.commentaire && <div style={{fontSize:'0.78rem',color:'var(--muted)',fontStyle:'italic',marginTop:2}}>{a.commentaire}</div>}
+            </div>
+            <Badge type="orange">En attente</Badge>
+          </div>
+        ))}
+      </>}
+
+      {/* Historique (approuvés + refusés) */}
+      <div className="section-title">📋 Historique</div>
+      {absences.filter(a=>a.statut!=='en_attente').length===0 ? <p style={{color:'var(--muted)',fontSize:'0.82rem',fontStyle:'italic'}}>Aucun historique.</p> : absences.filter(a=>a.statut!=='en_attente').map(a => (
+        <div key={a.id} style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',borderRadius:12,border:`1.5px solid ${a.statut==='approuve'?'#86EFAC':'#F43F5E'}`,marginBottom:8,background:a.statut==='approuve'?'#F0FDF4':'#FFF1F2'}}>
           <div style={{flex:1}}>
             <div style={{fontWeight:700,fontSize:'0.9rem',color:'var(--navy)'}}>{ABS_TYPES[a.type]||a.type}</div>
             <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)}</div>
-            {a.motif_refus && <div style={{fontSize:'0.78rem',color:'#881337',marginTop:4,background:'#FFF1F2',padding:'4px 8px',borderRadius:6}}>Motif: {a.motif_refus}</div>}
+            {a.commentaire && <div style={{fontSize:'0.78rem',color:'var(--muted)',fontStyle:'italic',marginTop:2}}>{a.commentaire}</div>}
+            {a.statut==='refuse' && a.motif_refus && <div style={{fontSize:'0.78rem',color:'#881337',marginTop:4,background:'white',padding:'6px 10px',borderRadius:6,borderLeft:'3px solid #F43F5E'}}>❌ Motif du refus : {a.motif_refus}</div>}
           </div>
-          <Badge type={a.statut==='approuve'?'green':a.statut==='refuse'?'pink':'orange'}>{ABS_STATUTS[a.statut]}</Badge>
+          <Badge type={a.statut==='approuve'?'green':'pink'}>{a.statut==='approuve'?'✅ Approuvé':'❌ Refusé'}</Badge>
         </div>
       ))}
     </div>
