@@ -55,7 +55,8 @@ function LoginPage({ collabs, onLogin }) {
       window.google.accounts.id.initialize({
         client_id: GOOGLE_CLIENT_ID,
         callback: (response) => {
-          const payload = JSON.parse(atob(response.credential.split('.')[1]));
+          const base64 = response.credential.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
+          const payload = JSON.parse(atob(base64));
           handleLogin(payload.email, payload.name, payload.picture);
         },
         auto_select: false,
