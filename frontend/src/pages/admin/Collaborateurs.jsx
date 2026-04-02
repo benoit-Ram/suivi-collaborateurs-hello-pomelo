@@ -5,7 +5,7 @@ import { api } from '../../services/api';
 import { Avatar, PageHeader, Modal, ConfirmModal, FadeIn, Skeleton, fmtDate } from '../../components/UI';
 
 export default function Collaborateurs() {
-  const { collabs, showToast, getManagerName, reload } = useData();
+  const { collabs, settings, showToast, getManagerName, reload } = useData();
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState('nom');
   const [sortAsc, setSortAsc] = useState(true);
