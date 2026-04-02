@@ -85,7 +85,7 @@ export default function SynthesePDFModal({ open, onClose, collab, absences, getM
           win.document.write(`<div class="field"><div class="field-label">${k}</div><div class="field-value">${v||'—'}</div></div>`);
         });
         win.document.write(`<div style="font-size:0.78rem;font-weight:700;color:#FF3285;margin:8px 0 4px">Collaborateur</div>`);
-        Object.entries(cd).filter(([k])=>k!=='objectifs'&&k!==='_commentaire').forEach(([k,v]) => {
+        Object.entries(cd).filter(([k])=>k!=='objectifs'&&k !== '_commentaire').forEach(([k,v]) => {
           win.document.write(`<div class="field"><div class="field-label">${k}</div><div class="field-value">${v||'—'}</div></div>`);
         });
         if (cd._commentaire) win.document.write(`<div class="field"><div class="field-label">Commentaire libre</div><div class="field-value">${cd._commentaire}</div></div>`);
