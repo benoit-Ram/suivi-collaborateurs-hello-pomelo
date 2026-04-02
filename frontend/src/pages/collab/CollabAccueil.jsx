@@ -58,7 +58,14 @@ export default function CollabAccueil() {
   const manager = c.manager_id ? collabs.find(x=>x.id===c.manager_id) : null;
   const managerName = manager ? `${manager.prenom} ${manager.nom}` : '—';
   const myTeam = collabs.filter(m => m.manager_id === c.id);
-  const solde = c.solde_conges || 0;
+  // Calcul solde réel
+  const soldeInit = c.solde_conges||0;
+  const acq = c.acquisition_conges||2.08;
+  let moisAcq = 0;
+  if (c.date_entree) { const e2=new Date(c.date_entree); const n2=new Date(); moisAcq=Math.max(0,(n2.getFullYear()-e2.getFullYear())*12+(n2.getMonth()-e2.getMonth())); }
+  const acquis = Math.round(moisAcq*acq*100)/100;
+  const pris = absences.filter(a=>a.statut==='approuve'&&a.type==='conge').length;
+  const solde = Math.round((soldeInit+acquis-pris)*100)/100;
 
   const tabs = [['accueil','🏠 Accueil'],['objectifs','🎯 Objectifs'],['points','📋 Entretien RH'],['conges','🏖️ Congés']];
   if (myTeam.length) tabs.splice(3, 0, ['management','👔 Management']);
@@ -103,26 +110,14 @@ export default function CollabAccueil() {
 
       {/* POINTS */}
       {tab==='points' && <div>
-        {points.length===0 ? <EmptyState icon="📋" text="Aucun point mensuel" /> : points.map(p => <PointCard key={p.id} p={p} />)}
+        {points.length===0 ? <EmptyState icon="📋" text="Aucun entretien RH" /> : points.map(p => <PointCard key={p.id} p={p} collabId={c.id} />)}
       </div>}
 
       {/* CONGÉS */}
       {tab==='conges' && <CongesTab c={c} absences={absences} solde={solde} onReload={() => loadAbsences(c.id)} api={api} />}
 
       {/* MANAGEMENT */}
-      {tab==='management' && <div>
-        <div className="section-title">Mes collaborateurs ({myTeam.length})</div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:14}}>
-          {myTeam.map(m => (
-            <div key={m.id} className="card" style={{padding:16}}>
-              <Avatar prenom={m.prenom} nom={m.nom} photoUrl={m.photo_url} size={40} />
-              <div style={{fontWeight:700,fontSize:'0.9rem',color:'var(--navy)',marginTop:8}}>{m.prenom} {m.nom}</div>
-              <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>{m.poste}</div>
-              <div style={{fontSize:'0.72rem',color:'var(--muted)',marginTop:4}}>{(m.objectifs||[]).filter(o=>o.statut==='en-cours').length} objectifs en cours</div>
-            </div>
-          ))}
-        </div>
-      </div>}
+      {tab==='management' && <ManagementTab manager={c} team={myTeam} collabs={collabs} />}
     </div>
   );
 }
@@ -145,12 +140,35 @@ function ObjCard({ o, i }) {
   );
 }
 
-function PointCard({ p }) {
+const COLLAB_QUESTIONS = ['Comment t\'es-tu senti(e) au travail ?','Réussites du mois','Objectifs M-1 atteints ?','Suggestions process','Objectifs mois suivant','Autres sujets','Axe d\'amélioration'];
+
+function PointCard({ p, collabId }) {
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [formData, setFormData] = useState({});
+  const [saving, setSaving] = useState(false);
   const md = p.manager_data||{}; const cd = p.collab_data||{};
   const hasM = Object.keys(md).filter(k=>k!=='objectifs').some(k=>md[k]);
   const hasC = Object.keys(cd).filter(k=>k!=='objectifs').some(k=>cd[k]);
   const status = hasM&&hasC?'green':hasM||hasC?'orange':'pink';
+
+  const startEdit = () => {
+    const data = {};
+    COLLAB_QUESTIONS.forEach((q,i) => { data['cq'+i] = cd['cq'+i] || ''; });
+    setFormData(data);
+    setEditing(true);
+  };
+
+  const saveResponses = async () => {
+    setSaving(true);
+    try {
+      await api.updatePointSuivi(p.id, { collab_data: formData });
+      Object.assign(cd, formData);
+      setEditing(false);
+    } catch(e) { console.error(e); }
+    setSaving(false);
+  };
+
   return (
     <div className="card" style={{marginBottom:10,padding:0,overflow:'hidden'}}>
       <div onClick={()=>setOpen(!open)} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'14px 18px',cursor:'pointer'}}>
@@ -161,10 +179,32 @@ function PointCard({ p }) {
         <span style={{color:'var(--muted)'}}>{open?'▲':'▼'}</span>
       </div>
       {open && <div style={{padding:'0 18px 18px',borderTop:'1px solid var(--lavender)'}}>
-        <div style={{marginTop:14,fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--skyblue)',marginBottom:8}}>👔 Manager</div>
+        {/* Manager section (read-only) */}
+        <div style={{marginTop:14,fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--skyblue)',marginBottom:8}}>👔 Retours Manager</div>
         {Object.entries(md).filter(([k])=>k!=='objectifs').map(([k,v])=>(<div key={k} style={{marginBottom:8}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)',marginBottom:2}}>{k}</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:v?'var(--navy)':'var(--muted)',fontStyle:v?'normal':'italic'}}>{v||'Non renseigné'}</div></div>))}
-        {Object.keys(cd).filter(k=>k!=='objectifs').length>0 && <><div style={{marginTop:14,fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--pink)',marginBottom:8}}>👤 Collaborateur</div>
-          {Object.entries(cd).filter(([k])=>k!=='objectifs').map(([k,v])=>(<div key={k} style={{marginBottom:8}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)',marginBottom:2}}>{k}</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:v?'var(--navy)':'var(--muted)',fontStyle:v?'normal':'italic'}}>{v||'Non renseigné'}</div></div>))}
+
+        {/* Collab section (editable) */}
+        <div style={{marginTop:16,paddingTop:14,borderTop:'1px dashed var(--lavender)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <div style={{fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--pink)'}}>✏️ Mes réponses</div>
+          {!editing && <button className="btn btn-ghost btn-sm" onClick={startEdit}>✏️ Remplir</button>}
+        </div>
+        {editing ? <>
+          {COLLAB_QUESTIONS.map((q,i) => (
+            <div key={i} style={{marginBottom:10,marginTop:8}}>
+              <label style={{fontSize:'0.72rem',fontWeight:700,color:'var(--pink)',display:'block',marginBottom:4}}>{q}</label>
+              <textarea value={formData['cq'+i]||''} onChange={e=>setFormData({...formData,['cq'+i]:e.target.value})} placeholder="Votre réponse..." style={{width:'100%',border:'1.5px solid var(--lavender)',borderRadius:8,padding:'8px 12px',fontFamily:'inherit',fontSize:'0.85rem',minHeight:60,resize:'vertical',outline:'none'}} />
+            </div>
+          ))}
+          <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:8}}>
+            <button className="btn btn-ghost btn-sm" onClick={()=>setEditing(false)}>Annuler</button>
+            <button className="btn btn-primary btn-sm" onClick={saveResponses} disabled={saving}>💾 Sauvegarder</button>
+          </div>
+        </> : <>
+          {COLLAB_QUESTIONS.map((q,i) => {
+            const v = cd['cq'+i];
+            return v ? <div key={i} style={{marginBottom:8,marginTop:8}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)',marginBottom:2}}>{q}</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:'var(--navy)'}}>{v}</div></div> : null;
+          })}
+          {!hasC && <p style={{fontSize:'0.82rem',color:'var(--muted)',fontStyle:'italic',marginTop:8}}>Vous n'avez pas encore rempli vos réponses.</p>}
         </>}
       </div>}
     </div>
@@ -356,6 +396,112 @@ function TeamCalendar({ collab }) {
           })}</tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function ManagementTab({ manager, team, collabs }) {
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [memberTab, setMemberTab] = useState('objectifs');
+  const [memberAbs, setMemberAbs] = useState([]);
+
+  const loadMemberAbs = async (id) => {
+    const data = await api.getAbsences({ collaborateur_id: id });
+    setMemberAbs(data || []);
+  };
+
+  if (!selectedMember) {
+    return (
+      <div>
+        <div className="section-title">Mes collaborateurs ({team.length})</div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:14}}>
+          {team.map(m => (
+            <div key={m.id} className="card" style={{padding:16,cursor:'pointer',transition:'all 0.15s',border:'2px solid transparent'}}
+              onClick={()=>{setSelectedMember(m);setMemberTab('objectifs');loadMemberAbs(m.id);}}
+              onMouseOver={e=>e.currentTarget.style.borderColor='var(--pink)'} onMouseOut={e=>e.currentTarget.style.borderColor='transparent'}>
+              <Avatar prenom={m.prenom} nom={m.nom} photoUrl={m.photo_url} size={40} />
+              <div style={{fontWeight:700,fontSize:'0.9rem',color:'var(--navy)',marginTop:8}}>{m.prenom} {m.nom}</div>
+              <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>{m.poste}</div>
+              <div style={{fontSize:'0.72rem',color:'var(--muted)',marginTop:4}}>{(m.objectifs||[]).filter(o=>o.statut==='en-cours').length} objectifs en cours</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const m = selectedMember;
+  const mObjs = m.objectifs || [];
+  const mPoints = (m.points_suivi||[]).filter(p=>p.type==='mensuel').sort((a,b)=>(b.mois||'')>(a.mois||'')?1:-1);
+
+  return (
+    <div>
+      <button className="btn btn-ghost btn-sm" onClick={()=>setSelectedMember(null)} style={{marginBottom:16}}>← Retour</button>
+      <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:20}}>
+        <Avatar prenom={m.prenom} nom={m.nom} photoUrl={m.photo_url} size={56} />
+        <div><div style={{fontSize:'1.1rem',fontWeight:700,color:'var(--navy)'}}>{m.prenom} {m.nom}</div><div style={{fontSize:'0.85rem',color:'var(--muted)'}}>{m.poste}</div></div>
+      </div>
+      <div style={{display:'flex',gap:6,marginBottom:20,background:'var(--offwhite)',padding:6,borderRadius:12}}>
+        {[['objectifs','🎯 Objectifs'],['points','📋 Entretien RH'],['conges','🏖️ Congés']].map(([k,l])=>(
+          <button key={k} onClick={()=>setMemberTab(k)} style={{flex:1,padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',background:memberTab===k?'white':'transparent',color:memberTab===k?'var(--navy)':'var(--muted)',boxShadow:memberTab===k?'0 2px 8px rgba(5,5,109,0.1)':'none'}}>{l}</button>
+        ))}
+      </div>
+
+      {/* Objectifs */}
+      {memberTab==='objectifs' && <div>
+        {mObjs.filter(o=>o.statut!=='atteint').map((o,i)=>(
+          <div key={o.id} className="card" style={{marginBottom:8,padding:14,borderLeft:'4px solid var(--pink)'}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+              <span style={{fontWeight:700,color:'var(--navy)',flex:1}}>{o.titre}</span>
+              <Badge type={STATUS_COLORS[o.statut]}>{STATUS_LABELS[o.statut]}</Badge>
+            </div>
+            <ProgressBar value={o.progression||0} />
+          </div>
+        ))}
+        {mObjs.filter(o=>o.statut==='atteint').length>0 && <>
+          <div className="section-title" style={{marginTop:16}}>✅ Atteints</div>
+          {mObjs.filter(o=>o.statut==='atteint').map(o=>(
+            <div key={o.id} className="card" style={{marginBottom:8,padding:14,borderLeft:'4px solid var(--green)',opacity:0.85}}>
+              <span style={{fontWeight:700,color:'var(--navy)'}}>{o.titre}</span>
+            </div>
+          ))}
+        </>}
+        {mObjs.length===0 && <EmptyState icon="🎯" text="Aucun objectif" />}
+      </div>}
+
+      {/* Entretien RH */}
+      {memberTab==='points' && <div>
+        {mPoints.length===0 ? <EmptyState icon="📋" text="Aucun entretien" /> : mPoints.map(p=>{
+          const md=p.manager_data||{};
+          return <div key={p.id} className="card" style={{marginBottom:10,padding:16,borderLeft:'4px solid var(--skyblue)'}}>
+            <div style={{fontWeight:700,color:'var(--navy)',marginBottom:8}}>📅 {moisLabel(p.mois)}</div>
+            {Object.entries(md).filter(([k])=>k!=='objectifs').map(([k,v])=>(<div key={k} style={{marginBottom:6}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)'}}>{k}</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:v?'var(--navy)':'var(--muted)',fontStyle:v?'normal':'italic'}}>{v||'—'}</div></div>))}
+          </div>;
+        })}
+      </div>}
+
+      {/* Congés */}
+      {memberTab==='conges' && <div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14,marginBottom:16}}>
+          <div className="card" style={{textAlign:'center',padding:14}}><div style={{fontSize:'1.5rem',fontWeight:700,color:'var(--green)'}}>{m.solde_conges||0}j</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Solde</div></div>
+          <div className="card" style={{textAlign:'center',padding:14}}><div style={{fontSize:'1.5rem',fontWeight:700,color:'var(--pink)'}}>{memberAbs.filter(a=>a.statut==='approuve').length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Approuvés</div></div>
+          <div className="card" style={{textAlign:'center',padding:14}}><div style={{fontSize:'1.5rem',fontWeight:700,color:'var(--orange)'}}>{memberAbs.filter(a=>a.statut==='en_attente').length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>En attente</div></div>
+        </div>
+        {memberAbs.map(a=>(
+          <div key={a.id} style={{display:'flex',alignItems:'center',gap:14,padding:'12px 16px',borderRadius:10,border:'1.5px solid var(--lavender)',marginBottom:8}}>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:700,color:'var(--navy)',fontSize:'0.88rem'}}>{ABS_TYPES[a.type]||a.type}</div>
+              <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)}</div>
+            </div>
+            <Badge type={a.statut==='approuve'?'green':a.statut==='refuse'?'pink':'orange'}>{ABS_STATUTS[a.statut]}</Badge>
+            {a.statut==='en_attente' && <>
+              <button className="btn btn-sm" style={{background:'var(--green)',color:'white',padding:'4px 10px'}} onClick={async()=>{await api.updateAbsence(a.id,{statut:'approuve'});loadMemberAbs(m.id);}}>✓</button>
+              <button className="btn btn-danger btn-sm" style={{padding:'4px 10px'}} onClick={async()=>{const motif=window.prompt('Motif du refus :');if(!motif)return;await api.updateAbsence(a.id,{statut:'refuse',motif_refus:motif});loadMemberAbs(m.id);}}>✕</button>
+            </>}
+          </div>
+        ))}
+        {memberAbs.length===0 && <EmptyState icon="🏖️" text="Aucune demande" />}
+      </div>}
     </div>
   );
 }

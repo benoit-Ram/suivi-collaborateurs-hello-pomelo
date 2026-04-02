@@ -4,6 +4,18 @@ import { useData } from '../../services/DataContext';
 import { api } from '../../services/api';
 import { Avatar, Badge, ProgressBar, EmptyState, Modal, FadeIn, fmtDate, moisLabel, currentMois, STATUS_LABELS, STATUS_COLORS } from '../../components/UI';
 
+function exportCollabCSV(c, getManagerName) {
+  const BOM = '\uFEFF';
+  const lines = [
+    ['Prénom','Nom','Poste','Email','Bureau','Équipe','Contrat','Manager','Date entrée'].join(';'),
+    [c.prenom,c.nom,c.poste,c.email,c.bureau,c.equipe,c.contrat,c.manager_id?getManagerName(c.manager_id):'',c.date_entree].map(v=>`"${(v||'').replace(/"/g,'""')}"`).join(';')
+  ];
+  const blob = new Blob([BOM+lines.join('\n')], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=`${c.prenom}_${c.nom}.csv`; a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function CollabProfile() {
   const { id } = useParams();
   const { collabs, showToast, getManagerName, reload } = useData();
@@ -89,6 +101,7 @@ export default function CollabProfile() {
         <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
           <button className="btn btn-ghost btn-sm" onClick={() => navigate(`/admin/collaborateurs?edit=${c.id}`)}>✏️ Modifier</button>
           <button className="btn btn-navy btn-sm" onClick={voirComme}>👁 {c.prenom}</button>
+          <button className="btn btn-ghost btn-sm" onClick={()=>exportCollabCSV(c,getManagerName)}>📥 CSV</button>
         </div>
       </div>
 
