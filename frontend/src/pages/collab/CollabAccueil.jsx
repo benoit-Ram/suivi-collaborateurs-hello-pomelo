@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
+import { useAuth } from '../../services/AuthContext';
 import { Avatar, Badge, ProgressBar, EmptyState, FadeIn, Modal, Skeleton, fmtDate, moisLabel, countWorkDays, STATUS_LABELS, STATUS_COLORS, ABS_TYPES, ABS_STATUTS, isEntretienLocked, getEntretienStatus, ENTRETIEN_STATUS_BADGE } from '../../components/UI';
 
 // ── UTILS ──
@@ -41,137 +42,14 @@ function getCollabQuestions(settings) {
   return DEFAULT_Q.map((q,i) => ({key:'cq'+i, label:q, type:'texte'}));
 }
 
-// ── CONFIG ──
-const GOOGLE_CLIENT_ID = '583500042273-qg3a9puk3prhl3hbqfr2jbbtljcgorco.apps.googleusercontent.com';
-
-// ── LOGIN PAGE COMPONENT ──
-function LoginPage({ collabs, onLogin }) {
-  const [showDemo, setShowDemo] = useState(false);
-  const [error, setError] = useState('');
-  const googleBtnRef = React.useRef(null);
-
-  useEffect(() => {
-    if (GOOGLE_CLIENT_ID && window.google?.accounts?.id) {
-      window.google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: (response) => {
-          const base64 = response.credential.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
-          const payload = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(base64), c => c.charCodeAt(0))));
-          handleLogin(payload.email, payload.name, payload.picture);
-        },
-        auto_select: false,
-      });
-      window.google.accounts.id.renderButton(googleBtnRef.current, {
-        theme: 'outline', size: 'large', width: 340, text: 'signin_with', shape: 'rectangular', locale: 'fr'
-      });
-    }
-  }, []);
-
-  function handleLogin(email, name, picture) {
-    const collab = collabs.find(c => c.email && c.email.toLowerCase() === email.toLowerCase());
-    if (!collab) {
-      setError(`Aucun compte collaborateur pour "${email}". Contactez votre administrateur.`);
-      return;
-    }
-    const session = { email, name: name || `${collab.prenom} ${collab.nom}`, picture: picture || null };
-    sessionStorage.setItem('hp_collab_session', JSON.stringify(session));
-    // Save Google photo to database if available
-    if (picture && picture !== collab.photo_url) {
-      api.updateCollaborateur(collab.id, { photo_url: picture }).catch(() => {});
-    }
-    onLogin(collab.id, session);
-  }
-
-  return (
-    <div style={{ minHeight: 'calc(100vh - 56px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 16px', background: 'linear-gradient(135deg, #F0F0FF 0%, #FFF0F8 100%)' }}>
-      <div style={{ background: 'white', borderRadius: 24, padding: '52px 48px', maxWidth: 440, width: '100%', boxShadow: '0 12px 48px rgba(5,5,109,0.12)', textAlign: 'center' }}>
-        {/* Logo */}
-        <div style={{ marginBottom: 32 }}>
-          <div style={{ fontFamily: "'Nunito', sans-serif", fontWeight: 900, color: '#0000EA', fontSize: '2.05rem', lineHeight: 1.08, letterSpacing: '0.22em', textTransform: 'uppercase' }}>
-            Hello<br/>Pomelo
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--muted)', fontWeight: 600, letterSpacing: '0.06em', marginTop: 10 }}>Espace collaborateur</div>
-        </div>
-
-        {/* Divider */}
-        <div style={{ height: 3, background: 'linear-gradient(90deg, #FF3285, #0000EA, #5BB6F4)', borderRadius: 99, margin: '28px 0' }} />
-
-        <h2 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#05056D', marginBottom: 8 }}>Connexion</h2>
-        <p style={{ fontSize: '0.85rem', color: '#6B6B9A', marginBottom: 32, lineHeight: 1.6 }}>
-          Connectez-vous avec votre compte Hello Pomelo pour accéder à votre espace personnel.
-        </p>
-
-        {/* Google Sign-In */}
-        {GOOGLE_CLIENT_ID ? (
-          <div ref={googleBtnRef} style={{ display: 'flex', justifyContent: 'center' }} />
-        ) : (
-          <button onClick={() => setShowDemo(true)} style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
-            width: '100%', padding: '14px 24px', borderRadius: 12,
-            border: '2px solid #CFD0E5', background: 'white',
-            fontFamily: 'inherit', fontSize: '0.92rem', fontWeight: 700,
-            color: '#05056D', cursor: 'pointer', transition: 'all 0.2s',
-          }}
-          onMouseOver={e => { e.currentTarget.style.borderColor = '#FF3285'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(255,50,133,0.15)'; }}
-          onMouseOut={e => { e.currentTarget.style.borderColor = '#CFD0E5'; e.currentTarget.style.boxShadow = 'none'; }}
-          >
-            <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-            Se connecter avec Google
-          </button>
-        )}
-
-        {/* Error */}
-        {error && (
-          <div style={{ background: '#FFF1F2', color: '#881337', borderLeft: '4px solid #F43F5E', borderRadius: 10, padding: '12px 16px', fontSize: '0.82rem', fontWeight: 600, marginTop: 16, textAlign: 'left' }}>
-            {error}
-          </div>
-        )}
-
-        <p style={{ fontSize: '0.72rem', color: '#CFD0E5', marginTop: 20, fontWeight: 600, letterSpacing: '0.04em' }}>
-          {GOOGLE_CLIENT_ID ? 'Utilisez votre email @hello-pomelo.com' : 'Mode demonstration — Google Sign-In sera active prochainement'}
-        </p>
-      </div>
-
-      {/* Demo modal */}
-      {showDemo && (
-        <div onClick={(e) => { if (e.target === e.currentTarget) setShowDemo(false); }}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(5,5,109,0.4)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div style={{ background: 'white', borderRadius: 20, padding: '28px 24px', maxWidth: 500, width: '100%', maxHeight: '80vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(5,5,109,0.2)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#05056D' }}>Choisir un compte</h3>
-              <button onClick={() => setShowDemo(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#6B6B9A' }}>&times;</button>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {collabs.map(c => (
-                <div key={c.id} onClick={() => { setShowDemo(false); handleLogin(c.email || `${c.prenom.toLowerCase()}@hello-pomelo.com`, `${c.prenom} ${c.nom}`, c.photo_url); }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 12, cursor: 'pointer', transition: 'all 0.15s', border: '1.5px solid transparent' }}
-                  onMouseOver={e => { e.currentTarget.style.background = '#F8F7FC'; e.currentTarget.style.borderColor = '#FF3285'; }}
-                  onMouseOut={e => { e.currentTarget.style.background = ''; e.currentTarget.style.borderColor = 'transparent'; }}>
-                  <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={40} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#05056D' }}>{c.prenom} {c.nom}</div>
-                    <div style={{ fontSize: '0.75rem', color: '#6B6B9A' }}>{c.email || '(pas d\'email)'}</div>
-                    {c.poste && <div style={{ fontSize: '0.7rem', color: '#8F8FBC', marginTop: 2 }}>{c.poste}</div>}
-                  </div>
-                  <span style={{ color: '#CFD0E5', fontSize: '1.1rem' }}>&rarr;</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── MAIN COMPONENT ──
 
 export default function CollabAccueil() {
+  const { user: authUser } = useAuth();
   const [collabs, setCollabs] = useState([]);
   const [absences, setAbsences] = useState([]);
   const [settings, setSettings] = useState({});
   const [selectedId, setSelectedId] = useState('');
-  const [currentUser, setCurrentUser] = useState(null);
   const [tab, setTab] = useState('accueil');
   const [loading, setLoading] = useState(true);
   const [teamPendingAbs, setTeamPendingAbs] = useState([]);
@@ -187,58 +65,19 @@ export default function CollabAccueil() {
       const impId = params.get('impersonate');
       if (impId && (data||[]).find(c=>c.id===impId)) {
         setSelectedId(impId);
-        setCurrentUser({ email: '', name: 'Admin', picture: null });
         loadTeamPendingAbs(impId, data);
         return;
       }
 
-      // Restore session
-      const saved = sessionStorage.getItem('hp_collab_session');
-      if (saved) {
-        try {
-          const u = JSON.parse(saved);
-          const collab = (data||[]).find(c => c.email && c.email.toLowerCase() === u.email.toLowerCase());
-          if (collab) {
-            setSelectedId(collab.id);
-            setCurrentUser(u);
-            loadTeamPendingAbs(collab.id, data);
-          }
-        } catch(e) { sessionStorage.removeItem('hp_collab_session'); }
+      // Auto-select from auth context
+      if (authUser?.collabId) {
+        setSelectedId(authUser.collabId);
+        loadTeamPendingAbs(authUser.collabId, data);
       }
     });
-  }, []);
-
-  function handleLogin(collabId, session) {
-    setSelectedId(collabId);
-    setCurrentUser(session);
-    loadAbsences(collabId);
-    loadTeamPendingAbs(collabId, collabs);
-  }
-
-  function handleLogout() {
-    sessionStorage.removeItem('hp_collab_session');
-    setSelectedId('');
-    setCurrentUser(null);
-    setTab('accueil');
-    setAbsences([]);
-    setTeamPendingAbs([]);
-    if (GOOGLE_CLIENT_ID && window.google?.accounts?.id) window.google.accounts.id.disableAutoSelect();
-  }
-
-  // Expose logout to parent layout
-  useEffect(() => {
-    window.__collabLogout = handleLogout;
-    window.__collabUser = currentUser;
-    window.dispatchEvent(new Event('collab-auth-change'));
-    return () => { delete window.__collabLogout; delete window.__collabUser; };
-  }, [currentUser]);
+  }, [authUser]);
 
   if (loading) return <div style={{maxWidth:600,margin:'40px auto'}}><Skeleton lines={5} /></div>;
-
-  // Login page
-  if (!selectedId || !currentUser) {
-    return <LoginPage collabs={collabs} onLogin={handleLogin} />;
-  }
 
   /** Charge les absences d'un collaborateur */
   async function loadAbsences(cid) {
@@ -290,10 +129,10 @@ export default function CollabAccueil() {
 
   return (
     <div>
-      <button className="btn btn-ghost btn-sm" onClick={()=>{setSelectedId('');setTab('accueil');}} style={{marginBottom:16}}>← Changer de compte</button>
+      {/* Profile card */}
 
       <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:24,background:'var(--bg-highlight)',borderRadius:16,padding:'clamp(14px, 3vw, 24px)',border:'1.5px solid var(--border-highlight)',flexWrap:'wrap'}}>
-        <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url || currentUser?.picture} size={64} />
+        <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url || authUser?.picture} size={64} />
         <div>
           <div style={{fontSize:'1.2rem',fontWeight:700,color:'var(--navy)'}}>{c.prenom} {c.nom}</div>
           <div style={{fontSize:'0.85rem',color:'var(--muted)',marginTop:2}}>{c.poste}{c.equipe ? ` · ${c.equipe}` : ''}</div>

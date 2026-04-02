@@ -1,5 +1,6 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './services/AuthContext';
 import { DataProvider } from './services/DataContext';
 import { Toast } from './components/UI';
 import { useData } from './services/DataContext';
@@ -13,13 +14,30 @@ import Absences from './pages/admin/Absences';
 import Settings from './pages/admin/Settings';
 import CollabLayout from './pages/collab/CollabLayout';
 import CollabAccueil from './pages/collab/CollabAccueil';
+import LoginPage from './pages/LoginPage';
+
+function RequireAuth({ children }) {
+  const { isAuthenticated, loading } = useAuth();
+  if (loading) return null;
+  if (!isAuthenticated) return <Navigate to="/" replace />;
+  return children;
+}
+
+function RequireAdmin({ children }) {
+  const { isAuthenticated, isAdmin, loading } = useAuth();
+  if (loading) return null;
+  if (!isAuthenticated) return <Navigate to="/" replace />;
+  if (!isAdmin) return <Navigate to="/collab" replace />;
+  return children;
+}
 
 function AppContent() {
   const { toast } = useData();
   return (
     <>
       <Routes>
-        <Route path="/admin" element={<AdminLayout />}>
+        <Route path="/" element={<LoginPage />} />
+        <Route path="/admin" element={<RequireAdmin><AdminLayout /></RequireAdmin>}>
           <Route index element={<Dashboard />} />
           <Route path="collaborateurs" element={<Collaborateurs />} />
           <Route path="collaborateurs/:id" element={<CollabProfile />} />
@@ -28,10 +46,10 @@ function AppContent() {
           <Route path="absences" element={<Absences />} />
           <Route path="settings" element={<Settings />} />
         </Route>
-        <Route path="/collab" element={<CollabLayout />}>
+        <Route path="/collab" element={<RequireAuth><CollabLayout /></RequireAuth>}>
           <Route index element={<CollabAccueil />} />
         </Route>
-        <Route path="*" element={<Navigate to="/admin" />} />
+        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
       <Toast message={toast} />
     </>
@@ -40,8 +58,10 @@ function AppContent() {
 
 export default function App() {
   return (
-    <DataProvider>
-      <AppContent />
-    </DataProvider>
+    <AuthProvider>
+      <DataProvider>
+        <AppContent />
+      </DataProvider>
+    </AuthProvider>
   );
 }
