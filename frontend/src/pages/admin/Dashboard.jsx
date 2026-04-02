@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../../services/DataContext';
-import { Avatar, StatCard, PageHeader, EmptyState, Badge, ProgressBar, currentMois, moisLabel, fmtDate, STATUS_LABELS, ABS_TYPES } from '../../components/UI';
+import { Avatar, StatCard, PageHeader, EmptyState, Badge, ProgressBar, Skeleton, currentMois, moisLabel, fmtDate, STATUS_LABELS, ABS_TYPES } from '../../components/UI';
 
 export default function Dashboard() {
   const { collabs, absences, loading, settings } = useData();
@@ -9,7 +9,7 @@ export default function Dashboard() {
   const [filterEquipe, setFilterEquipe] = useState('');
   const navigate = useNavigate();
 
-  if (loading) return <div style={{ textAlign: 'center', padding: 48, color: 'var(--muted)' }}>Chargement...</div>;
+  if (loading) return <div style={{maxWidth:600,margin:'40px auto'}}><Skeleton lines={5} /></div>;
 
   const total = collabs.length;
   const now = new Date();

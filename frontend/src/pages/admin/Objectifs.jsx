@@ -74,8 +74,8 @@ export default function Objectifs() {
                     <span style={{ fontWeight:700, color:'var(--navy)', flex:1 }}>{o.titre}</span>
                     <Badge type={STATUS_COLORS[o.statut]}>{STATUS_LABELS[o.statut]}</Badge>
                     {o.recurrence && <Badge type="blue">🔄</Badge>}
-                    <button className="btn btn-ghost btn-sm" style={{padding:'4px 8px'}} onClick={()=>{setObjCollabId(c.id);setEditingObj(o.id);setObjForm({titre:o.titre,description:o.description||'',date_debut:o.date_debut||'',date_fin:o.date_fin||'',statut:o.statut,progression:o.progression||0,recurrence:o.recurrence||''});setObjModal(true);}}>✏️</button>
-                    <button className="btn btn-danger btn-sm" style={{padding:'4px 8px'}} onClick={async()=>{if(!window.confirm('Supprimer ?'))return;await api.deleteObjectif(o.id);await reload();showToast('Supprimé');}}>🗑️</button>
+                    <button className="btn btn-ghost btn-sm" style={{padding:'4px 8px'}} aria-label="Modifier" onClick={()=>{setObjCollabId(c.id);setEditingObj(o.id);setObjForm({titre:o.titre,description:o.description||'',date_debut:o.date_debut||'',date_fin:o.date_fin||'',statut:o.statut,progression:o.progression||0,recurrence:o.recurrence||''});setObjModal(true);}}>✏️</button>
+                    <button className="btn btn-danger btn-sm" style={{padding:'4px 8px'}} aria-label="Supprimer" onClick={async()=>{if(!window.confirm('Supprimer ?'))return;await api.deleteObjectif(o.id);await reload();showToast('Supprimé');}}>🗑️</button>
                   </div>
                   <ProgressBar value={o.statut==='atteint'?100:(o.progression||0)} />
                   <div style={{ fontSize:'0.72rem', color:'var(--muted)', marginTop:4 }}>📅 {fmtDate(o.date_debut)} → {fmtDate(o.date_fin)}</div>

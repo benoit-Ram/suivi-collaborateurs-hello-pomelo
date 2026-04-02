@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useData } from '../../services/DataContext';
 import { api } from '../../services/api';
-import { PageHeader, Badge, fmtDate } from '../../components/UI';
+import { PageHeader, Badge, Modal, fmtDate } from '../../components/UI';
 
 const SETTINGS_KEYS = [
   { key: 'equipes', label: 'Équipes', placeholder: 'Nouvelle équipe...' },
@@ -14,6 +14,8 @@ export default function Settings() {
   const { settings, collabs, showToast, reload } = useData();
   const [newVals, setNewVals] = useState({});
   const [newFerm, setNewFerm] = useState({ label:'', debut:'', fin:'' });
+  const [renameModal, setRenameModal] = useState(null); // { key, oldVal }
+  const [renameVal, setRenameVal] = useState('');
 
   const addItem = async (key) => {
     const val = (newVals[key]||'').trim();
@@ -40,9 +42,12 @@ export default function Settings() {
     showToast(`"${val}" supprimé.`);
   };
 
-  const renameItem = async (key, oldVal) => {
-    const newVal = window.prompt(`Renommer "${oldVal}" en :`, oldVal);
-    if (!newVal || !newVal.trim() || newVal.trim() === oldVal) return;
+  const openRename = (key, oldVal) => { setRenameModal({ key, oldVal }); setRenameVal(oldVal); };
+  const renameItem = async () => {
+    if (!renameModal) return;
+    const { key, oldVal } = renameModal;
+    const newVal = renameVal;
+    if (!newVal || !newVal.trim() || newVal.trim() === oldVal) { setRenameModal(null); return; }
     if ((settings[key]||[]).includes(newVal.trim())) { showToast('Cette valeur existe déjà.'); return; }
     const list = (settings[key]||[]).map(v => v === oldVal ? newVal.trim() : v);
     await api.upsertSetting(key, list);
@@ -57,6 +62,7 @@ export default function Settings() {
     }
     await reload();
     showToast(`Renommé en "${newVal.trim()}"`);
+    setRenameModal(null);
   };
 
   const isUsed = (key, val) => {
@@ -94,7 +100,7 @@ export default function Settings() {
               <div key={v} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'9px 12px', border:'1.5px solid var(--lavender)', borderRadius:10, marginBottom:8 }}>
                 <span style={{ fontWeight:600, color:'var(--navy)' }}>{v}</span>
                 <div style={{ display:'flex', gap:4 }}>
-                  <button className="btn btn-ghost btn-sm" style={{padding:'4px 8px'}} onClick={() => renameItem(key, v)}>✏️</button>
+                  <button className="btn btn-ghost btn-sm" style={{padding:'4px 8px'}} onClick={() => openRename(key, v)} aria-label="Renommer">✏️</button>
                   {isUsed(key, v) ? <span title="Utilisé" style={{color:'var(--muted)',fontSize:'0.72rem',padding:'4px 8px',cursor:'help'}}>🔒</span>
                     : <button className="btn btn-danger btn-sm" style={{padding:'4px 8px'}} onClick={() => removeItem(key, v)}>✕</button>}
                 </div>
@@ -133,6 +139,18 @@ export default function Settings() {
         </div>
         <div style={{display:'flex',justifyContent:'flex-end',marginTop:8}}><button className="btn btn-primary btn-sm" onClick={addFermeture}>+ Ajouter</button></div>
       </div>
+
+      {/* RENAME MODAL */}
+      <Modal open={!!renameModal} onClose={()=>setRenameModal(null)} title="Renommer">
+        <div className="form-field">
+          <label>Nouvelle valeur <span style={{color:'var(--red)'}}>*</span></label>
+          <input autoFocus value={renameVal} onChange={e=>setRenameVal(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')renameItem();}} />
+        </div>
+        <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:16}}>
+          <button className="btn btn-ghost" onClick={()=>setRenameModal(null)}>Annuler</button>
+          <button className="btn btn-primary" onClick={renameItem} disabled={!renameVal.trim()}>💾 Renommer</button>
+        </div>
+      </Modal>
     </div>
   );
 }

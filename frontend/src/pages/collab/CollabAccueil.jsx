@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
-import { Avatar, Badge, ProgressBar, EmptyState, fmtDate, moisLabel, countWorkDays, STATUS_LABELS, STATUS_COLORS, ABS_TYPES, ABS_STATUTS, isEntretienLocked, getEntretienStatus, ENTRETIEN_STATUS_BADGE } from '../../components/UI';
+import { Avatar, Badge, ProgressBar, EmptyState, FadeIn, Modal, Skeleton, fmtDate, moisLabel, countWorkDays, STATUS_LABELS, STATUS_COLORS, ABS_TYPES, ABS_STATUTS, isEntretienLocked, getEntretienStatus, ENTRETIEN_STATUS_BADGE } from '../../components/UI';
 
 // ── UTILS ──
 
@@ -64,7 +64,7 @@ export default function CollabAccueil() {
     });
   }, []);
 
-  if (loading) return <div style={{textAlign:'center',padding:48,color:'var(--muted)'}}>Chargement...</div>;
+  if (loading) return <div style={{maxWidth:600,margin:'40px auto'}}><Skeleton lines={5} /></div>;
 
   // Account selector
   if (!selectedId) {
@@ -156,7 +156,7 @@ export default function CollabAccueil() {
       </div>
 
       {/* ACCUEIL */}
-      {tab==='accueil' && <div>
+      {tab==='accueil' && <FadeIn><div>
         <h3 style={{fontSize:'1.1rem',fontWeight:700,color:'var(--navy)',marginBottom:16}}>Bonjour {c.prenom} 👋</h3>
 
         {/* Notification congés en attente */}
@@ -196,10 +196,10 @@ export default function CollabAccueil() {
             {enCours.slice(0,3).map(o => <div key={o.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 0',borderBottom:'1px solid var(--lavender)'}}><div style={{flex:1,fontWeight:600,color:'var(--navy)',fontSize:'0.88rem'}}>{o.titre}</div><span style={{fontWeight:700,fontSize:'0.82rem',color:'var(--pink)'}}>{o.progression||0}%</span></div>)}
           </>}
         </div>
-      </div>}
+      </div></FadeIn>}
 
       {/* OBJECTIFS */}
-      {tab==='objectifs' && <div>
+      {tab==='objectifs' && <FadeIn><div>
         {/* Team objectives */}
         {(() => {
           const equipes = (c.equipe||'').split(',').map(s=>s.trim()).filter(Boolean);
@@ -226,18 +226,18 @@ export default function CollabAccueil() {
         {enCours.length > 0 && <><div className="section-title">Objectifs individuels en cours ({enCours.length})</div>{enCours.map((o,i)=><ObjCard key={o.id} o={o} i={i} />)}</>}
         {atteints.length > 0 && <><div className="section-title" style={{marginTop:24}}>✅ Atteints ({atteints.length})</div>{atteints.map((o,i)=><ObjCard key={o.id} o={o} i={i} />)}</>}
         {objs.length===0 && getTeamObjectives((c.equipe||'').split(',').map(s=>s.trim()).filter(Boolean), settings).length===0 && <EmptyState icon="🎯" text="Aucun objectif" />}
-      </div>}
+      </div></FadeIn>}
 
       {/* POINTS */}
-      {tab==='points' && <div>
+      {tab==='points' && <FadeIn><div>
         {points.length===0 ? <EmptyState icon="📋" text="Aucun entretien RH" /> : points.map(p => <PointCard key={p.id} p={p} collabId={c.id} settings={settings} />)}
-      </div>}
+      </div></FadeIn>}
 
       {/* CONGÉS */}
-      {tab==='conges' && <CongesTab c={c} absences={absences} solde={solde} onReload={() => loadAbsences(c.id)} api={api} />}
+      {tab==='conges' && <FadeIn><CongesTab c={c} absences={absences} solde={solde} onReload={() => loadAbsences(c.id)} api={api} /></FadeIn>}
 
       {/* MANAGEMENT */}
-      {tab==='management' && <ManagementTab manager={c} team={myTeam} collabs={collabs} settings={settings} teamPendingAbs={teamPendingAbs} onAbsenceUpdate={()=>loadTeamPendingAbs(c.id)} />}
+      {tab==='management' && <FadeIn><ManagementTab manager={c} team={myTeam} collabs={collabs} settings={settings} teamPendingAbs={teamPendingAbs} onAbsenceUpdate={()=>loadTeamPendingAbs(c.id)} /></FadeIn>}
     </div>
   );
 }
@@ -397,9 +397,18 @@ function CongesTab({ c, absences, solde, onReload }) {
           <div className="form-field"><label>Au</label><input type="date" value={form.date_fin} onChange={e=>setForm({...form,date_fin:e.target.value})} /></div>
           <div className="form-field"><label>Commentaire</label><input type="text" value={form.commentaire} onChange={e=>setForm({...form,commentaire:e.target.value})} placeholder="Optionnel..." /></div>
         </div>
+        {/* Calcul temps réel des jours ouvrés */}
+        {form.date_debut && form.date_fin && form.date_fin >= form.date_debut && (()=>{
+          const days = countWorkDays(form.date_debut, form.date_fin);
+          const newSolde = solde - days;
+          return <div style={{marginTop:10,padding:'12px 16px',background:'var(--bg-info)',borderRadius:10,fontSize:'0.85rem',color:'var(--text-info)',display:'flex',gap:20,flexWrap:'wrap'}}>
+            <span><strong>{days}</strong> jour{days>1?'s':''} ouvré{days>1?'s':''}</span>
+            <span>Solde après : <strong style={{color:newSolde<0?'var(--red)':'var(--text-info)'}}>{newSolde}j</strong></span>
+          </div>;
+        })()}
         {error && <div style={{marginTop:10,padding:'10px 14px',background:'var(--bg-danger)',color:'var(--text-danger)',borderRadius:10,fontSize:'0.85rem',fontWeight:600,borderLeft:'4px solid var(--border-danger)'}}>{error}</div>}
         <div style={{display:'flex',justifyContent:'flex-end',marginTop:10}}>
-          <button className="btn btn-primary" onClick={submit} disabled={submitting}>🏖️ Demander</button>
+          <button className="btn btn-primary" onClick={submit} disabled={submitting}>{submitting ? '⏳ En cours...' : '🏖️ Demander'}</button>
         </div>
       </div>
 
@@ -579,6 +588,9 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
   const [selectedMember, setSelectedMember] = useState(null);
   const [memberTab, setMemberTab] = useState('objectifs');
   const [memberAbs, setMemberAbs] = useState([]);
+  const [refuseId, setRefuseId] = useState(null);
+  const [refuseMotif, setRefuseMotif] = useState('');
+  const [refuseLoading, setRefuseLoading] = useState(false);
   const pendingCount = teamPendingAbs.length;
   const [overviewTab, setOverviewTab] = useState(pendingCount > 0 ? 'conges' : 'objectifs');
   const [objModal, setObjModal] = useState(false);
@@ -589,6 +601,18 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
 
   const loadMemberAbs = async (id) => { const data = await api.getAbsences({collaborateur_id:id}); setMemberAbs(data||[]); };
   const managerName = manager.prenom+' '+manager.nom;
+
+  const submitRefuse = async () => {
+    if (!refuseMotif.trim()) return;
+    setRefuseLoading(true);
+    try {
+      await api.updateAbsence(refuseId, { statut:'refuse', motif_refus: refuseMotif.trim() });
+      if(onAbsenceUpdate) onAbsenceUpdate();
+      if(selectedMember) loadMemberAbs(selectedMember.id);
+      setRefuseId(null); setRefuseMotif('');
+    } catch(e) { alert('Erreur: '+e.message); }
+    setRefuseLoading(false);
+  };
 
   // ── OVERVIEW ──
   if (view === 'overview') {
@@ -657,7 +681,7 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
                   </div>
                   <div style={{display:'flex',gap:6}}>
                     <button className="btn btn-sm" style={{background:'var(--green)',color:'white',padding:'5px 12px'}} onClick={async()=>{try{await api.updateAbsence(a.id,{statut:'approuve'});if(onAbsenceUpdate)onAbsenceUpdate();}catch(e){alert('Erreur: '+e.message);}}}>✓ Approuver</button>
-                    <button className="btn btn-danger btn-sm" style={{padding:'5px 12px'}} onClick={async()=>{const motif=window.prompt('Motif du refus :');if(!motif)return;try{await api.updateAbsence(a.id,{statut:'refuse',motif_refus:motif});if(onAbsenceUpdate)onAbsenceUpdate();}catch(e){alert('Erreur: '+e.message);}}}>✕ Refuser</button>
+                    <button className="btn btn-danger btn-sm" style={{padding:'5px 12px'}} onClick={()=>{setRefuseId(a.id);setRefuseMotif('');}}>✕ Refuser</button>
                   </div>
                 </div>
               </div>;
@@ -857,12 +881,25 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
             <Badge type={a.statut==='approuve'?'green':a.statut==='refuse'?'pink':'orange'}>{ABS_STATUTS[a.statut]}</Badge>
             {a.statut==='en_attente' && <>
               <button className="btn btn-sm" style={{background:'var(--green)',color:'white',padding:'4px 10px'}} onClick={async()=>{try{await api.updateAbsence(a.id,{statut:'approuve'});loadMemberAbs(m.id);if(onAbsenceUpdate)onAbsenceUpdate();}catch(e){alert('Erreur: '+e.message);}}}>✓</button>
-              <button className="btn btn-danger btn-sm" style={{padding:'4px 10px'}} onClick={async()=>{const motif=window.prompt('Motif :');if(!motif)return;try{await api.updateAbsence(a.id,{statut:'refuse',motif_refus:motif});loadMemberAbs(m.id);if(onAbsenceUpdate)onAbsenceUpdate();}catch(e){alert('Erreur: '+e.message);}}}>✕</button>
+              <button className="btn btn-danger btn-sm" style={{padding:'4px 10px'}} onClick={()=>{setRefuseId(a.id);setRefuseMotif('');}}>✕</button>
             </>}
           </div>
         ))}
         {memberAbs.length===0 && <EmptyState icon="🏖️" text="Aucune demande" />}
       </div>}
+
+      {/* REFUSE MODAL */}
+      <Modal open={!!refuseId} onClose={()=>setRefuseId(null)} title="Refuser la demande">
+        <p style={{fontSize:'0.88rem',color:'var(--muted)',marginBottom:16}}>Veuillez indiquer le motif du refus :</p>
+        <div className="form-field">
+          <label>Motif <span style={{color:'var(--red)'}}>*</span></label>
+          <textarea autoFocus value={refuseMotif} onChange={e=>setRefuseMotif(e.target.value)} placeholder="Ex: Période de forte activité..." style={{minHeight:80}} />
+        </div>
+        <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:16}}>
+          <button className="btn btn-ghost" onClick={()=>setRefuseId(null)}>Annuler</button>
+          <button className="btn btn-danger" onClick={submitRefuse} disabled={refuseLoading || !refuseMotif.trim()}>{refuseLoading ? '⏳ En cours...' : '✕ Refuser'}</button>
+        </div>
+      </Modal>
     </div>
   );
 }

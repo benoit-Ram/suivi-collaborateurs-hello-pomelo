@@ -97,8 +97,8 @@ export default function Collaborateurs() {
               <td>{fmtDate(c.date_entree)}</td>
               <td><div style={{display:'flex',gap:6}}>
                 <button className="btn btn-ghost btn-sm" onClick={()=>navigate(`/admin/collaborateurs/${c.id}`)}>Voir</button>
-                <button className="btn btn-ghost btn-sm" onClick={()=>openEdit(c)}>✏️</button>
-                <button className="btn btn-danger btn-sm" onClick={()=>setConfirmDel(c.id)}>🗑️</button>
+                <button className="btn btn-ghost btn-sm" aria-label="Modifier" onClick={()=>openEdit(c)}>✏️</button>
+                <button className="btn btn-danger btn-sm" aria-label="Supprimer" onClick={()=>setConfirmDel(c.id)}>🗑️</button>
               </div></td>
             </tr>
           ))}</tbody>

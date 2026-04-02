@@ -114,7 +114,7 @@ export default function CollabProfile() {
         ))}
       </div>
 
-      {tab === 'objectifs' && <div>
+      {tab === 'objectifs' && <FadeIn><div>
         <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:16 }}><button className="btn btn-primary btn-sm" onClick={openAddObj}>+ Objectif</button></div>
         {objsEnCours.length > 0 && <><div className="section-title">En cours ({objsEnCours.length})</div>{objsEnCours.map((o,i)=><ObjCard key={o.id} o={o} i={i} onEdit={openEditObj} onDelete={deleteObj} />)}</>}
         {objsAtteints.length > 0 && <><div className="section-title" style={{marginTop:24}}>✅ Atteints ({objsAtteints.length})</div>{objsAtteints.map((o,i)=><ObjCard key={o.id} o={o} i={i} onEdit={openEditObj} onDelete={deleteObj} />)}</>}
@@ -134,11 +134,11 @@ export default function CollabProfile() {
             <button className="btn btn-primary" onClick={saveObj}>Enregistrer</button>
           </div>
         </Modal>
-      </div>}
+      </div></FadeIn>}
 
-      {tab === 'points' && <div>{points.length===0?<EmptyState icon="📋" text="Aucun point" />:points.map(p=><PointCard key={p.id} p={p} onSave={async(pid,md)=>{try{await api.updatePointSuivi(pid,{manager_data:md});await reload();showToast('Point enregistré !')}catch(e){showToast('Erreur: '+e.message)}}} />)}</div>}
+      {tab === 'points' && <FadeIn><div>{points.length===0?<EmptyState icon="📋" text="Aucun point" />:points.map(p=><PointCard key={p.id} p={p} onSave={async(pid,md)=>{try{await api.updatePointSuivi(pid,{manager_data:md});await reload();showToast('Point enregistré !')}catch(e){showToast('Erreur: '+e.message)}}} />)}</div></FadeIn>}
 
-      {tab === 'onboarding' && <OnboardingTab collab={c} onSave={async(data)=>{try{await api.updateCollaborateur(c.id,{onboarding:data});await reload();showToast('Onboarding mis à jour !')}catch(e){showToast('Erreur: '+e.message)}}} />}
+      {tab === 'onboarding' && <FadeIn><OnboardingTab collab={c} onSave={async(data)=>{try{await api.updateCollaborateur(c.id,{onboarding:data});await reload();showToast('Onboarding mis à jour !')}catch(e){showToast('Erreur: '+e.message)}}} /></FadeIn>}
 
       <SynthesePDFModal open={pdfModal} onClose={()=>setPdfModal(false)} collab={c} absences={absences} getManagerName={getManagerName} />
     </div>
@@ -156,8 +156,8 @@ function ObjCard({ o, i, onEdit, onDelete }) {
         <span style={{ flex:1, fontWeight:700, color:'var(--navy)' }}>{o.titre}</span>
         <Badge type={STATUS_COLORS[o.statut]}>{STATUS_LABELS[o.statut]}</Badge>
         {o.recurrence && <Badge type="blue">🔄 {o.recurrence==='hebdo'?'Hebdo':'Mensuel'}</Badge>}
-        <button className="btn btn-ghost btn-sm" onClick={()=>onEdit(o)}>✏️</button>
-        <button className="btn btn-danger btn-sm" onClick={()=>onDelete(o.id)}>🗑️</button>
+        <button className="btn btn-ghost btn-sm" aria-label="Modifier" onClick={()=>onEdit(o)}>✏️</button>
+        <button className="btn btn-danger btn-sm" aria-label="Supprimer" onClick={()=>onDelete(o.id)}>🗑️</button>
       </div>
       {o.description && <div style={{ fontSize:'0.82rem', color:'var(--muted)', marginBottom:8 }}>{o.description}</div>}
       <div style={{marginBottom:6}}><div style={{display:'flex',justifyContent:'space-between',fontSize:'0.7rem',fontWeight:700,color:'var(--muted)',marginBottom:4}}><span>Progression</span><span>{pct}%</span></div><ProgressBar value={pct} color={colors[o.statut]} /></div>
