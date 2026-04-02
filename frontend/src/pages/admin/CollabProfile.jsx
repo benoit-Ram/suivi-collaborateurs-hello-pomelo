@@ -40,7 +40,7 @@ export default function CollabProfile() {
 
   const voirComme = () => window.open(`/collab?impersonate=${id}`, '_blank');
 
-  const tabs = [['objectifs','🎯 Objectifs'],['points','📋 Points'],['entretiens','📝 Entretiens'],['onboarding','📁 Onboarding']];
+  const tabs = [['objectifs','🎯 Objectifs'],['points','📋 Entretien RH'],['onboarding','📁 Onboarding']];
 
   return (
     <div>
@@ -103,17 +103,6 @@ export default function CollabProfile() {
       </div>}
 
       {tab === 'points' && <div>{points.length===0?<EmptyState icon="📋" text="Aucun point" />:points.map(p=><PointCard key={p.id} p={p} onSave={async(pid,md)=>{try{await api.updatePointSuivi(pid,{manager_data:md});await reload();showToast('Point enregistré !')}catch(e){showToast('Erreur: '+e.message)}}} />)}</div>}
-
-      {tab === 'entretiens' && <div>
-        {entretiens.length===0?<EmptyState icon="📝" text="Aucun entretien" />:entretiens.map(e=>(
-          <div key={e.id} className="card" style={{marginBottom:10,padding:16,borderLeft:'4px solid var(--pink)'}}>
-            <div style={{fontWeight:700,color:'var(--navy)',marginBottom:8}}>📝 {e.type} — {fmtDate(e.date)}</div>
-            {Object.entries(e.manager_data||{}).map(([k,v])=>(
-              <div key={k} style={{marginBottom:6}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)'}}>{k}</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:v?'var(--navy)':'var(--muted)'}}>{v||'—'}</div></div>
-            ))}
-          </div>
-        ))}
-      </div>}
 
       {tab === 'onboarding' && <div className="card">
         <div className="section-title" style={{marginTop:0}}>Informations onboarding</div>

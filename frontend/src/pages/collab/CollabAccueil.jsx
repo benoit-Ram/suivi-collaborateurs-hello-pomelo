@@ -53,7 +53,7 @@ export default function CollabAccueil() {
   const myTeam = collabs.filter(m => m.manager_id === c.id);
   const solde = c.solde_conges || 0;
 
-  const tabs = [['accueil','🏠 Accueil'],['objectifs','🎯 Objectifs'],['points','📋 Suivi'],['conges','🏖️ Congés']];
+  const tabs = [['accueil','🏠 Accueil'],['objectifs','🎯 Objectifs'],['points','📋 Entretien RH'],['conges','🏖️ Congés']];
   if (myTeam.length) tabs.splice(3, 0, ['management','👔 Management']);
 
   return (
