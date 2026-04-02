@@ -21,51 +21,57 @@ export default function Settings() {
   const [renameVal, setRenameVal] = useState('');
 
   const addItem = async (key) => {
-    const val = (newVals[key]||'').trim();
-    if (!val) return;
-    const list = [...(settings[key]||[])];
-    if (list.includes(val)) { showToast('Déjà dans la liste.'); return; }
-    list.push(val);
-    await api.upsertSetting(key, list);
-    setNewVals({...newVals, [key]:''});
-    await reload();
-    showToast(`"${val}" ajouté !`);
+    try {
+      const val = (newVals[key]||'').trim();
+      if (!val) return;
+      const list = [...(settings[key]||[])];
+      if (list.includes(val)) { showToast('Déjà dans la liste.'); return; }
+      list.push(val);
+      await api.upsertSetting(key, list);
+      setNewVals({...newVals, [key]:''});
+      await reload();
+      showToast(`"${val}" ajouté !`);
+    } catch(e) { showToast('Erreur : ' + e.message); }
   };
 
   const removeItem = async (key, val) => {
-    const fieldMap = { equipes:'equipe', bureaux:'bureau', contrats:'contrat', typePostes:'type_poste' };
-    const field = fieldMap[key];
-    if (field && collabs.some(c => (c[field]||'').split(',').map(s=>s.trim()).includes(val))) {
-      showToast('Impossible : utilisé par un collaborateur.');
-      return;
-    }
-    const list = (settings[key]||[]).filter(v => v !== val);
-    await api.upsertSetting(key, list);
-    await reload();
-    showToast(`"${val}" supprimé.`);
+    try {
+      const fieldMap = { equipes:'equipe', bureaux:'bureau', contrats:'contrat', typePostes:'type_poste' };
+      const field = fieldMap[key];
+      if (field && collabs.some(c => (c[field]||'').split(',').map(s=>s.trim()).includes(val))) {
+        showToast('Impossible : utilisé par un collaborateur.');
+        return;
+      }
+      const list = (settings[key]||[]).filter(v => v !== val);
+      await api.upsertSetting(key, list);
+      await reload();
+      showToast(`"${val}" supprimé.`);
+    } catch(e) { showToast('Erreur : ' + e.message); }
   };
 
   const openRename = (key, oldVal) => { setRenameModal({ key, oldVal }); setRenameVal(oldVal); };
   const renameItem = async () => {
-    if (!renameModal) return;
-    const { key, oldVal } = renameModal;
-    const newVal = renameVal;
-    if (!newVal || !newVal.trim() || newVal.trim() === oldVal) { setRenameModal(null); return; }
-    if ((settings[key]||[]).includes(newVal.trim())) { showToast('Cette valeur existe déjà.'); return; }
-    const list = (settings[key]||[]).map(v => v === oldVal ? newVal.trim() : v);
-    await api.upsertSetting(key, list);
-    const fieldMap = { equipes:'equipe', bureaux:'bureau', contrats:'contrat', typePostes:'type_poste' };
-    const field = fieldMap[key];
-    if (field) {
-      const toUpdate = collabs.filter(c => (c[field]||'').includes(oldVal));
-      for (const c of toUpdate) {
-        const newFieldVal = key === 'equipes' ? (c[field]||'').split(',').map(s=>s.trim()===oldVal?newVal.trim():s.trim()).join(',') : newVal.trim();
-        await api.updateCollaborateur(c.id, { [field]: newFieldVal });
+    try {
+      if (!renameModal) return;
+      const { key, oldVal } = renameModal;
+      const newVal = renameVal;
+      if (!newVal || !newVal.trim() || newVal.trim() === oldVal) { setRenameModal(null); return; }
+      if ((settings[key]||[]).includes(newVal.trim())) { showToast('Cette valeur existe déjà.'); return; }
+      const list = (settings[key]||[]).map(v => v === oldVal ? newVal.trim() : v);
+      await api.upsertSetting(key, list);
+      const fieldMap = { equipes:'equipe', bureaux:'bureau', contrats:'contrat', typePostes:'type_poste' };
+      const field = fieldMap[key];
+      if (field) {
+        const toUpdate = collabs.filter(c => (c[field]||'').includes(oldVal));
+        for (const c of toUpdate) {
+          const newFieldVal = key === 'equipes' ? (c[field]||'').split(',').map(s=>s.trim()===oldVal?newVal.trim():s.trim()).join(',') : newVal.trim();
+          await api.updateCollaborateur(c.id, { [field]: newFieldVal });
+        }
       }
-    }
-    await reload();
-    showToast(`Renommé en "${newVal.trim()}"`);
-    setRenameModal(null);
+      await reload();
+      showToast(`Renommé en "${newVal.trim()}"`);
+      setRenameModal(null);
+    } catch(e) { showToast('Erreur : ' + e.message); }
   };
 
   const isUsed = (key, val) => {
@@ -77,18 +83,22 @@ export default function Settings() {
   // Périodes de fermeture
   const fermetures = settings['periodes_fermeture'] || [];
   const addFermeture = async () => {
-    if (!newFerm.label || !newFerm.debut || !newFerm.fin) { showToast('Remplissez tous les champs.'); return; }
-    const list = [...fermetures, { label:newFerm.label, debut:newFerm.debut, fin:newFerm.fin }];
-    await api.upsertSetting('periodes_fermeture', list);
-    setNewFerm({ label:'', debut:'', fin:'' });
-    await reload();
-    showToast('Période ajoutée !');
+    try {
+      if (!newFerm.label || !newFerm.debut || !newFerm.fin) { showToast('Remplissez tous les champs.'); return; }
+      const list = [...fermetures, { label:newFerm.label, debut:newFerm.debut, fin:newFerm.fin }];
+      await api.upsertSetting('periodes_fermeture', list);
+      setNewFerm({ label:'', debut:'', fin:'' });
+      await reload();
+      showToast('Période ajoutée !');
+    } catch(e) { showToast('Erreur : ' + e.message); }
   };
   const removeFermeture = async (i) => {
-    const list = [...fermetures]; list.splice(i,1);
-    await api.upsertSetting('periodes_fermeture', list);
-    await reload();
-    showToast('Période supprimée.');
+    try {
+      const list = [...fermetures]; list.splice(i,1);
+      await api.upsertSetting('periodes_fermeture', list);
+      await reload();
+      showToast('Période supprimée.');
+    } catch(e) { showToast('Erreur : ' + e.message); }
   };
 
   return (

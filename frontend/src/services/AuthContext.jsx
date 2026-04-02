@@ -20,7 +20,7 @@ export function AuthProvider({ children }) {
     // Load collaborateurs then check session
     api.getCollaborateurs().then(data => {
       setCollabs(data || []);
-      const saved = sessionStorage.getItem(SESSION_KEY);
+      const saved = localStorage.getItem(SESSION_KEY);
       if (saved) {
         try {
           const s = JSON.parse(saved);
@@ -28,7 +28,7 @@ export function AuthProvider({ children }) {
           if (collab) {
             setUser(buildUser(s.email, s.name, s.picture, collab));
           }
-        } catch (e) { sessionStorage.removeItem(SESSION_KEY); }
+        } catch (e) { localStorage.removeItem(SESSION_KEY); }
       }
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -55,7 +55,7 @@ export function AuthProvider({ children }) {
 
     const u = buildUser(email, name, picture, collab);
     setUser(u);
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ email, name: u.name, picture }));
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ email, name: u.name, picture }));
 
     // Save Google photo to database
     if (picture && picture !== collab.photo_url) {
@@ -66,7 +66,7 @@ export function AuthProvider({ children }) {
 
   function logout() {
     setUser(null);
-    sessionStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(SESSION_KEY);
     if (window.google?.accounts?.id) window.google.accounts.id.disableAutoSelect();
   }
 
