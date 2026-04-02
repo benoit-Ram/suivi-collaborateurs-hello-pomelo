@@ -140,14 +140,14 @@ tr:hover td { background: var(--hover-row, #F0F0FF); }
   .section-title { font-size: 0.7rem; margin: 18px 0 10px; }
   .divider { margin: 12px 0 20px; }
   /* Sidebar mobile */
-  .sidebar-desktop { display: none; }
+  .sidebar-desktop { display: none !important; }
   .sidebar-mobile-toggle { display: flex !important; }
-  .sidebar-overlay { display: block !important; }
+  /* Admin layout mobile padding */
+  main { padding: 16px !important; padding-top: 64px !important; }
 }
 
 @media (min-width: 769px) {
   .sidebar-mobile-toggle { display: none !important; }
-  .sidebar-overlay { display: none !important; }
 }
 
 /* Animations */

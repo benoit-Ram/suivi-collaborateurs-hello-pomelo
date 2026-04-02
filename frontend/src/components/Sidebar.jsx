@@ -14,7 +14,6 @@ export default function Sidebar() {
 
   const pendingAbs = absences.filter(a => a.statut === 'en_attente').length;
 
-  // Ctrl+K to focus search
   useKeyboard('ctrl+k', useCallback(() => { searchRef.current?.focus(); }, []));
 
   useEffect(() => {
@@ -48,7 +47,6 @@ export default function Sidebar() {
         <div style={{ color:'#8F8FBC', fontSize:'0.72rem', marginTop:2, fontWeight:600 }}>Suivi Collaborateurs</div>
       </NavLink>
 
-      {/* Global search */}
       <div style={{ padding:'8px 12px', position:'relative' }}>
         <input value={search} onChange={e => { setSearch(e.target.value); setShowResults(true); }}
           onFocus={() => setShowResults(true)}
@@ -91,9 +89,9 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Mobile hamburger toggle */}
+      {/* Mobile hamburger toggle — hidden by default, shown via CSS on mobile */}
       <button className="sidebar-mobile-toggle" onClick={()=>setMobileOpen(!mobileOpen)} style={{
-        display:'none', position:'fixed', top:12, left:12, zIndex:301,
+        position:'fixed', top:12, left:12, zIndex:301,
         width:44, height:44, borderRadius:12, border:'none', cursor:'pointer',
         background: mobileOpen ? 'var(--pink)' : '#05056D', color:'white',
         fontSize:'1.2rem', alignItems:'center', justifyContent:'center',
@@ -103,25 +101,27 @@ export default function Sidebar() {
       </button>
 
       {/* Mobile overlay */}
-      {mobileOpen && <div className="sidebar-overlay" onClick={()=>setMobileOpen(false)} style={{
-        display:'none', position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:99
+      {mobileOpen && <div onClick={()=>setMobileOpen(false)} style={{
+        position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:199
       }} />}
 
-      {/* Desktop sidebar */}
+      {/* Desktop sidebar — hidden via CSS on mobile */}
       <nav className="sidebar-desktop" style={{ width:'var(--sidebar-w)', minHeight:'100vh', background:'#05056D', display:'flex', flexDirection:'column', position:'fixed', left:0, top:0, zIndex:100 }}>
         {sidebarContent}
       </nav>
 
-      {/* Mobile sidebar (slide-in) */}
-      <nav className="sidebar-mobile" style={{
-        width:280, minHeight:'100vh', background:'#05056D',
-        display: mobileOpen ? 'flex' : 'none', flexDirection:'column',
-        position:'fixed', left:0, top:0, zIndex:300,
-        boxShadow:'4px 0 24px rgba(0,0,0,0.3)', overflowY:'auto'
-      }}>
-        <div style={{height:60}} /> {/* Space for hamburger button */}
-        {sidebarContent}
-      </nav>
+      {/* Mobile sidebar (slide-in) — only rendered when open */}
+      {mobileOpen && (
+        <nav style={{
+          width:280, minHeight:'100vh', background:'#05056D',
+          display:'flex', flexDirection:'column',
+          position:'fixed', left:0, top:0, zIndex:300,
+          boxShadow:'4px 0 24px rgba(0,0,0,0.3)', overflowY:'auto'
+        }}>
+          <div style={{height:60}} />
+          {sidebarContent}
+        </nav>
+      )}
     </>
   );
 }
