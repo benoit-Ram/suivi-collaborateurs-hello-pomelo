@@ -1,4 +1,4 @@
-const API = window.location.hostname === 'localhost' ? '/api' : `http://${window.location.hostname}:4000/api`;
+const API = window.location.hostname === 'localhost' ? '/api' : '/api';
 
 async function request(path, options = {}) {
   const res = await fetch(`${API}${path}`, {
