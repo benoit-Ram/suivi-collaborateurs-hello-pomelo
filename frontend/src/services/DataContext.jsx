@@ -3,6 +3,11 @@ import { api } from './api';
 
 const DataContext = createContext();
 
+function currentMois() {
+  const n = new Date();
+  return n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0');
+}
+
 export function DataProvider({ children }) {
   const [collabs, setCollabs] = useState([]);
   const [absences, setAbsences] = useState([]);
@@ -22,6 +27,29 @@ export function DataProvider({ children }) {
       const settingsMap = {};
       (s || []).forEach(r => { settingsMap[r.key] = r.value; });
       setSettings(settingsMap);
+
+      // Auto-create monthly entretiens for current month
+      const cm = currentMois();
+      const missing = (c || []).filter(collab => {
+        const hasPoint = (collab.points_suivi || []).some(p => p.mois === cm && p.type === 'mensuel');
+        return !hasPoint;
+      });
+      if (missing.length > 0) {
+        try {
+          const rows = missing.map(collab => ({
+            collaborateur_id: collab.id,
+            date: cm + '-01',
+            type: 'mensuel',
+            mois: cm,
+            manager_data: {},
+            collab_data: {},
+            contenu: 'Entretien RH ' + cm,
+          }));
+          for (const row of rows) {
+            try { await api.createPointSuivi(row); } catch(e) { /* ignore duplicates */ }
+          }
+        } catch(e) { console.warn('Auto-create entretiens:', e); }
+      }
     } catch (e) {
       console.error('Load error:', e);
     }

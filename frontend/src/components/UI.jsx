@@ -175,6 +175,32 @@ export function moisLabel(mois) {
   return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
 }
 
+// ── ENTRETIEN RH HELPERS ──
+export function isEntretienLocked(mois) {
+  if (!mois) return false;
+  const [year, month] = mois.split('-').map(Number);
+  // Verrouillé le 5 du mois suivant
+  return new Date() >= new Date(year, month, 5);
+}
+
+export function getEntretienStatus(point) {
+  const md = point.manager_data || {};
+  const cd = point.collab_data || {};
+  const mdKeys = Object.keys(md).filter(k => k !== 'objectifs');
+  const cdKeys = Object.keys(cd).filter(k => k !== 'objectifs');
+  const managerDone = mdKeys.length > 0 && mdKeys.some(k => md[k] && String(md[k]).trim());
+  const collabDone = cdKeys.length > 0 && cdKeys.some(k => cd[k] && String(cd[k]).trim());
+  if (managerDone && collabDone) return 'complet';
+  if (managerDone || collabDone) return 'partiel';
+  return 'vide';
+}
+
+export const ENTRETIEN_STATUS_BADGE = {
+  complet: { label: '✅ Complet', type: 'green' },
+  partiel: { label: '🟡 Partiel', type: 'orange' },
+  vide: { label: '🔴 À remplir', type: 'pink' }
+};
+
 // ── KEYBOARD SHORTCUT HOOK ──
 export function useKeyboard(key, callback) {
   useEffect(() => {

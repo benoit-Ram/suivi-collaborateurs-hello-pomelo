@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
-import { Avatar, Badge, ProgressBar, EmptyState, fmtDate, moisLabel, currentMois, STATUS_LABELS, STATUS_COLORS, ABS_TYPES, ABS_STATUTS } from '../../components/UI';
+import { Avatar, Badge, ProgressBar, EmptyState, fmtDate, moisLabel, currentMois, STATUS_LABELS, STATUS_COLORS, ABS_TYPES, ABS_STATUTS, isEntretienLocked, getEntretienStatus, ENTRETIEN_STATUS_BADGE } from '../../components/UI';
 
 export default function CollabAccueil() {
   const [collabs, setCollabs] = useState([]);
   const [absences, setAbsences] = useState([]);
+  const [settings, setSettings] = useState({});
   const [selectedId, setSelectedId] = useState('');
   const [tab, setTab] = useState('accueil');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.getCollaborateurs().then(data => {
+    Promise.all([api.getCollaborateurs(), api.getSettings()]).then(([data, s]) => {
       setCollabs(data||[]);
+      const sm = {}; (s||[]).forEach(r => { sm[r.key] = r.value; }); setSettings(sm);
       setLoading(false);
       // Auto-select from URL param (admin impersonate)
       const params = new URLSearchParams(window.location.search);
@@ -110,7 +112,7 @@ export default function CollabAccueil() {
 
       {/* POINTS */}
       {tab==='points' && <div>
-        {points.length===0 ? <EmptyState icon="📋" text="Aucun entretien RH" /> : points.map(p => <PointCard key={p.id} p={p} collabId={c.id} />)}
+        {points.length===0 ? <EmptyState icon="📋" text="Aucun entretien RH" /> : points.map(p => <PointCard key={p.id} p={p} collabId={c.id} settings={settings} />)}
       </div>}
 
       {/* CONGÉS */}
@@ -140,21 +142,31 @@ function ObjCard({ o, i }) {
   );
 }
 
-const COLLAB_QUESTIONS = ['Comment t\'es-tu senti(e) au travail ?','Réussites du mois','Objectifs M-1 atteints ?','Suggestions process','Objectifs mois suivant','Autres sujets','Axe d\'amélioration'];
+const DEFAULT_COLLAB_Q = ['Comment t\'es-tu senti(e) au travail ?','Réussites du mois','Objectifs M-1 atteints ?','Suggestions process','Objectifs mois suivant','Autres sujets','Axe d\'amélioration'];
 
-function PointCard({ p, collabId }) {
+function PointCard({ p, collabId, settings }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({});
   const [saving, setSaving] = useState(false);
   const md = p.manager_data||{}; const cd = p.collab_data||{};
-  const hasM = Object.keys(md).filter(k=>k!=='objectifs').some(k=>md[k]);
-  const hasC = Object.keys(cd).filter(k=>k!=='objectifs').some(k=>cd[k]);
-  const status = hasM&&hasC?'green':hasM||hasC?'orange':'pink';
+  const locked = isEntretienLocked(p.mois);
+  const status = getEntretienStatus(p);
+  const statusBadge = locked ? {label:'🔒 Verrouillé',type:'gray'} : ENTRETIEN_STATUS_BADGE[status];
+
+  // Dynamic questions from settings or defaults
+  const collabQuestions = (settings?.questions_collab||[]).length > 0
+    ? (settings.questions_collab).map((q,i) => ({key:'cq'+i, label:q.label||q, type:q.type||'texte'}))
+    : DEFAULT_COLLAB_Q.map((q,i) => ({key:'cq'+i, label:q, type:'texte'}));
+
+  const managerQuestions = (settings?.questions_manager||[]).length > 0
+    ? (settings.questions_manager).map((q,i) => ({key:'q'+i, label:q.label||q, type:q.type||'texte'}))
+    : [{key:'retoursMissions',label:'Retours sur les missions'},{key:'tauxStaffing',label:'Taux de staffing'},{key:'qualites',label:'Qualités'},{key:'axeAmelioration',label:'Axe d\'amélioration'}];
 
   const startEdit = () => {
     const data = {};
-    COLLAB_QUESTIONS.forEach((q,i) => { data['cq'+i] = cd['cq'+i] || ''; });
+    collabQuestions.forEach(q => { data[q.key] = cd[q.key] || ''; });
+    data._commentaire = cd._commentaire || '';
     setFormData(data);
     setEditing(true);
   };
@@ -169,42 +181,67 @@ function PointCard({ p, collabId }) {
     setSaving(false);
   };
 
+  const exportPDF = () => {
+    const win = window.open('','_blank');
+    win.document.write(`<html><head><title>Entretien RH ${moisLabel(p.mois)}</title><style>body{font-family:Quicksand,Arial,sans-serif;padding:32px;max-width:800px;margin:0 auto;color:#05056D}h1{font-size:1.3rem}h2{font-size:1rem;color:#FF3285;margin:20px 0 8px}.field{margin-bottom:12px}.field-label{font-size:0.75rem;font-weight:700;text-transform:uppercase;color:#6B6B9A;margin-bottom:2px}.field-value{font-size:0.9rem;line-height:1.5;padding:8px 0;border-bottom:1px solid #CFD0E5}@media print{body{padding:16px}}</style></head><body>`);
+    win.document.write(`<h1>Entretien RH — ${moisLabel(p.mois)}</h1>`);
+    win.document.write(`<h2>👔 Manager</h2>`);
+    managerQuestions.forEach(q => { win.document.write(`<div class="field"><div class="field-label">${q.label}</div><div class="field-value">${md[q.key]||'—'}</div></div>`); });
+    win.document.write(`<h2>👤 Collaborateur</h2>`);
+    collabQuestions.forEach(q => { win.document.write(`<div class="field"><div class="field-label">${q.label}</div><div class="field-value">${cd[q.key]||'—'}</div></div>`); });
+    if (cd._commentaire) win.document.write(`<div class="field"><div class="field-label">Commentaire libre</div><div class="field-value">${cd._commentaire}</div></div>`);
+    win.document.write(`<div style="margin-top:40px;font-size:0.75rem;color:#6B6B9A">Exporté le ${new Date().toLocaleDateString('fr-FR')}</div></body></html>`);
+    win.document.close();
+    setTimeout(() => win.print(), 300);
+  };
+
   return (
     <div className="card" style={{marginBottom:10,padding:0,overflow:'hidden'}}>
       <div onClick={()=>setOpen(!open)} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'14px 18px',cursor:'pointer'}}>
         <div style={{display:'flex',alignItems:'center',gap:10}}>
           <span style={{fontWeight:700,color:'var(--navy)'}}>📅 {moisLabel(p.mois)}</span>
-          <Badge type={status}>{status==='green'?'✅ Complet':status==='orange'?'🟡 Partiel':'🔴 Vide'}</Badge>
+          <Badge type={statusBadge.type}>{statusBadge.label}</Badge>
         </div>
-        <span style={{color:'var(--muted)'}}>{open?'▲':'▼'}</span>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <button className="btn btn-ghost btn-sm" style={{padding:'3px 8px',fontSize:'0.68rem'}} onClick={e=>{e.stopPropagation();exportPDF();}}>📄 PDF</button>
+          <span style={{color:'var(--muted)'}}>{open?'▲':'▼'}</span>
+        </div>
       </div>
       {open && <div style={{padding:'0 18px 18px',borderTop:'1px solid var(--lavender)'}}>
-        {/* Manager section (read-only) */}
-        <div style={{marginTop:14,fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--skyblue)',marginBottom:8}}>👔 Retours Manager</div>
-        {Object.entries(md).filter(([k])=>k!=='objectifs').map(([k,v])=>(<div key={k} style={{marginBottom:8}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)',marginBottom:2}}>{k}</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:v?'var(--navy)':'var(--muted)',fontStyle:v?'normal':'italic'}}>{v||'Non renseigné'}</div></div>))}
+        {locked && <div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.78rem',color:'var(--muted)',marginTop:10,marginBottom:10}}>🔒 Cet entretien est verrouillé et n'est plus modifiable.</div>}
 
-        {/* Collab section (editable) */}
+        {/* Manager section (read-only for collab) */}
+        <div style={{marginTop:10,fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--skyblue)',marginBottom:8}}>👔 Retours Manager</div>
+        {managerQuestions.map(q=>(<div key={q.key} style={{marginBottom:8}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)',marginBottom:2}}>{q.label}</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:md[q.key]?'var(--navy)':'var(--muted)',fontStyle:md[q.key]?'normal':'italic'}}>{md[q.key]||'Non renseigné'}</div></div>))}
+
+        {/* Collab section */}
         <div style={{marginTop:16,paddingTop:14,borderTop:'1px dashed var(--lavender)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
           <div style={{fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--pink)'}}>✏️ Mes réponses</div>
-          {!editing && <button className="btn btn-ghost btn-sm" onClick={startEdit}>✏️ Remplir</button>}
+          {!editing && !locked && <button className="btn btn-ghost btn-sm" onClick={startEdit}>✏️ Remplir</button>}
         </div>
         {editing ? <>
-          {COLLAB_QUESTIONS.map((q,i) => (
-            <div key={i} style={{marginBottom:10,marginTop:8}}>
-              <label style={{fontSize:'0.72rem',fontWeight:700,color:'var(--pink)',display:'block',marginBottom:4}}>{q}</label>
-              <textarea value={formData['cq'+i]||''} onChange={e=>setFormData({...formData,['cq'+i]:e.target.value})} placeholder="Votre réponse..." style={{width:'100%',border:'1.5px solid var(--lavender)',borderRadius:8,padding:'8px 12px',fontFamily:'inherit',fontSize:'0.85rem',minHeight:60,resize:'vertical',outline:'none'}} />
+          {collabQuestions.map(q => (
+            <div key={q.key} style={{marginBottom:10,marginTop:8}}>
+              <label style={{fontSize:'0.72rem',fontWeight:700,color:'var(--pink)',display:'block',marginBottom:4}}>{q.label}</label>
+              {q.type==='notation' ? <div style={{display:'flex',alignItems:'center',gap:8}}><input type="range" min="1" max="5" value={formData[q.key]||3} onChange={e=>setFormData({...formData,[q.key]:e.target.value})} style={{flex:1,accentColor:'var(--pink)'}} /><span style={{fontWeight:700}}>{formData[q.key]||3}/5</span></div>
+              : <textarea value={formData[q.key]||''} onChange={e=>setFormData({...formData,[q.key]:e.target.value})} placeholder="Votre réponse..." style={{width:'100%',border:'1.5px solid var(--lavender)',borderRadius:8,padding:'8px 12px',fontFamily:'inherit',fontSize:'0.85rem',minHeight:60,resize:'vertical',outline:'none'}} />}
             </div>
           ))}
+          <div style={{marginBottom:10,marginTop:12}}>
+            <label style={{fontSize:'0.72rem',fontWeight:700,color:'var(--pink)',display:'block',marginBottom:4}}>💬 Commentaire libre (optionnel)</label>
+            <textarea value={formData._commentaire||''} onChange={e=>setFormData({...formData,_commentaire:e.target.value})} placeholder="Ajoutez tout élément supplémentaire..." style={{width:'100%',border:'1.5px solid var(--lavender)',borderRadius:8,padding:'8px 12px',fontFamily:'inherit',fontSize:'0.85rem',minHeight:60,resize:'vertical',outline:'none'}} />
+          </div>
           <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:8}}>
             <button className="btn btn-ghost btn-sm" onClick={()=>setEditing(false)}>Annuler</button>
             <button className="btn btn-primary btn-sm" onClick={saveResponses} disabled={saving}>💾 Sauvegarder</button>
           </div>
         </> : <>
-          {COLLAB_QUESTIONS.map((q,i) => {
-            const v = cd['cq'+i];
-            return v ? <div key={i} style={{marginBottom:8,marginTop:8}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)',marginBottom:2}}>{q}</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:'var(--navy)'}}>{v}</div></div> : null;
+          {collabQuestions.map(q => {
+            const v = cd[q.key];
+            return v ? <div key={q.key} style={{marginBottom:8,marginTop:8}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)',marginBottom:2}}>{q.label}</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:'var(--navy)'}}>{q.type==='notation'?v+'/5':v}</div></div> : null;
           })}
-          {!hasC && <p style={{fontSize:'0.82rem',color:'var(--muted)',fontStyle:'italic',marginTop:8}}>Vous n'avez pas encore rempli vos réponses.</p>}
+          {cd._commentaire && <div style={{marginBottom:8,marginTop:8}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)',marginBottom:2}}>Commentaire libre</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:'var(--navy)'}}>{cd._commentaire}</div></div>}
+          {!Object.keys(cd).some(k=>cd[k]) && <p style={{fontSize:'0.82rem',color:'var(--muted)',fontStyle:'italic',marginTop:8}}>Vous n'avez pas encore rempli vos réponses.</p>}
         </>}
       </div>}
     </div>
