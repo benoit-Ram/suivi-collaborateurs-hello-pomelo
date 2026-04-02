@@ -264,7 +264,7 @@ function PointCard({ p, collabId, settings }) {
           {collabQuestions.map(q => (
             <div key={q.key} style={{marginBottom:10,marginTop:8}}>
               <label style={{fontSize:'0.72rem',fontWeight:700,color:'var(--pink)',display:'block',marginBottom:4}}>{q.label}</label>
-              {q.type==='notation' ? <div style={{display:'flex',alignItems:'center',gap:8}}><input type="range" min="1" max="5" value={formData[q.key]||3} onChange={e=>setFormData({...formData,[q.key]:e.target.value})} style={{flex:1,accentColor:'var(--pink)'}} /><span style={{fontWeight:700}}>{formData[q.key]||3}/5</span></div>
+              {q.type==='notation' ? <div style={{display:'flex',gap:6,marginTop:4}}>{[1,2,3,4,5].map(n=><button key={n} onClick={()=>setFormData({...formData,[q.key]:String(n)})} style={{width:40,height:40,borderRadius:10,border:`2px solid ${String(formData[q.key])===String(n)?'var(--pink)':'var(--lavender)'}`,background:String(formData[q.key])===String(n)?'var(--pink)':'white',color:String(formData[q.key])===String(n)?'white':'var(--navy)',fontSize:'0.95rem',fontWeight:700,cursor:'pointer',transition:'all 0.15s'}}>{n}</button>)}</div>
               : <textarea value={formData[q.key]||''} onChange={e=>setFormData({...formData,[q.key]:e.target.value})} placeholder="Votre réponse..." style={{width:'100%',border:'1.5px solid var(--lavender)',borderRadius:8,padding:'8px 12px',fontFamily:'inherit',fontSize:'0.85rem',minHeight:60,resize:'vertical',outline:'none'}} />}
             </div>
           ))}
@@ -279,7 +279,7 @@ function PointCard({ p, collabId, settings }) {
         </> : <>
           {collabQuestions.map(q => {
             const v = cd[q.key];
-            return v ? <div key={q.key} style={{marginBottom:8,marginTop:8}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)',marginBottom:2}}>{q.label}</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:'var(--navy)'}}>{q.type==='notation'?v+'/5':v}</div></div> : null;
+            return v ? <div key={q.key} style={{marginBottom:8,marginTop:8}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)',marginBottom:2}}>{q.label}</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:'var(--navy)'}}>{q.type==='notation'?<div style={{display:'flex',gap:4}}>{[1,2,3,4,5].map(n=><span key={n} style={{width:28,height:28,borderRadius:6,display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'0.8rem',fontWeight:700,background:Number(v)>=n?'var(--pink)':'var(--lavender)',color:Number(v)>=n?'white':'var(--muted)'}}>{n}</span>)}</div>:v}</div></div> : null;
           })}
           {cd._commentaire && <div style={{marginBottom:8,marginTop:8}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)',marginBottom:2}}>Commentaire libre</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:'var(--navy)'}}>{cd._commentaire}</div></div>}
           {!Object.keys(cd).some(k=>cd[k]) && <p style={{fontSize:'0.82rem',color:'var(--muted)',fontStyle:'italic',marginTop:8}}>Vous n'avez pas encore rempli vos réponses.</p>}

@@ -109,19 +109,10 @@ export default function Settings() {
       </div>
 
       {/* Questions */}
-      <div className="section-title">Questions de l'entretien RH mensuel</div>
+      <div className="section-title" title="Les modifications s'appliqueront aux entretiens du mois prochain">Questions de l'entretien RH mensuel</div>
+      <div style={{background:'#FFF7ED',borderRadius:10,padding:'10px 14px',marginBottom:16,fontSize:'0.82rem',color:'#9A3412',fontWeight:600,borderLeft:'4px solid var(--orange)'}}>⚠️ Les modifications s'appliqueront aux entretiens du <strong>mois prochain</strong> uniquement. Les entretiens déjà créés ne sont pas impactés.</div>
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:24 }}>
-        {['questions_manager','questions_collab'].map(key => (
-          <div key={key} className="card">
-            <div className="section-title" style={{marginTop:0}}>{key==='questions_manager'?'👔 Manager':'👤 Collaborateur'}</div>
-            {(settings[key]||[]).length ? (settings[key]||[]).map((q,i) => (
-              <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', border:'1.5px solid var(--lavender)', borderRadius:10, marginBottom:8 }}>
-                <span style={{ flex:1, fontWeight:600, color:'var(--navy)', fontSize:'0.88rem' }}>{q.label||q}</span>
-                <Badge type={q.type==='notation'?'orange':q.type==='qcm'?'green':'blue'}>{q.type||'texte'}</Badge>
-              </div>
-            )) : <p style={{color:'var(--muted)',fontSize:'0.85rem',fontStyle:'italic'}}>Questions par défaut.</p>}
-          </div>
-        ))}
+        {['questions_manager','questions_collab'].map(key => <QuestionEditor key={key} settingsKey={key} label={key==='questions_manager'?'👔 Manager':'👤 Collaborateur'} questions={settings[key]||[]} onSave={async(list)=>{await api.upsertSetting(key,list);await reload();showToast('Questions mises à jour !');}} />)}
       </div>
 
       {/* Périodes de fermeture */}
@@ -141,6 +132,87 @@ export default function Settings() {
         </div>
         <div style={{display:'flex',justifyContent:'flex-end',marginTop:8}}><button className="btn btn-primary btn-sm" onClick={addFermeture}>+ Ajouter</button></div>
       </div>
+    </div>
+  );
+}
+
+function QuestionEditor({ settingsKey, label, questions, onSave }) {
+  const [list, setList] = useState(questions.map(q => typeof q==='string'?{label:q,type:'texte',obligatoire:true}:q));
+  const [newQ, setNewQ] = useState({label:'',type:'texte',obligatoire:true});
+  const [preview, setPreview] = useState(false);
+
+  const save = () => onSave(list);
+  const add = () => {
+    if (!newQ.label.trim()) return;
+    setList([...list, {...newQ, label:newQ.label.trim()}]);
+    setNewQ({label:'',type:'texte',obligatoire:true});
+  };
+  const remove = (i) => { const l=[...list]; l.splice(i,1); setList(l); };
+  const move = (i, dir) => {
+    const l=[...list]; const ni=i+dir;
+    if (ni<0||ni>=l.length) return;
+    [l[i],l[ni]]=[l[ni],l[i]]; setList(l);
+  };
+  const edit = (i, field, val) => {
+    const l=[...list]; l[i]={...l[i],[field]:val}; setList(l);
+  };
+
+  const hasChanges = JSON.stringify(list) !== JSON.stringify(questions.map(q => typeof q==='string'?{label:q,type:'texte',obligatoire:true}:q));
+
+  return (
+    <div className="card">
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <div className="section-title" style={{marginTop:0}}>{label}</div>
+        <div style={{display:'flex',gap:6}}>
+          <button className="btn btn-ghost btn-sm" onClick={()=>setPreview(!preview)}>{preview?'✏️ Éditer':'👁 Aperçu'}</button>
+          {hasChanges && <button className="btn btn-primary btn-sm" onClick={save}>💾 Sauvegarder</button>}
+        </div>
+      </div>
+
+      {preview ? (
+        <div style={{background:'var(--offwhite)',borderRadius:10,padding:16,marginTop:12}}>
+          <div style={{fontSize:'0.78rem',color:'var(--muted)',marginBottom:12,fontWeight:600}}>Aperçu du formulaire :</div>
+          {list.map((q,i) => (
+            <div key={i} style={{marginBottom:12}}>
+              <label style={{fontSize:'0.75rem',fontWeight:700,color:'var(--navy)',display:'block',marginBottom:4}}>
+                {q.label} {q.obligatoire && <span style={{color:'var(--pink)'}}>*</span>}
+              </label>
+              {q.type==='notation' ? (
+                <div style={{display:'flex',gap:8}}>
+                  {[1,2,3,4,5].map(n => <div key={n} style={{width:36,height:36,borderRadius:8,border:'1.5px solid var(--lavender)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'0.85rem',fontWeight:700,color:'var(--navy)'}}>{n}</div>)}
+                </div>
+              ) : <div style={{background:'white',border:'1.5px solid var(--lavender)',borderRadius:8,padding:'10px 12px',fontSize:'0.85rem',color:'var(--muted)',fontStyle:'italic'}}>Réponse libre...</div>}
+            </div>
+          ))}
+        </div>
+      ) : <>
+        {list.map((q,i) => (
+          <div key={i} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',border:'1.5px solid var(--lavender)',borderRadius:10,marginBottom:6}}>
+            <div style={{display:'flex',flexDirection:'column',gap:2}}>
+              <button className="btn btn-ghost btn-sm" style={{padding:'1px 4px',lineHeight:1}} onClick={()=>move(i,-1)} disabled={i===0}>▲</button>
+              <button className="btn btn-ghost btn-sm" style={{padding:'1px 4px',lineHeight:1}} onClick={()=>move(i,1)} disabled={i===list.length-1}>▼</button>
+            </div>
+            <input value={q.label} onChange={e=>edit(i,'label',e.target.value)} style={{flex:1,border:'none',fontFamily:'inherit',fontSize:'0.85rem',fontWeight:600,color:'var(--navy)',outline:'none',background:'transparent'}} />
+            <select value={q.type||'texte'} onChange={e=>edit(i,'type',e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:6,padding:'4px 8px',fontSize:'0.75rem',fontFamily:'inherit'}}>
+              <option value="texte">Texte</option>
+              <option value="notation">Notation 1-5</option>
+            </select>
+            <label style={{display:'flex',alignItems:'center',gap:4,fontSize:'0.72rem',color:'var(--muted)',cursor:'pointer',whiteSpace:'nowrap'}} title="Question obligatoire">
+              <input type="checkbox" checked={q.obligatoire!==false} onChange={e=>edit(i,'obligatoire',e.target.checked)} style={{accentColor:'var(--pink)'}} /> Req.
+            </label>
+            <button className="btn btn-danger btn-sm" style={{padding:'3px 6px'}} onClick={()=>remove(i)}>✕</button>
+          </div>
+        ))}
+        <div style={{display:'flex',gap:8,marginTop:10,alignItems:'end'}}>
+          <input value={newQ.label} onChange={e=>setNewQ({...newQ,label:e.target.value})} onKeyDown={e=>{if(e.key==='Enter')add();}} placeholder="Nouvelle question..."
+            style={{flex:1,border:'1.5px solid var(--lavender)',borderRadius:8,padding:'8px 12px',fontFamily:'inherit',fontSize:'0.85rem',outline:'none'}} />
+          <select value={newQ.type} onChange={e=>setNewQ({...newQ,type:e.target.value})} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'8px',fontSize:'0.82rem',fontFamily:'inherit'}}>
+            <option value="texte">Texte</option>
+            <option value="notation">Note 1-5</option>
+          </select>
+          <button className="btn btn-primary btn-sm" onClick={add}>+</button>
+        </div>
+      </>}
     </div>
   );
 }
