@@ -50,6 +50,7 @@ export default function CollabAccueil() {
   const [selectedId, setSelectedId] = useState('');
   const [tab, setTab] = useState('accueil');
   const [loading, setLoading] = useState(true);
+  const [teamPendingAbs, setTeamPendingAbs] = useState([]);
 
   useEffect(() => {
     Promise.all([api.getCollaborateurs(), api.getSettings()]).then(([data, s]) => {
@@ -59,7 +60,7 @@ export default function CollabAccueil() {
       // Auto-select from URL param (admin impersonate)
       const params = new URLSearchParams(window.location.search);
       const impId = params.get('impersonate');
-      if (impId && (data||[]).find(c=>c.id===impId)) { setSelectedId(impId); }
+      if (impId && (data||[]).find(c=>c.id===impId)) { setSelectedId(impId); loadTeamPendingAbs(impId, data); }
     });
   }, []);
 
@@ -73,7 +74,7 @@ export default function CollabAccueil() {
         <p style={{color:'var(--muted)',marginBottom:20}}>Sélectionnez un collaborateur.</p>
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:12}}>
           {collabs.map(c => (
-            <div key={c.id} className="card" onClick={() => { setSelectedId(c.id); loadAbsences(c.id); }} style={{cursor:'pointer',padding:16,transition:'all 0.15s',border:'2px solid transparent'}}
+            <div key={c.id} className="card" onClick={() => { setSelectedId(c.id); loadAbsences(c.id); loadTeamPendingAbs(c.id); }} style={{cursor:'pointer',padding:16,transition:'all 0.15s',border:'2px solid transparent'}}
               onMouseOver={e=>{e.currentTarget.style.borderColor='var(--pink)';e.currentTarget.style.background='var(--hover-surface, var(--offwhite))';}} onMouseOut={e=>{e.currentTarget.style.borderColor='transparent';e.currentTarget.style.background='';}}>
               <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={36} />
               <div style={{fontWeight:700,fontSize:'0.88rem',color:'var(--navy)',marginTop:8}}>{c.prenom} {c.nom}</div>
@@ -96,6 +97,20 @@ export default function CollabAccueil() {
     }
   }
 
+  /** Charge les demandes de congés en attente des membres de l'équipe du manager */
+  async function loadTeamPendingAbs(managerId, allCollabs) {
+    const myTeam = (allCollabs||collabs).filter(m => m.manager_id === managerId);
+    if (!myTeam.length) { setTeamPendingAbs([]); return; }
+    try {
+      const allAbs = await api.getAbsences();
+      const teamIds = myTeam.map(m => m.id);
+      setTeamPendingAbs((allAbs||[]).filter(a => teamIds.includes(a.collaborateur_id) && a.statut === 'en_attente'));
+    } catch(e) {
+      console.error('Erreur chargement congés équipe:', e);
+      setTeamPendingAbs([]);
+    }
+  }
+
   const c = collabs.find(x => x.id === selectedId);
   if (!c) return <div style={{textAlign:'center',padding:48,color:'var(--muted)'}}>Collaborateur non trouvé.</div>;
 
@@ -115,8 +130,9 @@ export default function CollabAccueil() {
   const pris = absences.filter(a=>a.statut==='approuve'&&a.type==='conge').reduce((s,a)=>s+countWorkDays(a.date_debut,a.date_fin),0);
   const solde = Math.round((soldeInit+acquis-pris)*100)/100;
 
+  const pendingCount = teamPendingAbs.length;
   const tabs = [['accueil','🏠 Accueil'],['objectifs','🎯 Objectifs'],['points','📋 Entretien RH'],['conges','🏖️ Congés']];
-  if (myTeam.length) tabs.splice(3, 0, ['management','👔 Management']);
+  if (myTeam.length) tabs.splice(3, 0, ['management', pendingCount > 0 ? `👔 Management (${pendingCount})` : '👔 Management']);
 
   return (
     <div>
@@ -132,13 +148,33 @@ export default function CollabAccueil() {
 
       <div style={{display:'flex',gap:6,marginBottom:24,background:'var(--offwhite)',padding:6,borderRadius:12,overflowX:'auto'}}>
         {tabs.map(([k,l]) => (
-          <button key={k} onClick={()=>{setTab(k); if(k==='conges') loadAbsences(selectedId);}} style={{flex:1,padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',background:tab===k?'var(--pink)':'transparent',color:tab===k?'white':'var(--muted)',border:tab===k?'none':'1.5px solid var(--lavender)',boxShadow:tab===k?'0 4px 14px rgba(255,50,133,0.3)':'none'}}>{l}</button>
+          <button key={k} onClick={()=>{setTab(k); if(k==='conges') loadAbsences(selectedId);}} style={{position:'relative',flex:1,padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',background:tab===k?'var(--pink)':'transparent',color:tab===k?'white':'var(--muted)',border:tab===k?'none':'1.5px solid var(--lavender)',boxShadow:tab===k?'0 4px 14px rgba(255,50,133,0.3)':'none'}}>
+            {l}
+            {k==='management' && pendingCount > 0 && <span style={{position:'absolute',top:-4,right:-4,background:'var(--orange)',color:'white',borderRadius:'50%',width:20,height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'0.65rem',fontWeight:800,boxShadow:'0 2px 6px rgba(249,115,22,0.4)'}}>{pendingCount}</span>}
+          </button>
         ))}
       </div>
 
       {/* ACCUEIL */}
       {tab==='accueil' && <div>
         <h3 style={{fontSize:'1.1rem',fontWeight:700,color:'var(--navy)',marginBottom:16}}>Bonjour {c.prenom} 👋</h3>
+
+        {/* Notification congés en attente */}
+        {pendingCount > 0 && (
+          <div onClick={()=>setTab('management')} style={{display:'flex',alignItems:'center',gap:12,padding:'14px 18px',background:'var(--bg-warning)',borderRadius:12,marginBottom:20,cursor:'pointer',border:'1.5px solid var(--border-warning)',transition:'all 0.15s'}}>
+            <span style={{fontSize:'1.4rem'}}>🔔</span>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:700,color:'var(--text-warning)',fontSize:'0.88rem'}}>{pendingCount} demande{pendingCount>1?'s':''} de congés en attente</div>
+              <div style={{fontSize:'0.78rem',color:'var(--text-warning)',opacity:0.8}}>
+                {teamPendingAbs.slice(0,3).map(a => {
+                  const m = collabs.find(x=>x.id===a.collaborateur_id);
+                  return m ? `${m.prenom} ${m.nom}` : '';
+                }).filter(Boolean).join(', ')}{pendingCount > 3 ? ` et ${pendingCount-3} autre${pendingCount-3>1?'s':''}` : ''}
+              </div>
+            </div>
+            <span style={{fontWeight:700,color:'var(--text-warning)',fontSize:'0.82rem'}}>Valider →</span>
+          </div>
+        )}
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:14,marginBottom:24}}>
           <div className="card" style={{textAlign:'center',padding:18}}><div style={{fontSize:'2rem',fontWeight:700,color:'var(--pink)'}}>{enCours.length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>En cours</div></div>
           <div className="card" style={{textAlign:'center',padding:18}}><div style={{fontSize:'2rem',fontWeight:700,color:'var(--green)'}}>{atteints.length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Atteints</div></div>
@@ -201,7 +237,7 @@ export default function CollabAccueil() {
       {tab==='conges' && <CongesTab c={c} absences={absences} solde={solde} onReload={() => loadAbsences(c.id)} api={api} />}
 
       {/* MANAGEMENT */}
-      {tab==='management' && <ManagementTab manager={c} team={myTeam} collabs={collabs} settings={settings} />}
+      {tab==='management' && <ManagementTab manager={c} team={myTeam} collabs={collabs} settings={settings} teamPendingAbs={teamPendingAbs} onAbsenceUpdate={()=>loadTeamPendingAbs(c.id)} />}
     </div>
   );
 }
@@ -538,12 +574,13 @@ function TeamCalendar({ collab }) {
 }
 
 /** Onglet Management — vue d'équipe avec CRUD objectifs, édition entretiens RH et suivi congés par membre */
-function ManagementTab({ manager, team, collabs, settings }) {
+function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], onAbsenceUpdate }) {
   const [view, setView] = useState('overview'); // overview | detail
   const [selectedMember, setSelectedMember] = useState(null);
   const [memberTab, setMemberTab] = useState('objectifs');
   const [memberAbs, setMemberAbs] = useState([]);
-  const [overviewTab, setOverviewTab] = useState('objectifs');
+  const pendingCount = teamPendingAbs.length;
+  const [overviewTab, setOverviewTab] = useState(pendingCount > 0 ? 'conges' : 'objectifs');
   const [objModal, setObjModal] = useState(false);
   const [editingObj, setEditingObj] = useState(null);
   const [objForm, setObjForm] = useState({});
@@ -559,7 +596,10 @@ function ManagementTab({ manager, team, collabs, settings }) {
       <div>
         <div style={{display:'flex',gap:6,marginBottom:20,background:'var(--offwhite)',padding:6,borderRadius:12}}>
           {[['objectifs','🎯 Objectifs'],['points','📋 Entretiens RH'],['conges','🏖️ Congés']].map(([k,l])=>(
-            <button key={k} onClick={()=>setOverviewTab(k)} style={{flex:1,padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',background:overviewTab===k?'var(--pink)':'transparent',color:overviewTab===k?'white':'var(--muted)',border:overviewTab===k?'none':'1.5px solid var(--lavender)',boxShadow:overviewTab===k?'0 4px 14px rgba(255,50,133,0.3)':'none'}}>{l}</button>
+            <button key={k} onClick={()=>setOverviewTab(k)} style={{position:'relative',flex:1,padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',background:overviewTab===k?'var(--pink)':'transparent',color:overviewTab===k?'white':'var(--muted)',border:overviewTab===k?'none':'1.5px solid var(--lavender)',boxShadow:overviewTab===k?'0 4px 14px rgba(255,50,133,0.3)':'none'}}>
+              {l}
+              {k==='conges' && pendingCount > 0 && <span style={{position:'absolute',top:-4,right:-4,background:'var(--orange)',color:'white',borderRadius:'50%',width:20,height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'0.65rem',fontWeight:800,boxShadow:'0 2px 6px rgba(249,115,22,0.4)'}}>{pendingCount}</span>}
+            </button>
           ))}
         </div>
 
@@ -598,15 +638,48 @@ function ManagementTab({ manager, team, collabs, settings }) {
         })}
 
         {/* Vue congés de tous les managés */}
-        {overviewTab==='conges' && team.map(m => {
-          return <div key={m.id} className="card" style={{marginBottom:12,padding:16,cursor:'pointer'}} onClick={()=>{setSelectedMember(m);setView('detail');setMemberTab('conges');loadMemberAbs(m.id);}}>
-            <div style={{display:'flex',alignItems:'center',gap:10}}>
-              <Avatar prenom={m.prenom} nom={m.nom} photoUrl={m.photo_url} size={36} />
-              <div style={{flex:1}}><div style={{fontWeight:700,color:'var(--blue)',fontSize:'0.9rem'}}>{m.prenom} {m.nom}</div></div>
-              <span style={{fontSize:'0.82rem',fontWeight:700,color:'var(--navy)'}}>{m.solde_conges||0}j</span>
+        {overviewTab==='conges' && <>
+          {/* Demandes en attente */}
+          {pendingCount > 0 && <>
+            <div style={{fontSize:'0.78rem',fontWeight:700,textTransform:'uppercase',color:'var(--orange)',marginBottom:10,display:'flex',alignItems:'center',gap:8}}>
+              🔔 Demandes en attente ({pendingCount})
+              <span style={{flex:1,height:1,background:'var(--lavender)'}} />
             </div>
-          </div>;
-        })}
+            {teamPendingAbs.map(a => {
+              const m = collabs.find(x=>x.id===a.collaborateur_id);
+              return <div key={a.id} className="card" style={{marginBottom:10,padding:14,borderLeft:'4px solid var(--orange)'}}>
+                <div style={{display:'flex',alignItems:'center',gap:12}}>
+                  {m && <Avatar prenom={m.prenom} nom={m.nom} photoUrl={m.photo_url} size={36} />}
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:700,color:'var(--navy)',fontSize:'0.88rem'}}>{m ? `${m.prenom} ${m.nom}` : '—'}</div>
+                    <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>{ABS_TYPES[a.type]||a.type} · Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)} · {countWorkDays(a.date_debut,a.date_fin)}j ouvré{countWorkDays(a.date_debut,a.date_fin)>1?'s':''}</div>
+                    {a.commentaire && <div style={{fontSize:'0.78rem',color:'var(--muted)',fontStyle:'italic',marginTop:2}}>{a.commentaire}</div>}
+                  </div>
+                  <div style={{display:'flex',gap:6}}>
+                    <button className="btn btn-sm" style={{background:'var(--green)',color:'white',padding:'5px 12px'}} onClick={async()=>{try{await api.updateAbsence(a.id,{statut:'approuve'});if(onAbsenceUpdate)onAbsenceUpdate();}catch(e){alert('Erreur: '+e.message);}}}>✓ Approuver</button>
+                    <button className="btn btn-danger btn-sm" style={{padding:'5px 12px'}} onClick={async()=>{const motif=window.prompt('Motif du refus :');if(!motif)return;try{await api.updateAbsence(a.id,{statut:'refuse',motif_refus:motif});if(onAbsenceUpdate)onAbsenceUpdate();}catch(e){alert('Erreur: '+e.message);}}}>✕ Refuser</button>
+                  </div>
+                </div>
+              </div>;
+            })}
+          </>}
+          {/* Liste des membres */}
+          <div style={{fontSize:'0.78rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginBottom:10,marginTop:pendingCount?16:0,display:'flex',alignItems:'center',gap:8}}>
+            👥 Équipe
+            <span style={{flex:1,height:1,background:'var(--lavender)'}} />
+          </div>
+          {team.map(m => {
+            const mPending = teamPendingAbs.filter(a=>a.collaborateur_id===m.id).length;
+            return <div key={m.id} className="card" style={{marginBottom:12,padding:16,cursor:'pointer'}} onClick={()=>{setSelectedMember(m);setView('detail');setMemberTab('conges');loadMemberAbs(m.id);}}>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <Avatar prenom={m.prenom} nom={m.nom} photoUrl={m.photo_url} size={36} />
+                <div style={{flex:1}}><div style={{fontWeight:700,color:'var(--blue)',fontSize:'0.9rem'}}>{m.prenom} {m.nom}</div></div>
+                {mPending > 0 && <Badge type="orange">⏳ {mPending} en attente</Badge>}
+                <span style={{fontSize:'0.82rem',fontWeight:700,color:'var(--navy)'}}>{m.solde_conges||0}j</span>
+              </div>
+            </div>;
+          })}
+        </>}
       </div>
     );
   }
@@ -783,8 +856,8 @@ function ManagementTab({ manager, team, collabs, settings }) {
             </div>
             <Badge type={a.statut==='approuve'?'green':a.statut==='refuse'?'pink':'orange'}>{ABS_STATUTS[a.statut]}</Badge>
             {a.statut==='en_attente' && <>
-              <button className="btn btn-sm" style={{background:'var(--green)',color:'white',padding:'4px 10px'}} onClick={async()=>{try{await api.updateAbsence(a.id,{statut:'approuve'});loadMemberAbs(m.id);}catch(e){alert('Erreur: '+e.message);}}}>✓</button>
-              <button className="btn btn-danger btn-sm" style={{padding:'4px 10px'}} onClick={async()=>{const motif=window.prompt('Motif :');if(!motif)return;try{await api.updateAbsence(a.id,{statut:'refuse',motif_refus:motif});loadMemberAbs(m.id);}catch(e){alert('Erreur: '+e.message);}}}>✕</button>
+              <button className="btn btn-sm" style={{background:'var(--green)',color:'white',padding:'4px 10px'}} onClick={async()=>{try{await api.updateAbsence(a.id,{statut:'approuve'});loadMemberAbs(m.id);if(onAbsenceUpdate)onAbsenceUpdate();}catch(e){alert('Erreur: '+e.message);}}}>✓</button>
+              <button className="btn btn-danger btn-sm" style={{padding:'4px 10px'}} onClick={async()=>{const motif=window.prompt('Motif :');if(!motif)return;try{await api.updateAbsence(a.id,{statut:'refuse',motif_refus:motif});loadMemberAbs(m.id);if(onAbsenceUpdate)onAbsenceUpdate();}catch(e){alert('Erreur: '+e.message);}}}>✕</button>
             </>}
           </div>
         ))}
