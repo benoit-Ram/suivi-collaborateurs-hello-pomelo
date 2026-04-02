@@ -2,6 +2,47 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import { Avatar, Badge, ProgressBar, EmptyState, fmtDate, moisLabel, currentMois, countWorkDays, STATUS_LABELS, STATUS_COLORS, ABS_TYPES, ABS_STATUTS, isEntretienLocked, getEntretienStatus, ENTRETIEN_STATUS_BADGE } from '../../components/UI';
 
+// ── UTILS ──
+
+/** Récupère les objectifs d'équipe depuis les settings pour les équipes données */
+function getTeamObjectives(equipes, settings) {
+  const teamObjs = [];
+  (equipes||[]).forEach(eq => {
+    (settings['team_objectifs_'+eq]||[]).forEach(o => {
+      teamObjs.push({...(typeof o==='string'?{titre:o,progression:0,dateDebut:'',dateFin:''}:o), equipe:eq});
+    });
+  });
+  return teamObjs;
+}
+
+/** Récupère les questions manager depuis les settings ou les questions par défaut */
+function getManagerQuestions(settings) {
+  if ((settings?.questions_manager||[]).length > 0) {
+    return {
+      keys: settings.questions_manager.map((_,i) => 'q'+i),
+      labels: settings.questions_manager.map(q => q.label||q),
+      questions: settings.questions_manager.map((q,i) => ({key:'q'+i, label:q.label||q, type:q.type||'texte'})),
+    };
+  }
+  const defaults = ['Retours sur les missions','Taux de staffing','Qualités','Axe d\'amélioration'];
+  return {
+    keys: ['retoursMissions','tauxStaffing','qualites','axeAmelioration'],
+    labels: defaults,
+    questions: defaults.map((l,i) => ({key:['retoursMissions','tauxStaffing','qualites','axeAmelioration'][i], label:l, type:'texte'})),
+  };
+}
+
+/** Récupère les questions collab depuis les settings ou les questions par défaut */
+function getCollabQuestions(settings) {
+  const DEFAULT_Q = ['Comment t\'es-tu senti(e) au travail ?','Réussites du mois','Objectifs M-1 atteints ?','Suggestions process','Objectifs mois suivant','Autres sujets','Axe d\'amélioration'];
+  if ((settings?.questions_collab||[]).length > 0) {
+    return settings.questions_collab.map((q,i) => ({key:'cq'+i, label:q.label||q, type:q.type||'texte'}));
+  }
+  return DEFAULT_Q.map((q,i) => ({key:'cq'+i, label:q, type:'texte'}));
+}
+
+// ── MAIN COMPONENT ──
+
 export default function CollabAccueil() {
   const [collabs, setCollabs] = useState([]);
   const [absences, setAbsences] = useState([]);
@@ -44,18 +85,23 @@ export default function CollabAccueil() {
     );
   }
 
+  /** Charge les absences d'un collaborateur */
   async function loadAbsences(cid) {
-    const data = await api.getAbsences({ collaborateur_id: cid });
-    setAbsences(data || []);
+    try {
+      const data = await api.getAbsences({ collaborateur_id: cid });
+      setAbsences(data || []);
+    } catch(e) {
+      console.error('Erreur chargement absences:', e);
+      setAbsences([]);
+    }
   }
 
   const c = collabs.find(x => x.id === selectedId);
-  if (!c) return null;
+  if (!c) return <div style={{textAlign:'center',padding:48,color:'var(--muted)'}}>Collaborateur non trouvé.</div>;
 
   const objs = c.objectifs||[];
   const enCours = objs.filter(o => o.statut==='en-cours');
   const atteints = objs.filter(o => o.statut==='atteint');
-  const cm = currentMois();
   const points = (c.points_suivi||[]).filter(p => p.type==='mensuel').sort((a,b)=>(b.mois||'')>(a.mois||'')?1:-1);
   const manager = c.manager_id ? collabs.find(x=>x.id===c.manager_id) : null;
   const managerName = manager ? `${manager.prenom} ${manager.nom}` : '—';
@@ -102,8 +148,7 @@ export default function CollabAccueil() {
           {/* Team objectives */}
           {(() => {
             const equipes2 = (c.equipe||'').split(',').map(s=>s.trim()).filter(Boolean);
-            const tObjs = [];
-            equipes2.forEach(eq => { (settings['team_objectifs_'+eq]||[]).forEach(o => tObjs.push({...( typeof o==='string'?{titre:o}:o),equipe:eq})); });
+            const tObjs = getTeamObjectives(equipes2, settings);
             return tObjs.length > 0 && <>
               <div className="section-title" style={{marginTop:0}}>👥 Objectifs d'équipe</div>
               {tObjs.map((o,i) => <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 0',borderBottom:'1px solid var(--lavender)'}}><div style={{flex:1,fontWeight:600,color:'var(--navy)',fontSize:'0.88rem'}}>{o.titre}</div><Badge type="blue">{o.equipe}</Badge><span style={{fontWeight:700,fontSize:'0.82rem',color:'var(--blue)'}}>{o.progression||0}%</span></div>)}
@@ -122,11 +167,7 @@ export default function CollabAccueil() {
         {/* Team objectives */}
         {(() => {
           const equipes = (c.equipe||'').split(',').map(s=>s.trim()).filter(Boolean);
-          const teamObjs = [];
-          equipes.forEach(eq => {
-            const objs2 = (settings['team_objectifs_'+eq]||[]).map(o => typeof o==='string'?{titre:o,progression:0,dateDebut:'',dateFin:'',equipe:eq}:{...o,equipe:eq});
-            teamObjs.push(...objs2);
-          });
+          const teamObjs = getTeamObjectives(equipes, settings);
           return teamObjs.length > 0 && <>
             <div className="section-title">Objectifs d'équipe</div>
             {teamObjs.map((o,i) => (
@@ -148,7 +189,7 @@ export default function CollabAccueil() {
         {/* Individual objectives */}
         {enCours.length > 0 && <><div className="section-title">Objectifs individuels en cours ({enCours.length})</div>{enCours.map((o,i)=><ObjCard key={o.id} o={o} i={i} />)}</>}
         {atteints.length > 0 && <><div className="section-title" style={{marginTop:24}}>✅ Atteints ({atteints.length})</div>{atteints.map((o,i)=><ObjCard key={o.id} o={o} i={i} />)}</>}
-        {objs.length===0 && !(()=>{const eq=(c.equipe||'').split(',').filter(Boolean);return eq.some(e=>(settings['team_objectifs_'+e]||[]).length>0)})() && <EmptyState icon="🎯" text="Aucun objectif" />}
+        {objs.length===0 && getTeamObjectives((c.equipe||'').split(',').map(s=>s.trim()).filter(Boolean), settings).length===0 && <EmptyState icon="🎯" text="Aucun objectif" />}
       </div>}
 
       {/* POINTS */}
@@ -183,8 +224,7 @@ function ObjCard({ o, i }) {
   );
 }
 
-const DEFAULT_COLLAB_Q = ['Comment t\'es-tu senti(e) au travail ?','Réussites du mois','Objectifs M-1 atteints ?','Suggestions process','Objectifs mois suivant','Autres sujets','Axe d\'amélioration'];
-
+/** Carte d'entretien RH mensuel — affiche les réponses manager/collab, permet l'édition et l'export PDF */
 function PointCard({ p, collabId, settings }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -195,14 +235,8 @@ function PointCard({ p, collabId, settings }) {
   const status = getEntretienStatus(p);
   const statusBadge = locked ? {label:'🔒 Verrouillé',type:'gray'} : ENTRETIEN_STATUS_BADGE[status];
 
-  // Dynamic questions from settings or defaults
-  const collabQuestions = (settings?.questions_collab||[]).length > 0
-    ? (settings.questions_collab).map((q,i) => ({key:'cq'+i, label:q.label||q, type:q.type||'texte'}))
-    : DEFAULT_COLLAB_Q.map((q,i) => ({key:'cq'+i, label:q, type:'texte'}));
-
-  const managerQuestions = (settings?.questions_manager||[]).length > 0
-    ? (settings.questions_manager).map((q,i) => ({key:'q'+i, label:q.label||q, type:q.type||'texte'}))
-    : [{key:'retoursMissions',label:'Retours sur les missions'},{key:'tauxStaffing',label:'Taux de staffing'},{key:'qualites',label:'Qualités'},{key:'axeAmelioration',label:'Axe d\'amélioration'}];
+  const collabQuestions = getCollabQuestions(settings);
+  const managerQuestions = getManagerQuestions(settings).questions;
 
   const startEdit = () => {
     const data = {};
@@ -216,14 +250,14 @@ function PointCard({ p, collabId, settings }) {
     setSaving(true);
     try {
       await api.updatePointSuivi(p.id, { collab_data: formData });
-      Object.assign(cd, formData);
       setEditing(false);
-    } catch(e) { console.error(e); }
+    } catch(e) { console.error(e); alert('Erreur lors de la sauvegarde.'); }
     setSaving(false);
   };
 
   const exportPDF = () => {
     const win = window.open('','_blank');
+    if (!win) { alert('Le popup a été bloqué. Autorisez les popups pour exporter en PDF.'); return; }
     win.document.write(`<html><head><title>Entretien RH ${moisLabel(p.mois)}</title><style>body{font-family:Quicksand,Arial,sans-serif;padding:32px;max-width:800px;margin:0 auto;color:#05056D}h1{font-size:1.3rem}h2{font-size:1rem;color:#FF3285;margin:20px 0 8px}.field{margin-bottom:12px}.field-label{font-size:0.75rem;font-weight:700;text-transform:uppercase;color:#6B6B9A;margin-bottom:2px}.field-value{font-size:0.9rem;line-height:1.5;padding:8px 0;border-bottom:1px solid #CFD0E5}@media print{body{padding:16px}}</style></head><body>`);
     win.document.write(`<h1>Entretien RH — ${moisLabel(p.mois)}</h1>`);
     win.document.write(`<h2>👔 Manager</h2>`);
@@ -290,6 +324,7 @@ function PointCard({ p, collabId, settings }) {
 }
 
 // ── CONGÉS TAB with request form ──
+/** Onglet Congés — formulaire de demande, historique, solde, calendrier personnel et équipe */
 function CongesTab({ c, absences, solde, onReload }) {
   const [form, setForm] = useState({ type:'conge', date_debut:'', date_fin:'', commentaire:'' });
   const [submitting, setSubmitting] = useState(false);
@@ -376,6 +411,7 @@ function CongesTab({ c, absences, solde, onReload }) {
   );
 }
 
+/** Calendrier mensuel des congés personnels avec code couleur par statut */
 function LeaveCalendar({ absences }) {
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth());
@@ -438,6 +474,7 @@ function LeaveCalendar({ absences }) {
   );
 }
 
+/** Calendrier d'équipe — vue mensuelle des absences de tous les collègues des mêmes équipes */
 function TeamCalendar({ collab }) {
   const [teammates, setTeammates] = useState([]);
   const [teamAbs, setTeamAbs] = useState([]);
@@ -447,17 +484,18 @@ function TeamCalendar({ collab }) {
   useEffect(() => {
     const equipes = (collab.equipe||'').split(',').map(s=>s.trim()).filter(Boolean);
     if (!equipes.length) return;
-    api.getCollaborateurs().then(all => {
-      // Include the current collab in the team view
-      const mates = (all||[]).filter(c => c.equipe && equipes.some(e => c.equipe.includes(e)));
-      // Put current collab first
-      mates.sort((a,b) => a.id===collab.id ? -1 : b.id===collab.id ? 1 : 0);
-      setTeammates(mates);
-      if (mates.length) {
+    (async () => {
+      try {
+        const [all, abs] = await Promise.all([api.getCollaborateurs(), api.getAbsences()]);
+        const mates = (all||[]).filter(c => c.equipe && equipes.some(e => c.equipe.includes(e)));
+        mates.sort((a,b) => a.id===collab.id ? -1 : b.id===collab.id ? 1 : 0);
+        setTeammates(mates);
         const ids = mates.map(m=>m.id);
-        api.getAbsences().then(abs => setTeamAbs((abs||[]).filter(a => ids.includes(a.collaborateur_id) && (a.statut==='approuve'||a.statut==='en_attente'))));
+        setTeamAbs((abs||[]).filter(a => ids.includes(a.collaborateur_id) && (a.statut==='approuve'||a.statut==='en_attente')));
+      } catch(e) {
+        console.error('Erreur chargement calendrier équipe:', e);
       }
-    });
+    })();
   }, [collab.id]);
 
   if (!teammates.length) return <p style={{color:'var(--muted)',fontSize:'0.85rem'}}>Aucun collègue dans vos équipes.</p>;
@@ -499,6 +537,7 @@ function TeamCalendar({ collab }) {
   );
 }
 
+/** Onglet Management — vue d'équipe avec CRUD objectifs, édition entretiens RH et suivi congés par membre */
 function ManagementTab({ manager, team, collabs, settings }) {
   const [view, setView] = useState('overview'); // overview | detail
   const [selectedMember, setSelectedMember] = useState(null);
@@ -585,24 +624,28 @@ function ManagementTab({ manager, team, collabs, settings }) {
     if (!objForm.titre) return;
     const prog = objForm.statut==='atteint'?100:parseInt(objForm.progression)||0;
     const row = {collaborateur_id:m.id,titre:objForm.titre,description:objForm.description||null,date_debut:objForm.date_debut||null,date_fin:objForm.date_fin||null,statut:objForm.statut,progression:prog};
-    if (editingObj) {
-      const existing = mObjs.find(o=>o.id===editingObj);
-      const changes = [];
-      if (existing) {
-        if (existing.titre!==objForm.titre) changes.push({champ:'Titre',avant:existing.titre,apres:objForm.titre});
-        if (existing.statut!==objForm.statut) changes.push({champ:'Statut',avant:STATUS_LABELS[existing.statut],apres:STATUS_LABELS[objForm.statut]});
-        if ((existing.progression||0)!==prog) changes.push({champ:'Progression',avant:(existing.progression||0)+'%',apres:prog+'%'});
+    try {
+      if (editingObj) {
+        const existing = mObjs.find(o=>o.id===editingObj);
+        const changes = [];
+        if (existing) {
+          if (existing.titre!==objForm.titre) changes.push({champ:'Titre',avant:existing.titre,apres:objForm.titre});
+          if (existing.statut!==objForm.statut) changes.push({champ:'Statut',avant:STATUS_LABELS[existing.statut],apres:STATUS_LABELS[objForm.statut]});
+          if ((existing.progression||0)!==prog) changes.push({champ:'Progression',avant:(existing.progression||0)+'%',apres:prog+'%'});
+        }
+        if (changes.length) row.historique = [...(existing?.historique||[]),{date:new Date().toISOString().split('T')[0],auteur:managerName,changes}];
+        await api.updateObjectif(editingObj, row);
+      } else {
+        row.historique = [{date:new Date().toISOString().split('T')[0],auteur:managerName,changes:[{champ:'Création',avant:'',apres:objForm.titre}]}];
+        await api.createObjectif(row);
       }
-      if (changes.length) row.historique = [...(existing?.historique||[]),{date:new Date().toISOString().split('T')[0],auteur:managerName,changes}];
-      await api.updateObjectif(editingObj, row);
-    } else {
-      row.historique = [{date:new Date().toISOString().split('T')[0],auteur:managerName,changes:[{champ:'Création',avant:'',apres:objForm.titre}]}];
-      await api.createObjectif(row);
+      setObjModal(false);
+      const fresh = await api.getCollaborateur(m.id);
+      setSelectedMember(fresh);
+    } catch(e) {
+      console.error('Erreur sauvegarde objectif:', e);
+      alert('Erreur lors de la sauvegarde de l\'objectif.');
     }
-    setObjModal(false);
-    // Refresh member data
-    const fresh = await api.getCollaborateur(m.id);
-    setSelectedMember(fresh);
   };
 
   const deleteObj = async (oid) => {
@@ -613,27 +656,26 @@ function ManagementTab({ manager, team, collabs, settings }) {
   };
 
   const startEditPoint = (p) => {
-    // Use dynamic questions from settings or defaults
-    const mgrQ = (settings?.questions_manager||[]).length > 0
-      ? settings.questions_manager.map((q,i) => 'q'+i)
-      : ['retoursMissions','tauxStaffing','qualites','axeAmelioration'];
-    const mgrLabels = (settings?.questions_manager||[]).length > 0
-      ? settings.questions_manager.map(q => q.label||q)
-      : ['Retours sur les missions','Taux de staffing','Qualités','Axe d\'amélioration'];
+    const mgr = getManagerQuestions(settings);
     const data = {};
-    mgrQ.forEach((k,i) => { data[k] = (p.manager_data||{})[k] || ''; });
-    data._labels = mgrLabels;
-    data._keys = mgrQ;
+    mgr.keys.forEach(k => { data[k] = (p.manager_data||{})[k] || ''; });
+    data._labels = mgr.labels;
+    data._keys = mgr.keys;
     setEditingPoint(p.id);
     setPointForm(data);
   };
   const savePoint = async () => {
     const toSave = {};
     (pointForm._keys||[]).forEach(k => { toSave[k] = pointForm[k]; });
-    await api.updatePointSuivi(editingPoint, {manager_data:toSave});
-    setEditingPoint(null);
-    const fresh = await api.getCollaborateur(m.id);
-    setSelectedMember(fresh);
+    try {
+      await api.updatePointSuivi(editingPoint, {manager_data:toSave});
+      setEditingPoint(null);
+      const fresh = await api.getCollaborateur(m.id);
+      setSelectedMember(fresh);
+    } catch(e) {
+      console.error('Erreur sauvegarde entretien:', e);
+      alert('Erreur lors de la sauvegarde.');
+    }
   };
 
   return (
