@@ -107,7 +107,7 @@ export default function CollabProfile() {
 
       <div style={{ display:'flex', gap:6, marginBottom:24, background:'var(--offwhite)', padding:6, borderRadius:12 }}>
         {tabs.map(([k,l]) => (
-          <button key={k} onClick={()=>setTab(k)} style={{ flex:1, padding:'10px 16px', borderRadius:10, border:'none', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor:'pointer', background:tab===k?'white':'transparent', color:tab===k?'var(--navy)':'var(--muted)', boxShadow:tab===k?'0 2px 8px rgba(5,5,109,0.1)':'none' }}>{l}</button>
+          <button key={k} onClick={()=>setTab(k)} style={{ flex:1, padding:'10px 16px', borderRadius:10, border:tab===k?'2px solid var(--pink)':'2px solid var(--lavender)', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor:'pointer', background:tab===k?'var(--pink)':'transparent', color:tab===k?'white':'var(--muted)', boxShadow:tab===k?'0 4px 14px rgba(255,50,133,0.3)':'none', transition:'all 0.15s' }}>{l}</button>
         ))}
       </div>
 

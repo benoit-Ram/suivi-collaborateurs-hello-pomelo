@@ -86,7 +86,7 @@ export default function CollabAccueil() {
 
       <div style={{display:'flex',gap:6,marginBottom:24,background:'var(--offwhite)',padding:6,borderRadius:12,overflowX:'auto'}}>
         {tabs.map(([k,l]) => (
-          <button key={k} onClick={()=>{setTab(k); if(k==='conges') loadAbsences(selectedId);}} style={{flex:1,padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',background:tab===k?'white':'transparent',color:tab===k?'var(--navy)':'var(--muted)',boxShadow:tab===k?'0 2px 8px rgba(5,5,109,0.1)':'none'}}>{l}</button>
+          <button key={k} onClick={()=>{setTab(k); if(k==='conges') loadAbsences(selectedId);}} style={{flex:1,padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',background:tab===k?'var(--pink)':'transparent',color:tab===k?'white':'var(--muted)',border:tab===k?'none':'1.5px solid var(--lavender)',boxShadow:tab===k?'0 4px 14px rgba(255,50,133,0.3)':'none'}}>{l}</button>
         ))}
       </div>
 
@@ -146,7 +146,7 @@ export default function CollabAccueil() {
       {tab==='conges' && <CongesTab c={c} absences={absences} solde={solde} onReload={() => loadAbsences(c.id)} api={api} />}
 
       {/* MANAGEMENT */}
-      {tab==='management' && <ManagementTab manager={c} team={myTeam} collabs={collabs} />}
+      {tab==='management' && <ManagementTab manager={c} team={myTeam} collabs={collabs} settings={settings} />}
     </div>
   );
 }
@@ -481,7 +481,7 @@ function TeamCalendar({ collab }) {
   );
 }
 
-function ManagementTab({ manager, team, collabs }) {
+function ManagementTab({ manager, team, collabs, settings }) {
   const [view, setView] = useState('overview'); // overview | detail
   const [selectedMember, setSelectedMember] = useState(null);
   const [memberTab, setMemberTab] = useState('objectifs');
@@ -502,7 +502,7 @@ function ManagementTab({ manager, team, collabs }) {
       <div>
         <div style={{display:'flex',gap:6,marginBottom:20,background:'var(--offwhite)',padding:6,borderRadius:12}}>
           {[['objectifs','🎯 Objectifs'],['points','📋 Entretiens RH'],['conges','🏖️ Congés']].map(([k,l])=>(
-            <button key={k} onClick={()=>setOverviewTab(k)} style={{flex:1,padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',background:overviewTab===k?'white':'transparent',color:overviewTab===k?'var(--navy)':'var(--muted)',boxShadow:overviewTab===k?'0 2px 8px rgba(5,5,109,0.1)':'none'}}>{l}</button>
+            <button key={k} onClick={()=>setOverviewTab(k)} style={{flex:1,padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',background:overviewTab===k?'var(--pink)':'transparent',color:overviewTab===k?'white':'var(--muted)',border:overviewTab===k?'none':'1.5px solid var(--lavender)',boxShadow:overviewTab===k?'0 4px 14px rgba(255,50,133,0.3)':'none'}}>{l}</button>
           ))}
         </div>
 
@@ -594,9 +594,25 @@ function ManagementTab({ manager, team, collabs }) {
     setSelectedMember(fresh);
   };
 
-  const startEditPoint = (p) => { setEditingPoint(p.id); setPointForm({...p.manager_data}); };
+  const startEditPoint = (p) => {
+    // Use dynamic questions from settings or defaults
+    const mgrQ = (settings?.questions_manager||[]).length > 0
+      ? settings.questions_manager.map((q,i) => 'q'+i)
+      : ['retoursMissions','tauxStaffing','qualites','axeAmelioration'];
+    const mgrLabels = (settings?.questions_manager||[]).length > 0
+      ? settings.questions_manager.map(q => q.label||q)
+      : ['Retours sur les missions','Taux de staffing','Qualités','Axe d\'amélioration'];
+    const data = {};
+    mgrQ.forEach((k,i) => { data[k] = (p.manager_data||{})[k] || ''; });
+    data._labels = mgrLabels;
+    data._keys = mgrQ;
+    setEditingPoint(p.id);
+    setPointForm(data);
+  };
   const savePoint = async () => {
-    await api.updatePointSuivi(editingPoint, {manager_data:pointForm});
+    const toSave = {};
+    (pointForm._keys||[]).forEach(k => { toSave[k] = pointForm[k]; });
+    await api.updatePointSuivi(editingPoint, {manager_data:toSave});
     setEditingPoint(null);
     const fresh = await api.getCollaborateur(m.id);
     setSelectedMember(fresh);
@@ -611,7 +627,7 @@ function ManagementTab({ manager, team, collabs }) {
       </div>
       <div style={{display:'flex',gap:6,marginBottom:20,background:'var(--offwhite)',padding:6,borderRadius:12}}>
         {[['objectifs','🎯 Objectifs'],['points','📋 Entretien RH'],['conges','🏖️ Congés']].map(([k,l])=>(
-          <button key={k} onClick={()=>{setMemberTab(k);if(k==='conges')loadMemberAbs(m.id);}} style={{flex:1,padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',background:memberTab===k?'white':'transparent',color:memberTab===k?'var(--navy)':'var(--muted)',boxShadow:memberTab===k?'0 2px 8px rgba(5,5,109,0.1)':'none'}}>{l}</button>
+          <button key={k} onClick={()=>{setMemberTab(k);if(k==='conges')loadMemberAbs(m.id);}} style={{flex:1,padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',background:memberTab===k?'var(--pink)':'transparent',color:memberTab===k?'white':'var(--muted)',border:memberTab===k?'none':'1.5px solid var(--lavender)',boxShadow:memberTab===k?'0 4px 14px rgba(255,50,133,0.3)':'none'}}>{l}</button>
         ))}
       </div>
 
@@ -665,8 +681,8 @@ function ManagementTab({ manager, team, collabs }) {
             {/* Manager section */}
             <div style={{fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--skyblue)',marginBottom:8}}>👔 Mes retours</div>
             {isEditing ? <>
-              {Object.keys(pointForm).filter(k=>k!=='objectifs').map(k=>(
-                <div key={k} style={{marginBottom:8}}><label style={{fontSize:'0.72rem',fontWeight:700,color:'var(--pink)',display:'block',marginBottom:4}}>{k}</label>
+              {(pointForm._keys||[]).map((k,i)=>(
+                <div key={k} style={{marginBottom:8}}><label style={{fontSize:'0.72rem',fontWeight:700,color:'var(--pink)',display:'block',marginBottom:4}}>{(pointForm._labels||[])[i]||k}</label>
                 <textarea value={pointForm[k]||''} onChange={e=>setPointForm({...pointForm,[k]:e.target.value})} style={{width:'100%',border:'1.5px solid var(--lavender)',borderRadius:8,padding:'8px 12px',fontFamily:'inherit',fontSize:'0.85rem',minHeight:60,resize:'vertical',outline:'none'}} /></div>
               ))}
               <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:8}}>

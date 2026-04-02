@@ -49,7 +49,7 @@ export default function Objectifs() {
 
       <div style={{ display:'flex', gap:6, marginBottom:24, background:'var(--offwhite)', padding:6, borderRadius:12, maxWidth:400 }}>
         {[['individuel','👤 Individuels'],['equipe','👥 Par équipe']].map(([k,l]) => (
-          <button key={k} onClick={() => setTab(k)} style={{ flex:1, padding:'10px 16px', borderRadius:10, border:'none', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor:'pointer', background: tab===k?'white':'transparent', color: tab===k?'var(--navy)':'var(--muted)', boxShadow: tab===k?'0 2px 8px rgba(5,5,109,0.1)':'none' }}>{l}</button>
+          <button key={k} onClick={() => setTab(k)} style={{ flex:1, padding:'10px 16px', borderRadius:10, border:'none', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor:'pointer', background: tab===k?'var(--pink)':'transparent', color: tab===k?'white':'var(--muted)', border: tab===k?'none':'1.5px solid var(--lavender)', boxShadow: tab===k?'0 4px 14px rgba(255,50,133,0.3)':'none' }}>{l}</button>
         ))}
       </div>
 
