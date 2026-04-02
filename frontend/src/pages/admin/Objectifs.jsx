@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useData } from '../../services/DataContext';
 import { api } from '../../services/api';
 import { PageHeader, Badge, ProgressBar, EmptyState, fmtDate, STATUS_LABELS, STATUS_COLORS } from '../../components/UI';
 
 export default function Objectifs() {
   const { collabs, settings, showToast, reload } = useData();
+  const navigate = useNavigate();
   const [tab, setTab] = useState('individuel');
   const [selectedCollab, setSelectedCollab] = useState('');
   const [teamObjEquipe, setTeamObjEquipe] = useState('');
@@ -58,7 +60,7 @@ export default function Objectifs() {
           if (!objs.length) return null;
           return (
             <div key={c.id} style={{ marginBottom:24 }}>
-              <div style={{ fontWeight:700, color:'var(--navy)', marginBottom:8 }}>{c.prenom} {c.nom} — {objs.length} objectif{objs.length>1?'s':''}</div>
+              <div style={{ fontWeight:700, color:'var(--blue)', marginBottom:8, cursor:'pointer' }} onClick={()=>navigate(`/admin/collaborateurs/${c.id}`)}>{c.prenom} {c.nom} — {objs.length} objectif{objs.length>1?'s':''}</div>
               {objs.map((o,i) => (
                 <div key={o.id} className="card" style={{ marginBottom:8, padding:14, borderLeft:`4px solid ${o.statut==='atteint'?'var(--green)':'var(--pink)'}` }}>
                   <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>

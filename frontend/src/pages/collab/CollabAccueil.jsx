@@ -10,7 +10,14 @@ export default function CollabAccueil() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.getCollaborateurs().then(data => { setCollabs(data||[]); setLoading(false); });
+    api.getCollaborateurs().then(data => {
+      setCollabs(data||[]);
+      setLoading(false);
+      // Auto-select from URL param (admin impersonate)
+      const params = new URLSearchParams(window.location.search);
+      const impId = params.get('impersonate');
+      if (impId && (data||[]).find(c=>c.id===impId)) { setSelectedId(impId); }
+    });
   }, []);
 
   if (loading) return <div style={{textAlign:'center',padding:48,color:'var(--muted)'}}>Chargement...</div>;
@@ -299,6 +306,8 @@ function LeaveCalendar({ absences }) {
 function TeamCalendar({ collab }) {
   const [teammates, setTeammates] = useState([]);
   const [teamAbs, setTeamAbs] = useState([]);
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [month, setMonth] = useState(new Date().getMonth());
 
   useEffect(() => {
     const equipes = (collab.equipe||'').split(',').map(s=>s.trim()).filter(Boolean);
@@ -314,31 +323,39 @@ function TeamCalendar({ collab }) {
 
   if (!teammates.length) return <p style={{color:'var(--muted)',fontSize:'0.85rem'}}>Aucun collègue dans vos équipes.</p>;
 
-  const now = new Date();
-  const month = now.getMonth(), year = now.getFullYear();
+  const prev = () => { if(month===0){setMonth(11);setYear(year-1)}else setMonth(month-1) };
+  const next = () => { if(month===11){setMonth(0);setYear(year+1)}else setMonth(month+1) };
   const daysInMonth = new Date(year, month+1, 0).getDate();
+  const monthLabel = new Date(year, month, 1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
 
   return (
-    <div style={{overflowX:'auto'}}>
-      <table style={{fontSize:'0.72rem',width:'100%'}}>
-        <thead><tr><th style={{textAlign:'left',padding:'4px 8px'}}>Collègue</th>
-          {Array.from({length:daysInMonth},(_,i)=><th key={i} style={{padding:'2px 4px',textAlign:'center'}}>{i+1}</th>)}
-        </tr></thead>
-        <tbody>{teammates.map(c => {
-          const abs = teamAbs.filter(a=>a.collaborateur_id===c.id);
-          return <tr key={c.id}><td style={{padding:'4px 8px',fontWeight:600,whiteSpace:'nowrap'}}>{c.prenom}</td>
-            {Array.from({length:daysInMonth},(_,d)=>{
-              const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(d+1).padStart(2,'0')}`;
-              const dow = new Date(year,month,d+1).getDay();
-              const isWE = dow===0||dow===6;
-              const a = abs.find(x=>ds>=x.date_debut&&ds<=x.date_fin);
-              let bg = isWE?'var(--lavender)':'transparent';
-              if(a) bg = a.statut==='approuve'?'#DCFCE7':'#FFF7ED';
-              return <td key={d} style={{padding:2,textAlign:'center',background:bg,borderRadius:2}} />;
-            })}
-          </tr>;
-        })}</tbody>
-      </table>
+    <div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+        <button className="btn btn-ghost btn-sm" onClick={prev}>←</button>
+        <span style={{fontWeight:700,color:'var(--navy)',fontSize:'0.95rem',textTransform:'capitalize'}}>{monthLabel}</span>
+        <button className="btn btn-ghost btn-sm" onClick={next}>→</button>
+      </div>
+      <div style={{overflowX:'auto'}}>
+        <table style={{fontSize:'0.72rem',width:'100%'}}>
+          <thead><tr><th style={{textAlign:'left',padding:'4px 8px'}}>Collègue</th>
+            {Array.from({length:daysInMonth},(_,i)=><th key={i} style={{padding:'2px 4px',textAlign:'center'}}>{i+1}</th>)}
+          </tr></thead>
+          <tbody>{teammates.map(c => {
+            const abs = teamAbs.filter(a=>a.collaborateur_id===c.id);
+            return <tr key={c.id}><td style={{padding:'4px 8px',fontWeight:600,whiteSpace:'nowrap'}}>{c.prenom}</td>
+              {Array.from({length:daysInMonth},(_,d)=>{
+                const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(d+1).padStart(2,'0')}`;
+                const dow = new Date(year,month,d+1).getDay();
+                const isWE = dow===0||dow===6;
+                const a = abs.find(x=>ds>=x.date_debut&&ds<=x.date_fin);
+                let bg = isWE?'var(--lavender)':'transparent';
+                if(a) bg = a.statut==='approuve'?'#DCFCE7':'#FFF7ED';
+                return <td key={d} style={{padding:2,textAlign:'center',background:bg,borderRadius:2}} />;
+              })}
+            </tr>;
+          })}</tbody>
+        </table>
+      </div>
     </div>
   );
 }

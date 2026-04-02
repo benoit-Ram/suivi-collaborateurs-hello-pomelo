@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useData } from '../../services/DataContext';
 import { api } from '../../services/api';
 import { PageHeader, Badge, fmtDate, ABS_TYPES, ABS_STATUTS } from '../../components/UI';
@@ -7,6 +8,7 @@ const ABS_BADGE = { en_attente:'orange', approuve:'green', refuse:'pink' };
 
 export default function Absences() {
   const { absences, collabs, showToast, reload, getCollab } = useData();
+  const navigate = useNavigate();
   const [fStatut, setFStatut] = useState('');
   const [fCollab, setFCollab] = useState('');
 
@@ -55,7 +57,7 @@ export default function Absences() {
             const c = collabs.find(x => x.id === a.collaborateur_id);
             return (
               <tr key={a.id}>
-                <td style={{fontWeight:700}}>{c ? `${c.prenom} ${c.nom}` : '—'}</td>
+                <td style={{fontWeight:700,cursor:c?'pointer':'default',color:c?'var(--blue)':'var(--muted)'}} onClick={()=>c&&navigate(`/admin/collaborateurs/${c.id}`)}>{c ? `${c.prenom} ${c.nom}` : '—'}</td>
                 <td>{ABS_TYPES[a.type]||a.type}</td>
                 <td>{fmtDate(a.date_debut)}</td>
                 <td>{fmtDate(a.date_fin)}</td>
@@ -91,7 +93,7 @@ export default function Absences() {
             const solde = Math.round((soldeInit+acquis-pris)*100)/100;
             const color = solde<=0?'var(--red)':solde<=5?'var(--orange)':'var(--green)';
             return <tr key={c.id}>
-              <td style={{fontWeight:700}}>{c.prenom} {c.nom}</td>
+              <td style={{fontWeight:700,cursor:'pointer',color:'var(--blue)'}} onClick={()=>navigate(`/admin/collaborateurs/${c.id}`)}>{c.prenom} {c.nom}</td>
               <td>{soldeInit}j</td>
               <td>{acq}j/mois</td>
               <td>{pris}j</td>
