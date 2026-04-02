@@ -448,10 +448,14 @@ function TeamCalendar({ collab }) {
     const equipes = (collab.equipe||'').split(',').map(s=>s.trim()).filter(Boolean);
     if (!equipes.length) return;
     api.getCollaborateurs().then(all => {
-      const mates = (all||[]).filter(c => c.id!==collab.id && c.equipe && equipes.some(e => c.equipe.includes(e)));
+      // Include the current collab in the team view
+      const mates = (all||[]).filter(c => c.equipe && equipes.some(e => c.equipe.includes(e)));
+      // Put current collab first
+      mates.sort((a,b) => a.id===collab.id ? -1 : b.id===collab.id ? 1 : 0);
       setTeammates(mates);
       if (mates.length) {
-        api.getAbsences().then(abs => setTeamAbs((abs||[]).filter(a => mates.some(m=>m.id===a.collaborateur_id) && (a.statut==='approuve'||a.statut==='en_attente'))));
+        const ids = mates.map(m=>m.id);
+        api.getAbsences().then(abs => setTeamAbs((abs||[]).filter(a => ids.includes(a.collaborateur_id) && (a.statut==='approuve'||a.statut==='en_attente'))));
       }
     });
   }, [collab.id]);
@@ -477,7 +481,7 @@ function TeamCalendar({ collab }) {
           </tr></thead>
           <tbody>{teammates.map(c => {
             const abs = teamAbs.filter(a=>a.collaborateur_id===c.id);
-            return <tr key={c.id}><td style={{padding:'4px 8px',fontWeight:600,whiteSpace:'nowrap'}}>{c.prenom}</td>
+            return <tr key={c.id}><td style={{padding:'4px 8px',fontWeight:c.id===collab.id?800:600,whiteSpace:'nowrap',color:c.id===collab.id?'var(--pink)':'var(--navy)'}}>{c.prenom}{c.id===collab.id?' (moi)':''}</td>
               {Array.from({length:daysInMonth},(_,d)=>{
                 const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(d+1).padStart(2,'0')}`;
                 const dow = new Date(year,month,d+1).getDay();
