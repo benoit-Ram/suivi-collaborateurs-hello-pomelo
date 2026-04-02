@@ -676,14 +676,6 @@ function renderOnboarding() {
   });
 }
 
-async function toggleDoc(docKey) {
-  const c = getCollab(currentCollabId);
-  c.onboarding.documents[docKey] = !c.onboarding.documents[docKey];
-  const { error } = await sb.from('collaborateurs').update({ onboarding: c.onboarding }).eq('id', c.id);
-  if (error) { c.onboarding.documents[docKey] = !c.onboarding.documents[docKey]; showToast('Erreur: ' + error.message); return; }
-  renderOnboarding();
-}
-
 async function validateUpload(docKey) {
   const c = getCollab(currentCollabId);
   c.onboarding.documents[docKey] = true;
@@ -1000,15 +992,6 @@ async function saveManagerPoint() {
   closeModal('modalPoint');
   renderPoints();
   showToast('Point mensuel enregistré !');
-}
-
-async function deletePoint(id) {
-  if (!await confirmModal('Supprimer ce point mensuel ?')) return;
-  const { error } = await sb.from('points_suivi').delete().eq('id', id);
-  if (error) { showToast('Erreur: ' + error.message); return; }
-  const c = getCollab(currentCollabId);
-  c.pointsSuivi = (c.pointsSuivi || []).filter(p => p.id !== id);
-  renderPoints();
 }
 
 // ─────────────────────────────────────────
