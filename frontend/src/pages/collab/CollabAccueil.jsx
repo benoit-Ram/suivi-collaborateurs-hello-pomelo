@@ -42,7 +42,7 @@ function getCollabQuestions(settings) {
 }
 
 // ── CONFIG ──
-const GOOGLE_CLIENT_ID = ''; // Réactivé avec moncompte.hello-pomelo.com
+const GOOGLE_CLIENT_ID = '583500042273-qg3a9puk3prhl3hbqfr2jbbtljcgorco.apps.googleusercontent.com';
 
 // ── LOGIN PAGE COMPONENT ──
 function LoginPage({ collabs, onLogin }) {
