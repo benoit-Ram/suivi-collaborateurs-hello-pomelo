@@ -161,7 +161,7 @@ export default function Collaborateurs() {
           <div style={{fontSize:'0.82rem',color:'var(--muted)',marginTop:4}}>Cette action est irréversible.</div>
         </div>
         {managedBy.length > 0 && <div style={{background:'#FFF7ED',borderRadius:10,padding:'12px 16px',marginBottom:16,borderLeft:'4px solid var(--orange)'}}>
-          <div style={{fontSize:'0.82rem',fontWeight:700,color:'#9A3412',marginBottom:8}}>Ce collaborateur manage {managedBy.length} personne{managedBy.length>1?'s':'} :</div>
+          <div style={{fontSize:'0.82rem',fontWeight:700,color:'#9A3412',marginBottom:8}}>Ce collaborateur manage {managedBy.length} personne{managedBy.length>1?"s":""} :</div>
           <div style={{fontSize:'0.82rem',color:'#9A3412',marginBottom:10}}>{managedBy.map(m=>`${m.prenom} ${m.nom}`).join(', ')}</div>
           <div className="form-field"><label>Nouveau manager pour ces personnes</label>
             <select value={reassignTo} onChange={e=>setReassignTo(e.target.value)} style={{width:'100%'}}>
