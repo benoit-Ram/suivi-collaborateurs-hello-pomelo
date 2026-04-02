@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../../services/DataContext';
 import { api } from '../../services/api';
 import { Avatar, Badge, ProgressBar, EmptyState, Modal, FadeIn, fmtDate, moisLabel, currentMois, STATUS_LABELS, STATUS_COLORS } from '../../components/UI';
+import SynthesePDFModal from '../../components/SynthesePDFModal';
 
 function exportCollabCSV(c, getManagerName) {
   const BOM = '\uFEFF';
@@ -18,7 +19,8 @@ function exportCollabCSV(c, getManagerName) {
 
 export default function CollabProfile() {
   const { id } = useParams();
-  const { collabs, showToast, getManagerName, reload } = useData();
+  const { collabs, absences, showToast, getManagerName, reload } = useData();
+  const [pdfModal, setPdfModal] = useState(false);
   const [tab, setTab] = useState('objectifs');
   const [objModal, setObjModal] = useState(false);
   const [objForm, setObjForm] = useState({});
@@ -102,6 +104,7 @@ export default function CollabProfile() {
           <button className="btn btn-ghost btn-sm" onClick={() => navigate(`/admin/collaborateurs?edit=${c.id}`)}>✏️ Modifier</button>
           <button className="btn btn-navy btn-sm" onClick={voirComme}>👁 {c.prenom}</button>
           <button className="btn btn-ghost btn-sm" onClick={()=>exportCollabCSV(c,getManagerName)}>📥 CSV</button>
+          <button className="btn btn-navy btn-sm" onClick={()=>setPdfModal(true)}>📄 Synthèse PDF</button>
         </div>
       </div>
 
@@ -136,6 +139,8 @@ export default function CollabProfile() {
       {tab === 'points' && <div>{points.length===0?<EmptyState icon="📋" text="Aucun point" />:points.map(p=><PointCard key={p.id} p={p} onSave={async(pid,md)=>{try{await api.updatePointSuivi(pid,{manager_data:md});await reload();showToast('Point enregistré !')}catch(e){showToast('Erreur: '+e.message)}}} />)}</div>}
 
       {tab === 'onboarding' && <OnboardingTab collab={c} onSave={async(data)=>{try{await api.updateCollaborateur(c.id,{onboarding:data});await reload();showToast('Onboarding mis à jour !')}catch(e){showToast('Erreur: '+e.message)}}} />}
+
+      <SynthesePDFModal open={pdfModal} onClose={()=>setPdfModal(false)} collab={c} absences={absences} getManagerName={getManagerName} />
     </div>
   );
 }

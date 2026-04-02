@@ -52,10 +52,19 @@ export default function Collaborateurs() {
   };
 
   const [confirmDel, setConfirmDel] = useState(null);
+  const [reassignTo, setReassignTo] = useState('');
+  const managedBy = confirmDel ? collabs.filter(c => c.manager_id === confirmDel) : [];
+
   const del = async () => {
     if (!confirmDel) return;
+    // Reassign managed people first
+    if (managedBy.length > 0) {
+      for (const m of managedBy) {
+        try { await api.updateCollaborateur(m.id, { manager_id: reassignTo || null }); } catch(e) {}
+      }
+    }
     try { await api.deleteCollaborateur(confirmDel); await reload(); showToast('Supprimé'); } catch(e) { showToast('Erreur: '+e.message); }
-    setConfirmDel(null);
+    setConfirmDel(null); setReassignTo('');
   };
 
   return (
@@ -145,7 +154,27 @@ export default function Collaborateurs() {
           <button className="btn btn-primary" onClick={save}>Enregistrer</button>
         </div>
       </Modal>
-      <ConfirmModal open={!!confirmDel} onClose={()=>setConfirmDel(null)} onConfirm={del} message="Supprimer ce collaborateur ? Cette action est irréversible." />
+      {confirmDel && <Modal open={true} onClose={()=>{setConfirmDel(null);setReassignTo('');}}>
+        <div style={{textAlign:'center',marginBottom:16}}>
+          <div style={{fontSize:'2rem',marginBottom:8}}>⚠️</div>
+          <div style={{fontSize:'0.95rem',fontWeight:700,color:'var(--navy)'}}>Supprimer ce collaborateur ?</div>
+          <div style={{fontSize:'0.82rem',color:'var(--muted)',marginTop:4}}>Cette action est irréversible.</div>
+        </div>
+        {managedBy.length > 0 && <div style={{background:'#FFF7ED',borderRadius:10,padding:'12px 16px',marginBottom:16,borderLeft:'4px solid var(--orange)'}}>
+          <div style={{fontSize:'0.82rem',fontWeight:700,color:'#9A3412',marginBottom:8}}>Ce collaborateur manage {managedBy.length} personne{managedBy.length>1?'s':'} :</div>
+          <div style={{fontSize:'0.82rem',color:'#9A3412',marginBottom:10}}>{managedBy.map(m=>`${m.prenom} ${m.nom}`).join(', ')}</div>
+          <div className="form-field"><label>Nouveau manager pour ces personnes</label>
+            <select value={reassignTo} onChange={e=>setReassignTo(e.target.value)} style={{width:'100%'}}>
+              <option value="">— Aucun manager —</option>
+              {collabs.filter(c=>c.id!==confirmDel).map(c=><option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>)}
+            </select>
+          </div>
+        </div>}
+        <div style={{display:'flex',gap:10,justifyContent:'center'}}>
+          <button className="btn btn-ghost" onClick={()=>{setConfirmDel(null);setReassignTo('');}}>Annuler</button>
+          <button className="btn btn-danger" onClick={del}>Confirmer la suppression</button>
+        </div>
+      </Modal>}
     </div>
   );
 }
