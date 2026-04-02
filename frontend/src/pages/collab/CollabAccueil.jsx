@@ -45,7 +45,7 @@ function getCollabQuestions(settings) {
 // ── MAIN COMPONENT ──
 
 export default function CollabAccueil() {
-  const { user: authUser } = useAuth();
+  const { user: authUser, collabs: authCollabs } = useAuth();
   const [collabs, setCollabs] = useState([]);
   const [absences, setAbsences] = useState([]);
   const [settings, setSettings] = useState({});
@@ -55,16 +55,19 @@ export default function CollabAccueil() {
   const [teamPendingAbs, setTeamPendingAbs] = useState([]);
 
   useEffect(() => {
-    Promise.all([api.getCollaborateurs(), api.getSettings()]).then(([data, s]) => {
-      setCollabs(data||[]);
+    // Use collabs from AuthContext, only fetch settings
+    const data = authCollabs || [];
+    setCollabs(data);
+    api.getSettings().then(s => {
       const sm = {}; (s||[]).forEach(r => { sm[r.key] = r.value; }); setSettings(sm);
       setLoading(false);
 
-      // Auto-select from URL param (admin impersonate)
+      // Auto-select from URL param (admin impersonate — admin only)
       const params = new URLSearchParams(window.location.search);
       const impId = params.get('impersonate');
-      if (impId && (data||[]).find(c=>c.id===impId)) {
+      if (impId && authUser?.isAdmin && data.find(c=>c.id===impId)) {
         setSelectedId(impId);
+        loadAbsences(impId);
         loadTeamPendingAbs(impId, data);
         return;
       }
@@ -72,10 +75,11 @@ export default function CollabAccueil() {
       // Auto-select from auth context
       if (authUser?.collabId) {
         setSelectedId(authUser.collabId);
+        loadAbsences(authUser.collabId);
         loadTeamPendingAbs(authUser.collabId, data);
       }
     });
-  }, [authUser]);
+  }, [authUser, authCollabs]);
 
   if (loading) return <div style={{maxWidth:600,margin:'40px auto'}}><Skeleton lines={5} /></div>;
 

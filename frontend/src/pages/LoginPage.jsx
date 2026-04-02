@@ -6,6 +6,7 @@ export default function LoginPage() {
   const { login, isAuthenticated, isAdmin, GOOGLE_CLIENT_ID, loading } = useAuth();
   const [error, setError] = useState('');
   const [showChoice, setShowChoice] = useState(false);
+  const [googleReady, setGoogleReady] = useState(false);
   const googleBtnRef = useRef(null);
   const navigate = useNavigate();
 
@@ -23,17 +24,30 @@ export default function LoginPage() {
   // Google Sign-In init
   useEffect(() => {
     if (loading || isAuthenticated) return;
-    if (GOOGLE_CLIENT_ID && window.google?.accounts?.id) {
-      window.google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: handleGoogleResponse,
-        auto_select: false,
-      });
-      if (googleBtnRef.current) {
-        window.google.accounts.id.renderButton(googleBtnRef.current, {
-          theme: 'outline', size: 'large', width: 340, text: 'signin_with', shape: 'rectangular', locale: 'fr'
+    if (!GOOGLE_CLIENT_ID) return;
+
+    // Wait for Google script to load (may be delayed or blocked)
+    const initGoogle = () => {
+      if (window.google?.accounts?.id) {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: handleGoogleResponse,
+          auto_select: false,
         });
+        if (googleBtnRef.current) {
+          window.google.accounts.id.renderButton(googleBtnRef.current, {
+            theme: 'outline', size: 'large', width: 340, text: 'signin_with', shape: 'rectangular', locale: 'fr'
+          });
+        }
+        setGoogleReady(true);
       }
+    };
+
+    initGoogle();
+    if (!window.google?.accounts?.id) {
+      // Retry after script loads
+      const timer = setTimeout(initGoogle, 2000);
+      return () => clearTimeout(timer);
     }
   }, [loading, isAuthenticated]);
 
@@ -105,9 +119,12 @@ export default function LoginPage() {
           Connectez-vous avec votre compte Hello Pomelo.
         </p>
         {GOOGLE_CLIENT_ID ? (
-          <div ref={googleBtnRef} style={{ display: 'flex', justifyContent: 'center' }} />
+          <>
+            <div ref={googleBtnRef} style={{ display: 'flex', justifyContent: 'center', minHeight: 44 }} />
+            {!googleReady && <p style={{ color: '#6B6B9A', fontSize: '0.82rem', marginTop: 12 }}>Chargement de Google Sign-In... Si le bouton n'apparait pas, verifiez que votre navigateur n'a pas bloque le script.</p>}
+          </>
         ) : (
-          <p style={{ color: '#6B6B9A', fontSize: '0.85rem' }}>Google Sign-In non configuré.</p>
+          <p style={{ color: '#6B6B9A', fontSize: '0.85rem' }}>Google Sign-In non configure.</p>
         )}
         {error && (
           <div style={{ background: '#FFF1F2', color: '#881337', borderLeft: '4px solid #F43F5E', borderRadius: 10, padding: '12px 16px', fontSize: '0.82rem', fontWeight: 600, marginTop: 16, textAlign: 'left' }}>

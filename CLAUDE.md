@@ -9,7 +9,9 @@ Application RH interne de suivi des collaborateurs pour Hello Pomelo. Gestion de
 - **Frontend** : React 19 + Vite 8, React Router 7, CSS vanilla avec variables (pas de framework CSS)
 - **Backend** : NestJS 11 + TypeScript, API REST préfixée `/api`
 - **Base de données** : Supabase (PostgreSQL) — client JS `@supabase/supabase-js`
-- **Pas d'auth** : mode démo avec sélecteur de compte + impersonation admin via `?impersonate=<id>`
+- **Auth** : Google OAuth 2.0 (Sign-In with Google), rôles admin/super_admin/collab, session localStorage
+- **Super admin** : `benoit@hello-pomelo.com` (permanent), peut gérer les rôles admin dans Paramètres
+- **Impersonation admin** : `/collab?impersonate=<id>` (réservé aux admins)
 
 ## Structure du projet
 

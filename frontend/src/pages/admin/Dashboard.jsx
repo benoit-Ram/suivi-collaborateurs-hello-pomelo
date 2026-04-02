@@ -85,7 +85,7 @@ export default function Dashboard() {
       const cd = p.collab_data||{};
       return Object.keys(md).filter(k=>k!=='objectifs').some(k=>md[k]) && Object.keys(cd).filter(k=>k!=='objectifs').some(k=>cd[k]);
     }).length;
-    return { month: moisLabel(m), pct: Math.round(complete/total*100) };
+    return { month: moisLabel(m), pct: total > 0 ? Math.round(complete/total*100) : 0 };
   });
 
   const equipes = [...new Set(collabs.map(c => c.equipe).filter(Boolean).flatMap(e => e.split(',')))];

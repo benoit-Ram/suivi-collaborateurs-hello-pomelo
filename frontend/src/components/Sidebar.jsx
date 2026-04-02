@@ -95,7 +95,7 @@ export default function Sidebar() {
           </div>
           <div style={{ display:'flex', gap:6 }}>
             <button onClick={() => { setMobileOpen(false); navigate('/collab'); }} style={{ flex:1, padding:'7px 0', borderRadius:8, border:'1px solid rgba(255,255,255,0.15)', background:'transparent', color:'rgba(255,255,255,0.7)', fontSize:'0.7rem', fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>👤 Mon espace</button>
-            <button onClick={logout} style={{ flex:1, padding:'7px 0', borderRadius:8, border:'1px solid rgba(255,255,255,0.15)', background:'transparent', color:'rgba(255,255,255,0.7)', fontSize:'0.7rem', fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>Déconnexion</button>
+            <button onClick={() => { logout(); navigate('/'); }} style={{ flex:1, padding:'7px 0', borderRadius:8, border:'1px solid rgba(255,255,255,0.15)', background:'transparent', color:'rgba(255,255,255,0.7)', fontSize:'0.7rem', fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>Déconnexion</button>
           </div>
         </div>
       )}
