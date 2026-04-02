@@ -175,7 +175,7 @@ export default function CollabAccueil() {
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:14,marginBottom:24}}>
           <div className="card" style={{textAlign:'center',padding:18}}><div style={{fontSize:'2rem',fontWeight:700,color:'var(--pink)'}}>{enCours.length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>En cours</div></div>
           <div className="card" style={{textAlign:'center',padding:18}}><div style={{fontSize:'2rem',fontWeight:700,color:'var(--green)'}}>{atteints.length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Atteints</div></div>
-          <div className="card" style={{textAlign:'center',padding:18}}><div style={{fontSize:'2rem',fontWeight:700,color:'var(--navy)'}}>{solde}j</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Congés</div></div>
+          <div className="card" style={{textAlign:'center',padding:18}}><div style={{fontSize:'2rem',fontWeight:700,color:'var(--navy)'}}>{solde.toFixed(2)}j</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Congés</div></div>
         </div>
         <div className="card">
           {/* Team objectives */}
@@ -380,7 +380,7 @@ function CongesTab({ c, absences, solde, onReload }) {
   return (
     <div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(100px,1fr))',gap:10,marginBottom:20}}>
-        <div className="card" style={{textAlign:'center',padding:16}}><div style={{fontSize:'1.5rem',fontWeight:700,color:'var(--green)'}}>{solde}j</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Solde</div></div>
+        <div className="card" style={{textAlign:'center',padding:16}}><div style={{fontSize:'1.5rem',fontWeight:700,color:'var(--green)'}}>{solde.toFixed(2)}j</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Solde</div></div>
         <div className="card" style={{textAlign:'center',padding:16}}><div style={{fontSize:'1.5rem',fontWeight:700,color:'var(--pink)'}}>{absences.filter(a=>a.statut==='approuve').length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Approuvés</div></div>
         <div className="card" style={{textAlign:'center',padding:16}}><div style={{fontSize:'1.5rem',fontWeight:700,color:'var(--orange)'}}>{absences.filter(a=>a.statut==='en_attente').length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>En attente</div></div>
       </div>
@@ -579,6 +579,73 @@ function TeamCalendar({ collab }) {
   );
 }
 
+/** Calendrier d'équipe pour le manager — basé sur les managés directs */
+function ManagerTeamCalendar({ team, teamPendingAbs = [] }) {
+  const [allAbs, setAllAbs] = useState([]);
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [month, setMonth] = useState(new Date().getMonth());
+
+  useEffect(() => {
+    if (!team.length) return;
+    const ids = team.map(m => m.id);
+    api.getAbsences().then(data => {
+      setAllAbs((data||[]).filter(a => ids.includes(a.collaborateur_id) && (a.statut==='approuve'||a.statut==='en_attente')));
+    }).catch(() => {});
+  }, [team, teamPendingAbs]);
+
+  if (!team.length) return null;
+
+  const prev = () => { if(month===0){setMonth(11);setYear(year-1)}else setMonth(month-1) };
+  const next = () => { if(month===11){setMonth(0);setYear(year+1)}else setMonth(month+1) };
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const monthLabel = new Date(year, month, 1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+
+  return (
+    <div className="card" style={{marginBottom:20,padding:16}}>
+      <div style={{fontSize:'0.78rem',fontWeight:700,textTransform:'uppercase',color:'var(--pink)',marginBottom:12,display:'flex',alignItems:'center',gap:8}}>
+        📅 Planning equipe
+        <span style={{flex:1,height:1,background:'var(--lavender)'}} />
+      </div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+        <button className="btn btn-ghost btn-sm" onClick={prev}>←</button>
+        <span style={{fontWeight:700,color:'var(--navy)',fontSize:'0.95rem',textTransform:'capitalize'}}>{monthLabel}</span>
+        <button className="btn btn-ghost btn-sm" onClick={next}>→</button>
+      </div>
+      <div style={{overflowX:'auto'}}>
+        <table style={{fontSize:'0.72rem',width:'100%',borderCollapse:'collapse'}}>
+          <thead><tr><th style={{textAlign:'left',padding:'4px 8px',position:'sticky',left:0,background:'var(--white)',zIndex:1}}>Membre</th>
+            {Array.from({length:daysInMonth},(_,i)=>{
+              const dow = new Date(year,month,i+1).getDay();
+              const isWE = dow===0||dow===6;
+              return <th key={i} style={{padding:'2px 4px',textAlign:'center',color:isWE?'var(--lavender)':'var(--muted)',fontWeight:isWE?400:700}}>{i+1}</th>;
+            })}
+          </tr></thead>
+          <tbody>{team.map(c => {
+            const abs = allAbs.filter(a=>a.collaborateur_id===c.id);
+            return <tr key={c.id}><td style={{padding:'4px 8px',fontWeight:600,whiteSpace:'nowrap',color:'var(--navy)',position:'sticky',left:0,background:'var(--white)',zIndex:1}}>{c.prenom}</td>
+              {Array.from({length:daysInMonth},(_,d)=>{
+                const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(d+1).padStart(2,'0')}`;
+                const dow = new Date(year,month,d+1).getDay();
+                const isWE = dow===0||dow===6;
+                const a = abs.find(x=>ds>=x.date_debut&&ds<=x.date_fin);
+                let bg = isWE?'var(--lavender)':'transparent';
+                let title = '';
+                if(a) { bg = a.statut==='approuve'?'#22C55E':'#F97316'; title = a.statut==='approuve'?'Approuve':'En attente'; }
+                return <td key={d} title={title} style={{padding:2,textAlign:'center',background:bg,borderRadius:2,minWidth:18}} />;
+              })}
+            </tr>;
+          })}</tbody>
+        </table>
+      </div>
+      <div style={{display:'flex',gap:16,marginTop:10,fontSize:'0.7rem',color:'var(--muted)'}}>
+        <span><span style={{display:'inline-block',width:12,height:12,background:'#22C55E',borderRadius:2,verticalAlign:'middle',marginRight:4}} />Approuve</span>
+        <span><span style={{display:'inline-block',width:12,height:12,background:'#F97316',borderRadius:2,verticalAlign:'middle',marginRight:4}} />En attente</span>
+        <span><span style={{display:'inline-block',width:12,height:12,background:'var(--lavender)',borderRadius:2,verticalAlign:'middle',marginRight:4}} />Weekend</span>
+      </div>
+    </div>
+  );
+}
+
 /** Onglet Management — vue d'équipe avec CRUD objectifs, édition entretiens RH et suivi congés par membre */
 function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], onAbsenceUpdate }) {
   const [view, setView] = useState('overview'); // overview | detail
@@ -660,6 +727,9 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
 
         {/* Vue congés de tous les managés */}
         {overviewTab==='conges' && <>
+          {/* Calendrier équipe */}
+          <ManagerTeamCalendar team={team} teamPendingAbs={teamPendingAbs} />
+
           {/* Demandes en attente */}
           {pendingCount > 0 && <>
             <div style={{fontSize:'0.78rem',fontWeight:700,textTransform:'uppercase',color:'var(--orange)',marginBottom:10,display:'flex',alignItems:'center',gap:8}}>
@@ -696,7 +766,7 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
                 <Avatar prenom={m.prenom} nom={m.nom} photoUrl={m.photo_url} size={36} />
                 <div style={{flex:1}}><div style={{fontWeight:700,color:'var(--blue)',fontSize:'0.9rem'}}>{m.prenom} {m.nom}</div></div>
                 {mPending > 0 && <Badge type="orange">⏳ {mPending} en attente</Badge>}
-                <span style={{fontSize:'0.82rem',fontWeight:700,color:'var(--navy)'}}>{m.solde_conges||0}j</span>
+                <span style={{fontSize:'0.82rem',fontWeight:700,color:'var(--navy)'}}>{(m.solde_conges||0).toFixed(2)}j</span>
               </div>
             </div>;
           })}
@@ -865,7 +935,7 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
       {/* Congés */}
       {memberTab==='conges' && <div>
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(100px,1fr))',gap:10,marginBottom:16}}>
-          <div className="card" style={{textAlign:'center',padding:14}}><div style={{fontSize:'1.5rem',fontWeight:700,color:'var(--green)'}}>{m.solde_conges||0}j</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Solde</div></div>
+          <div className="card" style={{textAlign:'center',padding:14}}><div style={{fontSize:'1.5rem',fontWeight:700,color:'var(--green)'}}>{(m.solde_conges||0).toFixed(2)}j</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Solde</div></div>
           <div className="card" style={{textAlign:'center',padding:14}}><div style={{fontSize:'1.5rem',fontWeight:700,color:'var(--pink)'}}>{memberAbs.filter(a=>a.statut==='approuve').length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Approuvés</div></div>
           <div className="card" style={{textAlign:'center',padding:14}}><div style={{fontSize:'1.5rem',fontWeight:700,color:'var(--orange)'}}>{memberAbs.filter(a=>a.statut==='en_attente').length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>En attente</div></div>
         </div>

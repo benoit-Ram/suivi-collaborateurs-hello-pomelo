@@ -106,17 +106,37 @@ export default function Dashboard() {
         <StatCard value={pendingAbs} label="Congés en attente" color="orange" />
       </div>
 
-      {/* Alerts */}
-      {alerts.length > 0 && (
+      {/* Alerts — grouped by type */}
+      {(alerts.length > 0 || pendingAbs > 0) && (
         <div className="card" style={{ marginBottom:24, borderLeft:'4px solid var(--orange)', padding:'20px 24px' }}>
-          <h3 style={{ fontSize:'0.85rem', fontWeight:700, color:'var(--navy)', marginBottom:12, textTransform:'uppercase' }}>⚠️ Actions requises ({alerts.length})</h3>
-          {alerts.slice(0,10).map((a,i) => (
-            <div key={i} onClick={() => navigate(`/admin/collaborateurs/${a.id}`)} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderRadius:10, marginBottom:6, fontSize:'0.82rem', fontWeight:600, cursor:'pointer', background: a.type==='danger'?'var(--bg-danger)':a.type==='warning'?'var(--bg-warning)':'var(--bg-info)', color: a.type==='danger'?'var(--text-danger)':a.type==='warning'?'var(--text-warning)':'var(--text-info)' }}>
-              <span>{a.icon}</span>
-              <span style={{ flex:1 }}>{a.text}</span>
-              {a.email && <a href={`mailto:${a.email}?subject=Rappel — Point de suivi ${moisLabel(prevMois)}&body=Bonjour ${a.prenom||''},\n\nN'oublie pas de compléter ton point de suivi.\n\nMerci !`} onClick={e=>e.stopPropagation()} className="btn btn-navy btn-sm" style={{ padding:'3px 8px', fontSize:'0.68rem' }}>📧</a>}
-            </div>
-          ))}
+          <h3 style={{ fontSize:'0.85rem', fontWeight:700, color:'var(--navy)', marginBottom:16, textTransform:'uppercase' }}>⚠️ Actions requises ({alerts.length + pendingAbs})</h3>
+
+          {/* Congés en attente */}
+          {pendingAbs > 0 && <>
+            <div style={{fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--orange)',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>🏖️ Conges en attente ({pendingAbs})<span style={{flex:1,height:1,background:'var(--lavender)'}} /></div>
+            {absences.filter(a=>a.statut==='en_attente').slice(0,5).map(a => {
+              const c = collabs.find(x=>x.id===a.collaborateur_id);
+              return <div key={a.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',borderRadius:10,marginBottom:6,background:'var(--bg-warning)',cursor:'pointer'}} onClick={()=>navigate('/admin/absences')}>
+                {c && <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={28} />}
+                <span style={{flex:1,fontSize:'0.82rem',fontWeight:600,color:'var(--text-warning)'}}>{c?`${c.prenom} ${c.nom}`:'—'} — {ABS_TYPES[a.type]||a.type} du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)}</span>
+                <span style={{fontSize:'0.72rem',fontWeight:700,color:'var(--orange)'}}>Gérer →</span>
+              </div>;
+            })}
+            {pendingAbs > 5 && <div style={{fontSize:'0.78rem',color:'var(--muted)',cursor:'pointer',marginBottom:8}} onClick={()=>navigate('/admin/absences')}>+ {pendingAbs-5} autres...</div>}
+          </>}
+
+          {/* Alertes points/objectifs/essai */}
+          {alerts.length > 0 && <>
+            <div style={{fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--text-danger)',marginBottom:8,marginTop:pendingAbs?12:0,display:'flex',alignItems:'center',gap:6}}>📋 Suivi & objectifs ({alerts.length})<span style={{flex:1,height:1,background:'var(--lavender)'}} /></div>
+            {alerts.slice(0,10).map((a,i) => (
+              <div key={i} onClick={() => navigate(`/admin/collaborateurs/${a.id}`)} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 12px', borderRadius:10, marginBottom:6, fontSize:'0.82rem', fontWeight:600, cursor:'pointer', background: a.type==='danger'?'var(--bg-danger)':'var(--bg-warning)', color: a.type==='danger'?'var(--text-danger)':'var(--text-warning)' }}>
+                <span>{a.icon}</span>
+                <span style={{ flex:1 }}>{a.text}</span>
+                <span style={{fontSize:'0.72rem',fontWeight:700}}>Voir →</span>
+              </div>
+            ))}
+            {alerts.length > 10 && <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>+ {alerts.length-10} autres alertes</div>}
+          </>}
         </div>
       )}
 
