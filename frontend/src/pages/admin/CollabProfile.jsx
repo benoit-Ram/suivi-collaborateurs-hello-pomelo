@@ -26,10 +26,28 @@ export default function CollabProfile() {
   const openEditObj = (o) => { setEditingObj(o.id); setObjForm({ titre:o.titre, description:o.description||'', date_debut:o.date_debut||'', date_fin:o.date_fin||'', statut:o.statut, progression:o.progression||0, recurrence:o.recurrence||'' }); setObjModal(true); };
   const saveObj = async () => {
     if (!objForm.titre) { showToast('Titre obligatoire'); return; }
-    const row = { collaborateur_id:id, titre:objForm.titre, description:objForm.description||null, date_debut:objForm.date_debut||null, date_fin:objForm.date_fin||null, statut:objForm.statut, progression: objForm.statut==='atteint'?100:parseInt(objForm.progression)||0, recurrence:objForm.recurrence||null };
+    const prog = objForm.statut==='atteint'?100:parseInt(objForm.progression)||0;
+    const row = { collaborateur_id:id, titre:objForm.titre, description:objForm.description||null, date_debut:objForm.date_debut||null, date_fin:objForm.date_fin||null, statut:objForm.statut, progression:prog, recurrence:objForm.recurrence||null };
     try {
-      if (editingObj) await api.updateObjectif(editingObj, row);
-      else await api.createObjectif(row);
+      if (editingObj) {
+        const existing = objs.find(o=>o.id===editingObj);
+        const changes = [];
+        if (existing) {
+          if (existing.titre!==objForm.titre) changes.push({champ:'Titre',avant:existing.titre,apres:objForm.titre});
+          if (existing.statut!==objForm.statut) changes.push({champ:'Statut',avant:STATUS_LABELS[existing.statut],apres:STATUS_LABELS[objForm.statut]});
+          if ((existing.progression||0)!==prog) changes.push({champ:'Progression',avant:(existing.progression||0)+'%',apres:prog+'%'});
+          if ((existing.date_debut||'')!==(objForm.date_debut||'')) changes.push({champ:'Date début',avant:fmtDate(existing.date_debut),apres:fmtDate(objForm.date_debut)});
+          if ((existing.date_fin||'')!==(objForm.date_fin||'')) changes.push({champ:'Date fin',avant:fmtDate(existing.date_fin),apres:fmtDate(objForm.date_fin)});
+        }
+        if (changes.length) {
+          const hist = [...(existing?.historique||[]), {date:new Date().toISOString().split('T')[0], auteur:'Admin', changes}];
+          row.historique = hist;
+        }
+        await api.updateObjectif(editingObj, row);
+      } else {
+        row.historique = [{date:new Date().toISOString().split('T')[0], auteur:'Admin', changes:[{champ:'Création',avant:'',apres:objForm.titre}]}];
+        await api.createObjectif(row);
+      }
       await reload(); setObjModal(false); showToast('Objectif enregistré !');
     } catch(e) { showToast('Erreur: '+e.message); }
   };
@@ -195,8 +213,23 @@ function OnboardingTab({ collab, onSave }) {
   const [form, setForm] = useState({ notes: onb.notes||'', materiel: onb.materiel||'', acces: onb.acces||'' });
   const [customFields, setCustomFields] = useState(onb.customFields || []);
   const [newFieldLabel, setNewFieldLabel] = useState('');
+  const [showHist, setShowHist] = useState(false);
+  const historique = onb.historique || [];
 
-  const save = () => onSave({ ...onb, ...form, customFields });
+  const save = () => {
+    const changes = [];
+    if (form.notes !== (onb.notes||'')) changes.push({ champ:'Notes', avant: onb.notes||'(vide)', apres: form.notes||'(vide)' });
+    if (form.materiel !== (onb.materiel||'')) changes.push({ champ:'Matériel', avant: onb.materiel||'(vide)', apres: form.materiel||'(vide)' });
+    if (form.acces !== (onb.acces||'')) changes.push({ champ:'Accès', avant: onb.acces||'(vide)', apres: form.acces||'(vide)' });
+    const oldCustom = JSON.stringify(onb.customFields||[]);
+    const newCustom = JSON.stringify(customFields);
+    if (oldCustom !== newCustom) changes.push({ champ:'Champs personnalisés', avant:'(modifié)', apres:'(modifié)' });
+
+    const newHist = [...historique];
+    if (changes.length) newHist.push({ date: new Date().toISOString().split('T')[0], auteur: 'Admin', changes });
+
+    onSave({ ...onb, ...form, customFields, historique: newHist });
+  };
 
   const addField = () => {
     if (!newFieldLabel.trim()) return;
@@ -236,6 +269,33 @@ function OnboardingTab({ collab, onSave }) {
           <button className="btn btn-ghost btn-sm" onClick={addField}>+ Ajouter un champ</button>
         </div>
       </div>
+
+      {/* Historique des modifications */}
+      {historique.length > 0 && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <div className="section-title" style={{ marginTop: 0, marginBottom: 0 }}>📜 Historique ({historique.length})</div>
+            <button onClick={() => setShowHist(!showHist)} style={{ background:'none', border:'none', color:'var(--muted)', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', textDecoration:'underline' }}>{showHist ? 'Masquer' : 'Afficher'}</button>
+          </div>
+          {showHist && <div style={{ marginTop: 12 }}>
+            {[...historique].reverse().map((h, hi) => (
+              <div key={hi} style={{ display:'flex', gap:10, padding:'8px 10px', background:'var(--offwhite)', borderRadius:6, marginBottom:4, fontSize:'0.78rem' }}>
+                <span style={{ color:'var(--muted)', fontWeight:600, minWidth:70 }}>{fmtDate(h.date)}</span>
+                <div style={{ flex:1 }}>
+                  <strong>{h.auteur}</strong>
+                  {h.changes?.map((ch, ci) => (
+                    <div key={ci} style={{ color:'var(--muted)', marginTop:2 }}>
+                      {ch.champ} : {ch.avant ? <><span style={{ textDecoration:'line-through', color:'var(--red)' }}>{ch.avant}</span> → </> : ''}
+                      <span style={{ color:'var(--green)', fontWeight:600 }}>{ch.apres}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>}
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <button className="btn btn-primary" onClick={save}>💾 Enregistrer</button>
       </div>
