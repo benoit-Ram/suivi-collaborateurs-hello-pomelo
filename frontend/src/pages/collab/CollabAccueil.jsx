@@ -203,7 +203,7 @@ function PointCard({ p, collabId, settings }) {
           <Badge type={statusBadge.type}>{statusBadge.label}</Badge>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:8}}>
-          <button className="btn btn-ghost btn-sm" style={{padding:'3px 8px',fontSize:'0.68rem'}} onClick={e=>{e.stopPropagation();exportPDF();}}>📄 PDF</button>
+          {locked && <button className="btn btn-ghost btn-sm" style={{padding:'3px 8px',fontSize:'0.68rem'}} onClick={e=>{e.stopPropagation();exportPDF();}}>📄 PDF</button>}
           <span style={{color:'var(--muted)'}}>{open?'▲':'▼'}</span>
         </div>
       </div>
