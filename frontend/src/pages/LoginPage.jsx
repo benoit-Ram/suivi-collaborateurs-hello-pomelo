@@ -51,10 +51,9 @@ export default function LoginPage() {
     }
   }, [loading, isAuthenticated]);
 
-  function handleGoogleResponse(response) {
-    const base64 = response.credential.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-    const payload = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(base64), c => c.charCodeAt(0))));
-    const result = login(payload.email, payload.name, payload.picture);
+  async function handleGoogleResponse(response) {
+    // Send raw Google credential to backend for server-side verification
+    const result = await login(response.credential);
     if (result.error) {
       setError(result.error);
     } else if (result.user.isAdmin) {

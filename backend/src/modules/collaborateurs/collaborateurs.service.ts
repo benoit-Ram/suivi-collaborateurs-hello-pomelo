@@ -33,7 +33,11 @@ export class CollaborateursService {
     return data;
   }
 
-  async update(id: string, dto: any) {
+  async update(id: string, dto: any, requestUser?: any) {
+    // Block is_admin field unless super admin
+    if ('is_admin' in dto && !requestUser?.isSuperAdmin) {
+      delete dto.is_admin;
+    }
     const { data, error } = await this.supabase.db
       .from('collaborateurs')
       .update(dto)

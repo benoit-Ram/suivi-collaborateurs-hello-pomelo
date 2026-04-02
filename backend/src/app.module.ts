@@ -1,6 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { SupabaseModule } from './config/supabase.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { AuthGuard } from './modules/auth/auth.guard';
 import { CollaborateursModule } from './modules/collaborateurs/collaborateurs.module';
 import { ObjectifsModule } from './modules/objectifs/objectifs.module';
 import { AbsencesModule } from './modules/absences/absences.module';
@@ -10,12 +14,18 @@ import { SettingsModule } from './modules/settings/settings.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]), // 100 requests per minute
     SupabaseModule,
+    AuthModule,
     CollaborateursModule,
     ObjectifsModule,
     AbsencesModule,
     PointsSuiviModule,
     SettingsModule,
+  ],
+  providers: [
+    { provide: APP_GUARD, useClass: AuthGuard },
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
 export class AppModule {}
