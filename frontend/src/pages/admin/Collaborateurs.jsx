@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useData } from '../../services/DataContext';
 import { api } from '../../services/api';
 import { Avatar, PageHeader, Modal, ConfirmModal, FadeIn, Skeleton, fmtDate } from '../../components/UI';
@@ -13,6 +13,16 @@ export default function Collaborateurs() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({});
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Auto-open edit modal from URL param
+  useEffect(() => {
+    const editId = searchParams.get('edit');
+    if (editId && collabs.length) {
+      const c = collabs.find(x => x.id === editId);
+      if (c) { setEditing(c.id); setForm({ ...c, manager_id: c.manager_id||'' }); setModalOpen(true); }
+    }
+  }, [searchParams, collabs]);
 
   const sort = (key) => { if (sortKey === key) setSortAsc(!sortAsc); else { setSortKey(key); setSortAsc(true); } };
   const sortIcon = (key) => sortKey === key ? (sortAsc ? ' ▲' : ' ▼') : ' ↕';

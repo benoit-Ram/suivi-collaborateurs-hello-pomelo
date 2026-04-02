@@ -207,6 +207,18 @@ function CongesTab({ c, absences, solde, onReload }) {
         </div>
       </div>
 
+      {/* Calendrier personnel */}
+      <div className="card" style={{marginBottom:24}}>
+        <div className="section-title" style={{marginTop:0}}>📅 Mon calendrier</div>
+        <LeaveCalendar absences={absences} />
+      </div>
+
+      {/* Calendrier équipe */}
+      <div className="card" style={{marginBottom:24}}>
+        <div className="section-title" style={{marginTop:0}}>👥 Calendrier d'équipe</div>
+        <TeamCalendar collab={c} />
+      </div>
+
       <div className="section-title">Historique</div>
       {absences.length===0 ? <EmptyState icon="🏖️" text="Aucune demande" /> : absences.map(a => (
         <div key={a.id} style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',borderRadius:12,border:'1.5px solid var(--lavender)',marginBottom:8,background:'var(--white)'}}>
@@ -218,6 +230,115 @@ function CongesTab({ c, absences, solde, onReload }) {
           <Badge type={a.statut==='approuve'?'green':a.statut==='refuse'?'pink':'orange'}>{ABS_STATUTS[a.statut]}</Badge>
         </div>
       ))}
+    </div>
+  );
+}
+
+function LeaveCalendar({ absences }) {
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [month, setMonth] = useState(new Date().getMonth());
+
+  const FERIES_FIXES = [[1,1],[5,1],[5,8],[7,14],[8,15],[11,1],[11,11],[12,25]];
+  const feriesSet = new Set(FERIES_FIXES.map(([m,d]) => `${year}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`));
+
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month+1, 0);
+  const startDow = (firstDay.getDay()+6)%7;
+  const today = new Date().toISOString().split('T')[0];
+  const monthLabel = firstDay.toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+
+  const prev = () => { if(month===0){setMonth(11);setYear(year-1)}else setMonth(month-1) };
+  const next = () => { if(month===11){setMonth(0);setYear(year+1)}else setMonth(month+1) };
+
+  const rows = [];
+  let dayNum = 1;
+  for (let row=0; row<6; row++) {
+    if (dayNum > lastDay.getDate()) break;
+    const cells = [];
+    for (let col=0; col<7; col++) {
+      if ((row===0 && col<startDow) || dayNum>lastDay.getDate()) { cells.push(<td key={col} />); }
+      else {
+        const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
+        const isFerie = feriesSet.has(ds);
+        const isWE = col>=5;
+        const isToday = ds===today;
+        const abs = absences.find(a => ds>=a.date_debut && ds<=a.date_fin);
+        let bg='transparent',color='var(--navy)';
+        if(isWE) { bg='var(--offwhite)'; color='var(--muted)'; }
+        if(isFerie) { bg='#EFF6FF'; color='#1E40AF'; }
+        if(abs) { bg=abs.statut==='approuve'?'#DCFCE7':abs.statut==='en_attente'?'#FFF7ED':'#FFF1F2'; color=abs.statut==='approuve'?'#166534':abs.statut==='en_attente'?'#9A3412':'#881337'; }
+        if(isToday) { bg='var(--pink)'; color='white'; }
+        cells.push(<td key={col} style={{padding:2,textAlign:'center'}}><div style={{width:28,height:28,lineHeight:'28px',margin:'0 auto',borderRadius:8,background:bg,color,fontWeight:isToday||abs?700:500,fontSize:'0.78rem'}}>{dayNum}</div></td>);
+        dayNum++;
+      }
+    }
+    rows.push(<tr key={row}>{cells}</tr>);
+  }
+
+  return (
+    <div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+        <button className="btn btn-ghost btn-sm" onClick={prev}>←</button>
+        <span style={{fontWeight:700,color:'var(--navy)',fontSize:'0.95rem',textTransform:'capitalize'}}>{monthLabel}</span>
+        <button className="btn btn-ghost btn-sm" onClick={next}>→</button>
+      </div>
+      <table style={{width:'100%',borderCollapse:'collapse',fontSize:'0.78rem'}}>
+        <thead><tr>{['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'].map(d=><th key={d} style={{padding:'6px 4px',textAlign:'center',color:'var(--muted)',fontSize:'0.68rem',fontWeight:700}}>{d}</th>)}</tr></thead>
+        <tbody>{rows}</tbody>
+      </table>
+      <div style={{display:'flex',gap:12,flexWrap:'wrap',marginTop:12,fontSize:'0.7rem',fontWeight:600,color:'var(--muted)'}}>
+        <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'#DCFCE7'}} /> Approuvé</div>
+        <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'#FFF7ED'}} /> En attente</div>
+        <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'#EFF6FF'}} /> Férié</div>
+        <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'var(--pink)'}} /> Aujourd'hui</div>
+      </div>
+    </div>
+  );
+}
+
+function TeamCalendar({ collab }) {
+  const [teammates, setTeammates] = useState([]);
+  const [teamAbs, setTeamAbs] = useState([]);
+
+  useEffect(() => {
+    const equipes = (collab.equipe||'').split(',').map(s=>s.trim()).filter(Boolean);
+    if (!equipes.length) return;
+    api.getCollaborateurs().then(all => {
+      const mates = (all||[]).filter(c => c.id!==collab.id && c.equipe && equipes.some(e => c.equipe.includes(e)));
+      setTeammates(mates);
+      if (mates.length) {
+        api.getAbsences().then(abs => setTeamAbs((abs||[]).filter(a => mates.some(m=>m.id===a.collaborateur_id) && (a.statut==='approuve'||a.statut==='en_attente'))));
+      }
+    });
+  }, [collab.id]);
+
+  if (!teammates.length) return <p style={{color:'var(--muted)',fontSize:'0.85rem'}}>Aucun collègue dans vos équipes.</p>;
+
+  const now = new Date();
+  const month = now.getMonth(), year = now.getFullYear();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+
+  return (
+    <div style={{overflowX:'auto'}}>
+      <table style={{fontSize:'0.72rem',width:'100%'}}>
+        <thead><tr><th style={{textAlign:'left',padding:'4px 8px'}}>Collègue</th>
+          {Array.from({length:daysInMonth},(_,i)=><th key={i} style={{padding:'2px 4px',textAlign:'center'}}>{i+1}</th>)}
+        </tr></thead>
+        <tbody>{teammates.map(c => {
+          const abs = teamAbs.filter(a=>a.collaborateur_id===c.id);
+          return <tr key={c.id}><td style={{padding:'4px 8px',fontWeight:600,whiteSpace:'nowrap'}}>{c.prenom}</td>
+            {Array.from({length:daysInMonth},(_,d)=>{
+              const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(d+1).padStart(2,'0')}`;
+              const dow = new Date(year,month,d+1).getDay();
+              const isWE = dow===0||dow===6;
+              const a = abs.find(x=>ds>=x.date_debut&&ds<=x.date_fin);
+              let bg = isWE?'var(--lavender)':'transparent';
+              if(a) bg = a.statut==='approuve'?'#DCFCE7':'#FFF7ED';
+              return <td key={d} style={{padding:2,textAlign:'center',background:bg,borderRadius:2}} />;
+            })}
+          </tr>;
+        })}</tbody>
+      </table>
     </div>
   );
 }

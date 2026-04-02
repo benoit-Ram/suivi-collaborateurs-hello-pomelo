@@ -69,7 +69,7 @@ export default function CollabProfile() {
           {c.notes && <div style={{ marginTop:10, padding:'8px 12px', background:'#FFF7ED', borderRadius:8, borderLeft:'3px solid var(--orange)', fontSize:'0.82rem', color:'#9A3412' }}>Notes: {c.notes}</div>}
         </div>
         <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate(`/admin/collaborateurs`).then?.(() => {})}>✏️</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate(`/admin/collaborateurs?edit=${c.id}`)}>✏️ Modifier</button>
           <button className="btn btn-navy btn-sm" onClick={voirComme}>👁 {c.prenom}</button>
         </div>
       </div>
@@ -104,14 +104,7 @@ export default function CollabProfile() {
 
       {tab === 'points' && <div>{points.length===0?<EmptyState icon="📋" text="Aucun point" />:points.map(p=><PointCard key={p.id} p={p} onSave={async(pid,md)=>{try{await api.updatePointSuivi(pid,{manager_data:md});await reload();showToast('Point enregistré !')}catch(e){showToast('Erreur: '+e.message)}}} />)}</div>}
 
-      {tab === 'onboarding' && <div className="card">
-        <div className="section-title" style={{marginTop:0}}>Informations onboarding</div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-          <div><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)'}}>Notes</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',marginTop:4}}>{c.onboarding?.notes||'—'}</div></div>
-          <div><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)'}}>Matériel</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',marginTop:4}}>{c.onboarding?.materiel||'—'}</div></div>
-          <div style={{gridColumn:'1/-1'}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)'}}>Accès créés</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',marginTop:4}}>{c.onboarding?.acces||'—'}</div></div>
-        </div>
-      </div>}
+      {tab === 'onboarding' && <OnboardingTab collab={c} onSave={async(data)=>{try{await api.updateCollaborateur(c.id,{onboarding:data});await reload();showToast('Onboarding mis à jour !')}catch(e){showToast('Erreur: '+e.message)}}} />}
     </div>
   );
 }
@@ -193,6 +186,59 @@ function PointCard({ p, onSave }) {
           ))}
         </>}
       </div>}
+    </div>
+  );
+}
+
+function OnboardingTab({ collab, onSave }) {
+  const onb = collab.onboarding || {};
+  const [form, setForm] = useState({ notes: onb.notes||'', materiel: onb.materiel||'', acces: onb.acces||'' });
+  const [customFields, setCustomFields] = useState(onb.customFields || []);
+  const [newFieldLabel, setNewFieldLabel] = useState('');
+
+  const save = () => onSave({ ...onb, ...form, customFields });
+
+  const addField = () => {
+    if (!newFieldLabel.trim()) return;
+    setCustomFields([...customFields, { label: newFieldLabel.trim(), value: '' }]);
+    setNewFieldLabel('');
+  };
+
+  const updateField = (i, val) => {
+    const f = [...customFields]; f[i] = { ...f[i], value: val }; setCustomFields(f);
+  };
+
+  const removeField = (i) => {
+    const f = [...customFields]; f.splice(i, 1); setCustomFields(f);
+  };
+
+  return (
+    <div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="section-title" style={{ marginTop: 0 }}>Informations onboarding</div>
+        <div className="form-grid">
+          <div className="form-field full"><label>Notes d'onboarding</label><textarea value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} placeholder="Informations spécifiques..." /></div>
+          <div className="form-field"><label>PC / Matériel fourni</label><input value={form.materiel} onChange={e => setForm({...form, materiel: e.target.value})} placeholder="MacBook Pro 14''" /></div>
+          <div className="form-field"><label>Accès créés</label><input value={form.acces} onChange={e => setForm({...form, acces: e.target.value})} placeholder="Gmail, Notion, Slack..." /></div>
+        </div>
+      </div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="section-title" style={{ marginTop: 0 }}>Éléments personnalisés</div>
+        {customFields.map((f, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--navy)', minWidth: 120 }}>{f.label}</span>
+            <input value={f.value} onChange={e => updateField(i, e.target.value)} placeholder="..." style={{ flex: 1, border: '1.5px solid var(--lavender)', borderRadius: 8, padding: '8px 12px', fontFamily: 'inherit', fontSize: '0.85rem', outline: 'none' }} />
+            <button className="btn btn-danger btn-sm" style={{ padding: '4px 8px' }} onClick={() => removeField(i)}>✕</button>
+          </div>
+        ))}
+        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+          <input value={newFieldLabel} onChange={e => setNewFieldLabel(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addField(); }} placeholder="Nom du champ..." style={{ flex: 1, border: '1.5px solid var(--lavender)', borderRadius: 8, padding: '8px 12px', fontFamily: 'inherit', fontSize: '0.85rem', outline: 'none' }} />
+          <button className="btn btn-ghost btn-sm" onClick={addField}>+ Ajouter un champ</button>
+        </div>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button className="btn btn-primary" onClick={save}>💾 Enregistrer</button>
+      </div>
     </div>
   );
 }
