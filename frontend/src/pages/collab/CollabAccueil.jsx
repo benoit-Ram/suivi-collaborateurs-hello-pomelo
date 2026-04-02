@@ -105,9 +105,36 @@ export default function CollabAccueil() {
 
       {/* OBJECTIFS */}
       {tab==='objectifs' && <div>
-        {enCours.length > 0 && <><div className="section-title">En cours ({enCours.length})</div>{enCours.map((o,i)=><ObjCard key={o.id} o={o} i={i} />)}</>}
+        {/* Team objectives */}
+        {(() => {
+          const equipes = (c.equipe||'').split(',').map(s=>s.trim()).filter(Boolean);
+          const teamObjs = [];
+          equipes.forEach(eq => {
+            const objs2 = (settings['team_objectifs_'+eq]||[]).map(o => typeof o==='string'?{titre:o,progression:0,dateDebut:'',dateFin:'',equipe:eq}:{...o,equipe:eq});
+            teamObjs.push(...objs2);
+          });
+          return teamObjs.length > 0 && <>
+            <div className="section-title">Objectifs d'équipe</div>
+            {teamObjs.map((o,i) => (
+              <div key={i} className="card" style={{marginBottom:8,padding:14,borderLeft:'4px solid var(--blue)'}}>
+                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                  <span style={{fontWeight:700,color:'var(--navy)',flex:1}}>{o.titre}</span>
+                  <Badge type="blue">{o.equipe}</Badge>
+                </div>
+                <div style={{marginBottom:4}}>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:'0.7rem',fontWeight:700,color:'var(--muted)',marginBottom:4}}><span>Progression</span><span>{o.progression||0}%</span></div>
+                  <ProgressBar value={o.progression||0} color="linear-gradient(90deg, var(--skyblue), var(--blue))" />
+                </div>
+                {(o.dateDebut||o.dateFin) && <div style={{fontSize:'0.72rem',color:'var(--muted)'}}>📅 {fmtDate(o.dateDebut)} → {fmtDate(o.dateFin)}</div>}
+              </div>
+            ))}
+          </>;
+        })()}
+
+        {/* Individual objectives */}
+        {enCours.length > 0 && <><div className="section-title">Objectifs individuels en cours ({enCours.length})</div>{enCours.map((o,i)=><ObjCard key={o.id} o={o} i={i} />)}</>}
         {atteints.length > 0 && <><div className="section-title" style={{marginTop:24}}>✅ Atteints ({atteints.length})</div>{atteints.map((o,i)=><ObjCard key={o.id} o={o} i={i} />)}</>}
-        {objs.length===0 && <EmptyState icon="🎯" text="Aucun objectif" />}
+        {objs.length===0 && !(()=>{const eq=(c.equipe||'').split(',').filter(Boolean);return eq.some(e=>(settings['team_objectifs_'+e]||[]).length>0)})() && <EmptyState icon="🎯" text="Aucun objectif" />}
       </div>}
 
       {/* POINTS */}
