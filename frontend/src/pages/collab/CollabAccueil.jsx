@@ -137,7 +137,7 @@ export default function CollabAccueil() {
       {/* Profile card */}
 
       <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:24,background:'var(--bg-highlight)',borderRadius:16,padding:'clamp(14px, 3vw, 24px)',border:'1.5px solid var(--border-highlight)',flexWrap:'wrap'}}>
-        <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url || authUser?.picture} size={64} />
+        <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={64} />
         <div>
           <div style={{fontSize:'1.2rem',fontWeight:700,color:'var(--navy)'}}>{c.prenom} {c.nom}</div>
           <div style={{fontSize:'0.85rem',color:'var(--muted)',marginTop:2}}>{c.poste}{c.equipe ? ` · ${c.equipe}` : ''}</div>
