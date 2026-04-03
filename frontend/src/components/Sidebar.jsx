@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useData } from '../services/DataContext';
 import { useAuth } from '../services/AuthContext';
 import { Avatar, useKeyboard } from './UI';
+import { APP_VERSION } from '../version';
 
 export default function Sidebar() {
   const { collabs, absences } = useData();
@@ -100,7 +101,7 @@ export default function Sidebar() {
         </div>
       )}
       <div style={{ padding:'8px 16px', borderTop:'1px solid rgba(255,255,255,0.06)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-        <span style={{ fontSize:'0.6rem', color:'#8F8FBC', fontWeight:600, textTransform:'uppercase' }}>Hello Pomelo © 2025</span>
+        <span style={{ fontSize:'0.6rem', color:'#8F8FBC', fontWeight:600, textTransform:'uppercase' }}>Hello Pomelo © 2026 · v{APP_VERSION}</span>
         <button onClick={() => setDark(!dark)} style={{ background:'none', border:'none', fontSize:'1rem', cursor:'pointer' }}>{dark?'☀️':'🌙'}</button>
       </div>
     </>

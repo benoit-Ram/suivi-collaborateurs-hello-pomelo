@@ -4,8 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "version:stamp": "node -e \"const d=new Date();const v=d.getFullYear()+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+String(d.getDate()).padStart(2,'0')+'.'+String(d.getHours()).padStart(2,'0');require('fs').writeFileSync('src/version.js','// Auto-generated\\nexport const APP_VERSION = \\''+v+'\\'\\n');console.log('Version:',v)\"",
     "dev": "vite",
-    "build": "vite build",
+    "build": "npm run version:stamp && vite build",
     "preview": "vite preview"
   },
   "keywords": [],
