@@ -1,12 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { api } from './api';
+import { currentMois } from '../components/UI';
 
 const DataContext = createContext();
-
-function currentMois() {
-  const n = new Date();
-  return n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0');
-}
 
 export function DataProvider({ children }) {
   const [collabs, setCollabs] = useState([]);
