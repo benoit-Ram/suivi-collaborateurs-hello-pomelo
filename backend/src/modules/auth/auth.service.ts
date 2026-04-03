@@ -32,6 +32,11 @@ export class AuthService {
 
     if (!payload?.email) throw new UnauthorizedException('Email manquant dans le token');
 
+    // Restrict to @hello-pomelo.com domain
+    if (!payload.email.toLowerCase().endsWith('@hello-pomelo.com')) {
+      throw new UnauthorizedException('Seuls les comptes @hello-pomelo.com sont autorises.');
+    }
+
     // Find collaborateur by email (case-insensitive)
     const { data: collab } = await this.supabase.db
       .from('collaborateurs')
