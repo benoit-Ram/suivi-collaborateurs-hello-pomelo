@@ -120,13 +120,13 @@ export default function Absences() {
         </div>
         <div style={{overflowX:'auto'}}>
           <table style={{fontSize:'0.72rem',width:'100%'}}>
-            <thead><tr><th style={{textAlign:'left',padding:'4px 8px',minWidth:120}}>Collaborateur</th>
+            <thead><tr><th style={{textAlign:'left',padding:'4px 8px',minWidth:120,position:'sticky',left:0,background:'var(--white)',zIndex:1}}>Collaborateur</th>
               {Array.from({length:daysInMonth},(_,i)=><th key={i} style={{padding:'2px 3px',textAlign:'center',minWidth:22}}>{i+1}</th>)}
             </tr></thead>
             <tbody>{collabs.map(c => {
               const cAbs = absences.filter(a=>a.collaborateur_id===c.id&&(a.statut==='approuve'||a.statut==='en_attente'));
               return <tr key={c.id}>
-                <td style={{padding:'4px 8px',fontWeight:600,whiteSpace:'nowrap',cursor:'pointer',color:'var(--blue)'}} onClick={()=>navigate(`/admin/collaborateurs/${c.id}`)}>{c.prenom} {c.nom[0]}.</td>
+                <td style={{padding:'4px 8px',fontWeight:600,whiteSpace:'nowrap',cursor:'pointer',color:'var(--blue)',position:'sticky',left:0,background:'var(--white)',zIndex:1}} onClick={()=>navigate(`/admin/collaborateurs/${c.id}`)}>{c.prenom} {c.nom[0]}.</td>
                 {Array.from({length:daysInMonth},(_,d)=>{
                   const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d+1).padStart(2,'0')}`;
                   const dow=new Date(calYear,calMonth,d+1).getDay();
