@@ -228,7 +228,7 @@ export default function CollabAccueil() {
 
       {/* POINTS */}
       {tab==='points' && <FadeIn><div>
-        {points.length===0 ? <EmptyState icon="📋" text="Aucun entretien RH" /> : points.map(p => <PointCard key={p.id} p={p} collabId={c.id} settings={settings} />)}
+        {points.length===0 ? <EmptyState icon="📋" text="Aucun entretien RH" /> : points.map(p => <PointCard key={p.id} p={p} collabId={c.id} settings={settings} objectifs={c.objectifs||[]} />)}
       </div></FadeIn>}
 
       {/* CONGÉS */}
@@ -259,7 +259,7 @@ function ObjCard({ o, i }) {
 }
 
 /** Carte d'entretien RH mensuel — affiche les réponses manager/collab, permet l'édition et l'export PDF */
-function PointCard({ p, collabId, settings }) {
+function PointCard({ p, collabId, settings, objectifs = [] }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({});
@@ -271,10 +271,13 @@ function PointCard({ p, collabId, settings }) {
 
   const collabQuestions = getCollabQuestions(settings);
   const managerQuestions = getManagerQuestions(settings).questions;
+  // Objectifs non atteints pour ce mois
+  const activeObjectifs = objectifs.filter(o => o.statut !== 'atteint');
 
   const startEdit = () => {
     const data = {};
     collabQuestions.forEach(q => { data[q.key] = cd[q.key] || ''; });
+    activeObjectifs.forEach(o => { data['obj_'+o.id] = cd['obj_'+o.id] || ''; });
     data._commentaire = cd._commentaire || '';
     setFormData(data);
     setEditing(true);
@@ -298,6 +301,7 @@ function PointCard({ p, collabId, settings }) {
     managerQuestions.forEach(q => { win.document.write(`<div class="field"><div class="field-label">${q.label}</div><div class="field-value">${md[q.key]||'—'}</div></div>`); });
     win.document.write(`<h2>👤 Collaborateur</h2>`);
     collabQuestions.forEach(q => { win.document.write(`<div class="field"><div class="field-label">${q.label}</div><div class="field-value">${cd[q.key]||'—'}</div></div>`); });
+    if (activeObjectifs.some(o=>cd['obj_'+o.id])) { win.document.write(`<h2>🎯 Avancement objectifs</h2>`); activeObjectifs.filter(o=>cd['obj_'+o.id]).forEach(o => { win.document.write(`<div class="field"><div class="field-label">${o.titre} (${o.progression||0}%)</div><div class="field-value">${cd['obj_'+o.id]}</div></div>`); }); }
     if (cd._commentaire) win.document.write(`<div class="field"><div class="field-label">Commentaire libre</div><div class="field-value">${cd._commentaire}</div></div>`);
     win.document.write(`<div style="margin-top:40px;font-size:0.75rem;color:#6B6B9A">Exporté le ${new Date().toLocaleDateString('fr-FR')}</div></body></html>`);
     win.document.close();
@@ -336,6 +340,16 @@ function PointCard({ p, collabId, settings }) {
               : <textarea value={formData[q.key]||''} onChange={e=>setFormData({...formData,[q.key]:e.target.value})} placeholder="Votre réponse..." style={{width:'100%',border:'1.5px solid var(--lavender)',borderRadius:8,padding:'8px 12px',fontFamily:'inherit',fontSize:'0.85rem',minHeight:60,resize:'vertical',outline:'none'}} />}
             </div>
           ))}
+          {/* Objectifs en cours */}
+          {activeObjectifs.length > 0 && <>
+            <div style={{marginTop:14,paddingTop:12,borderTop:'1px dashed var(--lavender)',fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--green)',marginBottom:8}}>🎯 Avancement de mes objectifs</div>
+            {activeObjectifs.map(o => (
+              <div key={o.id} style={{marginBottom:10}}>
+                <label style={{fontSize:'0.72rem',fontWeight:700,color:'var(--navy)',display:'block',marginBottom:4}}>{o.titre} <span style={{color:'var(--muted)',fontWeight:600}}>({o.progression||0}%)</span></label>
+                <textarea value={formData['obj_'+o.id]||''} onChange={e=>setFormData({...formData,['obj_'+o.id]:e.target.value})} placeholder="Avancement, blocages, prochaines etapes..." style={{width:'100%',border:'1.5px solid var(--lavender)',borderRadius:8,padding:'8px 12px',fontFamily:'inherit',fontSize:'0.85rem',minHeight:50,resize:'vertical',outline:'none'}} />
+              </div>
+            ))}
+          </>}
           <div style={{marginBottom:10,marginTop:12}}>
             <label style={{fontSize:'0.72rem',fontWeight:700,color:'var(--pink)',display:'block',marginBottom:4}}>💬 Commentaire libre (optionnel)</label>
             <textarea value={formData._commentaire||''} onChange={e=>setFormData({...formData,_commentaire:e.target.value})} placeholder="Ajoutez tout élément supplémentaire..." style={{width:'100%',border:'1.5px solid var(--lavender)',borderRadius:8,padding:'8px 12px',fontFamily:'inherit',fontSize:'0.85rem',minHeight:60,resize:'vertical',outline:'none'}} />
@@ -349,6 +363,13 @@ function PointCard({ p, collabId, settings }) {
             const v = cd[q.key];
             return v ? <div key={q.key} style={{marginBottom:8,marginTop:8}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)',marginBottom:2}}>{q.label}</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:'var(--navy)'}}>{q.type==='notation'?<div style={{display:'flex',gap:4}}>{[1,2,3,4,5].map(n=><span key={n} style={{width:28,height:28,borderRadius:6,display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'0.8rem',fontWeight:700,background:Number(v)>=n?'var(--pink)':'var(--lavender)',color:Number(v)>=n?'white':'var(--muted)'}}>{n}</span>)}</div>:v}</div></div> : null;
           })}
+          {/* Réponses objectifs (lecture) */}
+          {activeObjectifs.some(o=>cd['obj_'+o.id]) && <>
+            <div style={{marginTop:12,paddingTop:10,borderTop:'1px dashed var(--lavender)',fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--green)',marginBottom:8}}>🎯 Avancement objectifs</div>
+            {activeObjectifs.filter(o=>cd['obj_'+o.id]).map(o=>(
+              <div key={o.id} style={{marginBottom:8}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)',marginBottom:2}}>{o.titre}</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:'var(--navy)'}}>{cd['obj_'+o.id]}</div></div>
+            ))}
+          </>}
           {cd._commentaire && <div style={{marginBottom:8,marginTop:8}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)',marginBottom:2}}>Commentaire libre</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:'var(--navy)'}}>{cd._commentaire}</div></div>}
           {!Object.keys(cd).some(k=>cd[k]) && <p style={{fontSize:'0.82rem',color:'var(--muted)',fontStyle:'italic',marginTop:8}}>Vous n'avez pas encore rempli vos réponses.</p>}
         </>}
