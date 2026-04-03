@@ -154,8 +154,32 @@ export function FadeIn({ children }) {
 // ── CONSTANTS ──
 export const STATUS_LABELS = { 'en-cours': 'En cours', 'atteint': 'Atteint ✓', 'non-atteint': 'Non atteint', 'en-attente': 'En attente' };
 export const STATUS_COLORS = { 'en-cours': 'blue', 'atteint': 'green', 'non-atteint': 'orange', 'en-attente': 'gray' };
-export const ABS_TYPES = { conge: 'Congé', sans_solde: 'Sans solde' };
+// Default absence types (used as fallback if settings not loaded)
+export const ABS_TYPES = { conge: 'Congé payé', sans_solde: 'Sans solde', maladie: 'Maladie', rtt: 'RTT' };
 export const ABS_STATUTS = { en_attente: 'En attente', approuve: 'Approuvé', refuse: 'Refusé' };
+
+// Default absence type configs with decompte_solde flag
+export const DEFAULT_ABSENCE_TYPES = [
+  { key: 'conge', label: 'Congé payé', decompte: true },
+  { key: 'sans_solde', label: 'Sans solde', decompte: false },
+  { key: 'maladie', label: 'Maladie', decompte: false },
+  { key: 'rtt', label: 'RTT', decompte: true },
+];
+
+/** Build ABS_TYPES map from settings or defaults */
+export function getAbsenceTypes(settings) {
+  const types = settings?.absence_types || DEFAULT_ABSENCE_TYPES;
+  const map = {};
+  types.forEach(t => { map[t.key] = t.label; });
+  return map;
+}
+
+/** Check if an absence type deducts from balance */
+export function absenceDeductsSolde(type, settings) {
+  const types = settings?.absence_types || DEFAULT_ABSENCE_TYPES;
+  const t = types.find(x => x.key === type);
+  return t ? t.decompte : false;
+}
 
 // ── UTILS ──
 export function fmtDate(d) {

@@ -122,3 +122,11 @@ ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS is_admin boolean DEFAULT fal
 -- Super admin
 UPDATE collaborateurs SET is_admin = true WHERE email = 'benoit@hello-pomelo.com';
 ```
+
+## Migration v7 — Audit trail absences
+
+```sql
+-- Qui a approuvé/refusé et quand
+ALTER TABLE absences ADD COLUMN IF NOT EXISTS approved_by text;
+ALTER TABLE absences ADD COLUMN IF NOT EXISTS approved_at timestamptz;
+```
