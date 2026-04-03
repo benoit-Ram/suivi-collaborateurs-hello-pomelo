@@ -22,11 +22,10 @@ async function request(path, options = {}) {
   });
 
   if (res.status === 401) {
-    // Token expired or invalid — clear session
+    // Token expired or invalid — clear session (no hard reload to avoid loops)
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem('hp_auth_session');
-    window.location.href = '/';
-    throw new Error('Session expirée, veuillez vous reconnecter');
+    throw new Error('Session expirée');
   }
 
   if (!res.ok) {
