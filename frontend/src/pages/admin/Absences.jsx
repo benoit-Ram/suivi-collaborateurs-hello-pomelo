@@ -29,6 +29,8 @@ export default function Absences() {
   // Calendar filters
   const [calFilterEquipe, setCalFilterEquipe] = useState('');
   const [calFilterType, setCalFilterType] = useState('');
+  // Soldes search
+  const [soldeSearch, setSoldeSearch] = useState('');
 
   if (loading) return <div style={{maxWidth:600,margin:'40px auto'}}><Skeleton lines={5} /></div>;
 
@@ -184,10 +186,14 @@ export default function Absences() {
       </div></FadeIn>}
 
       {/* SOLDES */}
-      {tab==='soldes' && <FadeIn><div className="card" style={{overflowX:'auto'}}>
+      {tab==='soldes' && <FadeIn><div>
+        <div style={{marginBottom:16}}>
+          <input type="text" value={soldeSearch} onChange={e=>setSoldeSearch(e.target.value)} placeholder="🔍 Rechercher un collaborateur..." style={{width:'100%',maxWidth:400,border:'1.5px solid var(--lavender)',borderRadius:10,padding:'10px 16px',fontFamily:'inherit',fontSize:'0.9rem',outline:'none',background:'var(--offwhite)',color:'var(--navy)'}} />
+        </div>
+        <div className="card" style={{overflowX:'auto'}}>
         <table>
           <thead><tr><th>Collaborateur</th><th>Solde initial</th><th>Acquisition/mois</th><th>Acquis</th><th>Pris</th><th>Solde</th><th></th></tr></thead>
-          <tbody>{collabs.map(c => {
+          <tbody>{collabs.filter(c => !soldeSearch || (c.prenom+' '+c.nom).toLowerCase().includes(soldeSearch.toLowerCase())).map(c => {
             const pris = absences.filter(a => a.collaborateur_id===c.id && a.statut==='approuve' && absenceDeductsSolde(a.type,settings)).reduce((s,a)=>s+countWorkDays(a.date_debut,a.date_fin),0);
             const soldeInit = c.solde_conges||0;
             const acq = c.acquisition_conges||2.08;
@@ -207,7 +213,7 @@ export default function Absences() {
             </tr>;
           })}</tbody>
         </table>
-      </div></FadeIn>}
+      </div></div></FadeIn>}
 
       {/* REFUSE MODAL */}
       <Modal open={!!refuseId} onClose={()=>setRefuseId(null)} title="Refuser la demande">
