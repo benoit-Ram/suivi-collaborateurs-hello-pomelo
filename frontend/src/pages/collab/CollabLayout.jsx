@@ -1,10 +1,18 @@
-import React from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Outlet, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../services/AuthContext';
 
 export default function CollabLayout() {
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, collabs } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // In impersonate mode, show the impersonated collab's info in header
+  const impersonateId = searchParams.get('impersonate');
+  const impersonatedCollab = impersonateId ? (collabs || []).find(c => c.id === impersonateId) : null;
+  const displayUser = impersonatedCollab
+    ? { name: `${impersonatedCollab.prenom} ${impersonatedCollab.nom}`, picture: impersonatedCollab.photo_url }
+    : user;
 
   return (
     <div>
@@ -16,9 +24,11 @@ export default function CollabLayout() {
         <div onClick={() => navigate('/collab')} style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, cursor: 'pointer' }}>
           <img src="/logo.png" alt="Hello Pomelo" style={{ height: 32, width: 32, objectFit: 'contain', borderRadius: 8, flexShrink: 0 }} />
           <span className="hide-mobile" style={{ color: 'white', fontWeight: 700, fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>Hello Pomelo</span>
-          <span style={{ background: 'rgba(255,50,133,0.25)', color: '#FF3285', fontSize: '0.6rem', fontWeight: 700, padding: '3px 6px', borderRadius: 6, textTransform: 'uppercase', whiteSpace: 'nowrap', flexShrink: 0 }}>Mon espace</span>
+          <span style={{ background: 'rgba(255,50,133,0.25)', color: '#FF3285', fontSize: '0.6rem', fontWeight: 700, padding: '3px 6px', borderRadius: 6, textTransform: 'uppercase', whiteSpace: 'nowrap', flexShrink: 0 }}>
+            {impersonatedCollab ? 'Vue collab' : 'Mon espace'}
+          </span>
         </div>
-        {user && (
+        {displayUser && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
             {isAdmin && (
               <button onClick={() => navigate('/admin')}
@@ -28,20 +38,22 @@ export default function CollabLayout() {
                 🛠️ Admin
               </button>
             )}
-            {user.picture ? (
-              <img src={user.picture} alt="" style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+            {displayUser.picture ? (
+              <img src={displayUser.picture} alt="" style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
             ) : (
               <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg, #FF3285, #0000EA)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.7rem', fontWeight: 700, flexShrink: 0 }}>
-                {(user.name || '').split(' ').map(w => w[0] || '').join('').toUpperCase().slice(0, 2)}
+                {(displayUser.name || '').split(' ').map(w => w[0] || '').join('').toUpperCase().slice(0, 2)}
               </div>
             )}
-            <span className="hide-mobile" style={{ color: 'white', fontSize: '0.82rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 150 }}>{user.name}</span>
-            <button onClick={() => { logout(); navigate('/'); }}
-              style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '5px 10px', borderRadius: 8, fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0 }}
-              onMouseOver={e => e.currentTarget.style.background = 'rgba(255,50,133,0.3)'}
-              onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>
-              ↩
-            </button>
+            <span className="hide-mobile" style={{ color: 'white', fontSize: '0.82rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 150 }}>{displayUser.name}</span>
+            {!impersonatedCollab && (
+              <button onClick={() => { logout(); navigate('/'); }}
+                style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '5px 10px', borderRadius: 8, fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0 }}
+                onMouseOver={e => e.currentTarget.style.background = 'rgba(255,50,133,0.3)'}
+                onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>
+                ↩
+              </button>
+            )}
           </div>
         )}
       </header>
