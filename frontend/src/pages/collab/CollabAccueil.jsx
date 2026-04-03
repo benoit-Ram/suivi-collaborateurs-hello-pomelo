@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import { useAuth } from '../../services/AuthContext';
-import { Avatar, Badge, ProgressBar, EmptyState, FadeIn, Modal, Skeleton, fmtDate, moisLabel, countWorkDays, STATUS_LABELS, STATUS_COLORS, ABS_TYPES, ABS_STATUTS, getAbsenceTypes, absenceDeductsSolde, isEntretienLocked, getEntretienStatus, ENTRETIEN_STATUS_BADGE } from '../../components/UI';
+import { Avatar, Badge, ProgressBar, EmptyState, FadeIn, Modal, Skeleton, fmtDate, moisLabel, countWorkDays, absenceDays, STATUS_LABELS, STATUS_COLORS, ABS_TYPES, ABS_STATUTS, getAbsenceTypes, absenceDeductsSolde, isEntretienLocked, getEntretienStatus, ENTRETIEN_STATUS_BADGE } from '../../components/UI';
 
 // ── UTILS ──
 
@@ -125,7 +125,7 @@ export default function CollabAccueil() {
   let moisAcq = 0;
   if (c.date_entree) { const e2=new Date(c.date_entree); const n2=new Date(); moisAcq=Math.max(0,(n2.getFullYear()-e2.getFullYear())*12+(n2.getMonth()-e2.getMonth())); }
   const acquis = Math.round(moisAcq*acq*100)/100;
-  const pris = absences.filter(a=>a.statut==='approuve'&&a.type==='conge').reduce((s,a)=>s+countWorkDays(a.date_debut,a.date_fin),0);
+  const pris = absences.filter(a=>a.statut==='approuve'&&absenceDeductsSolde(a.type,settings)).reduce((s,a)=>s+absenceDays(a),0);
   const solde = Math.round((soldeInit+acquis-pris)*100)/100;
 
   const pendingCount = teamPendingAbs.length;
@@ -467,7 +467,7 @@ function CongesTab({ c, absences, solde, onReload, settings }) {
           <div key={a.id} style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',borderRadius:12,border:'1.5px solid var(--orange)',marginBottom:8,background:'var(--bg-warning)'}}>
             <div style={{flex:1}}>
               <div style={{fontWeight:700,fontSize:'0.9rem',color:'var(--navy)'}}>{ABS_TYPES[a.type]||a.type}</div>
-              <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)} · {countWorkDays(a.date_debut,a.date_fin)}j ouvré{countWorkDays(a.date_debut,a.date_fin)>1?'s':''}</div>
+              <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)} · {absenceDays(a)}j ouvré{absenceDays(a)>1?'s':''}</div>
               {a.commentaire && <div style={{fontSize:'0.78rem',color:'var(--muted)',fontStyle:'italic',marginTop:2}}>{a.commentaire}</div>}
             </div>
             <Badge type="orange">En attente</Badge>
@@ -481,7 +481,7 @@ function CongesTab({ c, absences, solde, onReload, settings }) {
         <div key={a.id} style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',borderRadius:12,border:`1.5px solid ${a.statut==='approuve'?'var(--text-success)':'var(--border-danger)'}`,marginBottom:8,background:a.statut==='approuve'?'var(--bg-success)':'var(--bg-danger)'}}>
           <div style={{flex:1}}>
             <div style={{fontWeight:700,fontSize:'0.9rem',color:'var(--navy)'}}>{ABS_TYPES[a.type]||a.type}</div>
-            <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)} · {countWorkDays(a.date_debut,a.date_fin)}j ouvré{countWorkDays(a.date_debut,a.date_fin)>1?'s':''}</div>
+            <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)} · {absenceDays(a)}j ouvré{absenceDays(a)>1?'s':''}</div>
             {a.commentaire && <div style={{fontSize:'0.78rem',color:'var(--muted)',fontStyle:'italic',marginTop:2}}>{a.commentaire}</div>}
             {a.statut==='refuse' && a.motif_refus && <div style={{fontSize:'0.78rem',color:'var(--text-danger)',marginTop:4,background:'var(--white)',padding:'6px 10px',borderRadius:6,borderLeft:'3px solid var(--border-danger)'}}>❌ Motif du refus : {a.motif_refus}</div>}
           </div>
@@ -782,7 +782,7 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
                   {m && <Avatar prenom={m.prenom} nom={m.nom} photoUrl={m.photo_url} size={36} />}
                   <div style={{flex:1}}>
                     <div style={{fontWeight:700,color:'var(--navy)',fontSize:'0.88rem'}}>{m ? `${m.prenom} ${m.nom}` : '—'}</div>
-                    <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>{ABS_TYPES[a.type]||a.type} · Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)} · {countWorkDays(a.date_debut,a.date_fin)}j ouvré{countWorkDays(a.date_debut,a.date_fin)>1?'s':''}</div>
+                    <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>{ABS_TYPES[a.type]||a.type} · Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)} · {absenceDays(a)}j ouvré{absenceDays(a)>1?'s':''}</div>
                     {a.commentaire && <div style={{fontSize:'0.78rem',color:'var(--muted)',fontStyle:'italic',marginTop:2}}>{a.commentaire}</div>}
                   </div>
                   <div style={{display:'flex',gap:6}}>
@@ -982,7 +982,7 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
           <div key={a.id} style={{display:'flex',alignItems:'center',gap:14,padding:'12px 16px',borderRadius:10,border:'1.5px solid var(--lavender)',marginBottom:8}}>
             <div style={{flex:1}}>
               <div style={{fontWeight:700,color:'var(--navy)',fontSize:'0.88rem'}}>{ABS_TYPES[a.type]||a.type}</div>
-              <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)} · {countWorkDays(a.date_debut,a.date_fin)}j ouvré{countWorkDays(a.date_debut,a.date_fin)>1?'s':''}</div>
+              <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)} · {absenceDays(a)}j ouvré{absenceDays(a)>1?'s':''}</div>
             </div>
             <Badge type={a.statut==='approuve'?'green':a.statut==='refuse'?'pink':'orange'}>{ABS_STATUTS[a.statut]}</Badge>
             {a.statut==='en_attente' && <>

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useData } from '../../services/DataContext';
 import { api } from '../../services/api';
 import { useAuth } from '../../services/AuthContext';
-import { PageHeader, Badge, Avatar, Modal, FadeIn, Skeleton, fmtDate, countWorkDays, ABS_TYPES, ABS_STATUTS, getAbsenceTypes, absenceDeductsSolde } from '../../components/UI';
+import { PageHeader, Badge, Avatar, Modal, FadeIn, Skeleton, fmtDate, countWorkDays, absenceDays, ABS_TYPES, ABS_STATUTS, getAbsenceTypes, absenceDeductsSolde } from '../../components/UI';
 
 const ABS_BADGE = { en_attente:'orange', approuve:'green', refuse:'pink' };
 
@@ -81,7 +81,7 @@ export default function Absences() {
               {c && <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={36} />}
               <div style={{flex:1,minWidth:200}}>
                 <div style={{fontWeight:700,color:'var(--blue)',cursor:'pointer',fontSize:'0.9rem'}} onClick={()=>c&&navigate(`/admin/collaborateurs/${c.id}`)}>{getName(a.collaborateur_id)}</div>
-                <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>{ABS_TYPES[a.type]||a.type} · Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)} · {countWorkDays(a.date_debut,a.date_fin)}j ouvrés</div>
+                <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>{ABS_TYPES[a.type]||a.type} · Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)} · {absenceDays(a)}j ouvrés</div>
                 {a.commentaire && <div style={{fontSize:'0.78rem',color:'var(--muted)',fontStyle:'italic',marginTop:2}}>{a.commentaire}</div>}
               </div>
               <div style={{display:'flex',gap:6}}>
@@ -104,7 +104,7 @@ export default function Absences() {
             const BOM = '\uFEFF';
             const rows = filteredHist.map(a => {
               const c = collabs.find(x=>x.id===a.collaborateur_id);
-              return [c?c.nom:'',c?c.prenom:'',absTypes[a.type]||a.type,a.date_debut,a.date_fin,countWorkDays(a.date_debut,a.date_fin),ABS_STATUTS[a.statut]||a.statut,a.commentaire||'',a.motif_refus||'',a.approved_by||'',a.approved_at?fmtDate(a.approved_at.split('T')[0]):''].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';');
+              return [c?c.nom:'',c?c.prenom:'',absTypes[a.type]||a.type,a.date_debut,a.date_fin,absenceDays(a),ABS_STATUTS[a.statut]||a.statut,a.commentaire||'',a.motif_refus||'',a.approved_by||'',a.approved_at?fmtDate(a.approved_at.split('T')[0]):''].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';');
             });
             const csv = BOM + ['Nom;Prenom;Type;Du;Au;Jours;Statut;Commentaire;Motif refus;Traite par;Date traitement',...rows].join('\n');
             const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
@@ -122,7 +122,7 @@ export default function Absences() {
                 <td>{absTypes[a.type]||a.type}</td>
                 <td>{fmtDate(a.date_debut)}</td>
                 <td>{fmtDate(a.date_fin)}</td>
-                <td style={{fontWeight:700}}>{countWorkDays(a.date_debut,a.date_fin)}j{a.demi_journee ? ` (${a.demi_journee})` : ''}</td>
+                <td style={{fontWeight:700}}>{absenceDays(a)}j{a.demi_journee ? ` (${a.demi_journee})` : ''}</td>
                 <td><Badge type={ABS_BADGE[a.statut]}>{ABS_STATUTS[a.statut]}</Badge></td>
                 <td style={{fontSize:'0.75rem',color:'var(--muted)'}}>{a.approved_by ? `${a.approved_by}${a.approved_at ? ' — '+fmtDate(a.approved_at.split('T')[0]) : ''}` : '—'}</td>
                 <td style={{fontSize:'0.78rem',color:'var(--text-danger)'}}>{a.motif_refus||'—'}</td>
@@ -194,7 +194,7 @@ export default function Absences() {
         <table>
           <thead><tr><th>Collaborateur</th><th>Solde initial</th><th>Acquisition/mois</th><th>Acquis</th><th>Pris</th><th>Solde</th><th></th></tr></thead>
           <tbody>{collabs.filter(c => !soldeSearch || (c.prenom+' '+c.nom).toLowerCase().includes(soldeSearch.toLowerCase())).map(c => {
-            const pris = absences.filter(a => a.collaborateur_id===c.id && a.statut==='approuve' && absenceDeductsSolde(a.type,settings)).reduce((s,a)=>s+countWorkDays(a.date_debut,a.date_fin),0);
+            const pris = absences.filter(a => a.collaborateur_id===c.id && a.statut==='approuve' && absenceDeductsSolde(a.type,settings)).reduce((s,a)=>s+absenceDays(a),0);
             const soldeInit = c.solde_conges||0;
             const acq = c.acquisition_conges||2.08;
             let moisAcq = 0;
