@@ -1,0 +1,2 @@
+// Auto-generated
+export const APP_VERSION = '2026.04.03.09'
