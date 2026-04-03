@@ -51,6 +51,9 @@ export default function CollabAccueil() {
   const [settings, setSettings] = useState({});
   const [selectedId, setSelectedId] = useState('');
   const [tab, setTab] = useState('accueil');
+
+  // Expose setTab for notification navigation
+  useEffect(() => { window.__collabSetTab = setTab; return () => { delete window.__collabSetTab; }; }, []);
   const [loading, setLoading] = useState(true);
   const [teamPendingAbs, setTeamPendingAbs] = useState([]);
 
@@ -130,6 +133,13 @@ export default function CollabAccueil() {
 
   const pendingCount = teamPendingAbs.length;
   const isManager = myTeam.length > 0;
+
+  // Expose data for notification system in CollabLayout
+  useEffect(() => {
+    window.__collabNotifData = { absences, points, objectifs: objs, solde, teamPendingAbs, collabId: c.id };
+    window.dispatchEvent(new Event('collab-data-update'));
+    return () => { delete window.__collabNotifData; };
+  }, [absences, points, objs, solde, teamPendingAbs, c?.id]);
   const tabs = [['accueil','🏠 Accueil'],['objectifs', isManager ? '🎯 Mes objectifs' : '🎯 Objectifs'],['points', isManager ? '📋 Mes entretiens RH' : '📋 Entretien RH'],['conges', isManager ? '🏖️ Mes congés' : '🏖️ Congés']];
   if (isManager) tabs.splice(3, 0, ['management', pendingCount > 0 ? `👔 Management (${pendingCount})` : '👔 Management']);
 
