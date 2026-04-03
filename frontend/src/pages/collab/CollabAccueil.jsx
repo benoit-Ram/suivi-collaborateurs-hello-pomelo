@@ -130,7 +130,7 @@ export default function CollabAccueil() {
 
   const pendingCount = teamPendingAbs.length;
   const isManager = myTeam.length > 0;
-  const tabs = [['accueil','🏠 Accueil'],['objectifs','🎯 Objectifs'],['points', isManager ? '📋 Mes entretiens RH' : '📋 Entretien RH'],['conges','🏖️ Congés']];
+  const tabs = [['accueil','🏠 Accueil'],['objectifs', isManager ? '🎯 Mes objectifs' : '🎯 Objectifs'],['points', isManager ? '📋 Mes entretiens RH' : '📋 Entretien RH'],['conges', isManager ? '🏖️ Mes congés' : '🏖️ Congés']];
   if (isManager) tabs.splice(3, 0, ['management', pendingCount > 0 ? `👔 Management (${pendingCount})` : '👔 Management']);
 
   return (
@@ -746,7 +746,7 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
     return (
       <div>
         <div style={{display:'flex',gap:6,marginBottom:20,background:'var(--offwhite)',padding:6,borderRadius:12}}>
-          {[['objectifs','🎯 Objectifs'],['affilies','👥 Affiliés'],['points','📋 Entretiens équipe'],['conges','🏖️ Congés']].map(([k,l])=>(
+          {[['affilies','👥 Affiliés'],['objectifs','🎯 Objectifs'],['points','📋 Entretiens équipe'],['conges','🏖️ Congés']].map(([k,l])=>(
             <button key={k} onClick={()=>setOverviewTab(k)} style={{position:'relative',flex:1,padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',background:overviewTab===k?'var(--pink)':'transparent',color:overviewTab===k?'white':'var(--muted)',border:overviewTab===k?'none':'1.5px solid var(--lavender)',boxShadow:overviewTab===k?'0 4px 14px rgba(255,50,133,0.3)':'none'}}>
               {l}
               {k==='conges' && pendingCount > 0 && <span style={{position:'absolute',top:-4,right:-4,background:'var(--orange)',color:'white',borderRadius:'50%',width:20,height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'0.65rem',fontWeight:800,boxShadow:'0 2px 6px rgba(249,115,22,0.4)'}}>{pendingCount}</span>}
@@ -942,7 +942,7 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
         <div><div style={{fontSize:'1.1rem',fontWeight:700,color:'var(--navy)'}}>{m.prenom} {m.nom}</div><div style={{fontSize:'0.85rem',color:'var(--muted)'}}>{m.poste}</div></div>
       </div>
       <div style={{display:'flex',gap:6,marginBottom:20,background:'var(--offwhite)',padding:6,borderRadius:12}}>
-        {[['objectifs','🎯 Objectifs'],['affilies','👥 Affiliés'],['points','📋 Entretiens équipe'],['conges','🏖️ Congés']].map(([k,l])=>(
+        {[['affilies','👥 Affiliés'],['objectifs','🎯 Objectifs'],['points','📋 Entretiens équipe'],['conges','🏖️ Congés']].map(([k,l])=>(
           <button key={k} onClick={()=>{setMemberTab(k);if(k==='conges')loadMemberAbs(m.id);}} style={{flex:1,padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',background:memberTab===k?'var(--pink)':'transparent',color:memberTab===k?'white':'var(--muted)',border:memberTab===k?'none':'1.5px solid var(--lavender)',boxShadow:memberTab===k?'0 4px 14px rgba(255,50,133,0.3)':'none'}}>{l}</button>
         ))}
       </div>
