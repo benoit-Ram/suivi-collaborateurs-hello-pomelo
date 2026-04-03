@@ -143,9 +143,9 @@ export default function CollabAccueil() {
         </div>
       </div>
 
-      <div style={{display:'flex',gap:6,marginBottom:24,background:'var(--offwhite)',padding:6,borderRadius:12,overflowX:'auto'}}>
+      <div className="tabs-scroll" style={{display:'flex',gap:6,marginBottom:24,background:'var(--offwhite)',padding:6,borderRadius:12,overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
         {tabs.map(([k,l]) => (
-          <button key={k} onClick={()=>{setTab(k); if(k==='conges') loadAbsences(selectedId);}} style={{position:'relative',flex:1,padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',background:tab===k?'var(--pink)':'transparent',color:tab===k?'white':'var(--muted)',border:tab===k?'none':'1.5px solid var(--lavender)',boxShadow:tab===k?'0 4px 14px rgba(255,50,133,0.3)':'none'}}>
+          <button key={k} onClick={()=>{setTab(k); if(k==='conges') loadAbsences(selectedId);}} style={{position:'relative',flex:'1 0 auto',padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',background:tab===k?'var(--pink)':'transparent',color:tab===k?'white':'var(--muted)',border:tab===k?'none':'1.5px solid var(--lavender)',boxShadow:tab===k?'0 4px 14px rgba(255,50,133,0.3)':'none'}}>
             {l}
             {k==='management' && pendingCount > 0 && <span style={{position:'absolute',top:-4,right:-4,background:'var(--orange)',color:'white',borderRadius:'50%',width:20,height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'0.65rem',fontWeight:800,boxShadow:'0 2px 6px rgba(249,115,22,0.4)'}}>{pendingCount}</span>}
           </button>

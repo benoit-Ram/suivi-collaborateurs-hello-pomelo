@@ -36,7 +36,7 @@ export default function LoginPage() {
         });
         if (googleBtnRef.current) {
           window.google.accounts.id.renderButton(googleBtnRef.current, {
-            theme: 'outline', size: 'large', width: 340, text: 'signin_with', shape: 'rectangular', locale: 'fr'
+            theme: 'outline', size: 'large', width: Math.min(340, window.innerWidth - 100), text: 'signin_with', shape: 'rectangular', locale: 'fr'
           });
         }
         setGoogleReady(true);
@@ -69,7 +69,7 @@ export default function LoginPage() {
   if (showChoice) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 16px', background: 'linear-gradient(135deg, #F0F0FF 0%, #FFF0F8 100%)' }}>
-        <div style={{ background: 'white', borderRadius: 24, padding: '52px 48px', maxWidth: 480, width: '100%', boxShadow: '0 12px 48px rgba(5,5,109,0.12)', textAlign: 'center' }}>
+        <div style={{ background: 'white', borderRadius: 24, padding: 'clamp(28px, 5vw, 52px) clamp(20px, 4vw, 48px)', maxWidth: 480, width: '100%', boxShadow: '0 12px 48px rgba(5,5,109,0.12)', textAlign: 'center' }}>
           <div style={{ fontFamily: "'Nunito', sans-serif", fontWeight: 900, color: '#0000EA', fontSize: '1.8rem', lineHeight: 1.08, letterSpacing: '0.22em', textTransform: 'uppercase', marginBottom: 8 }}>
             Hello Pomelo
           </div>
@@ -105,7 +105,7 @@ export default function LoginPage() {
   // Login screen
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 16px', background: 'linear-gradient(135deg, #F0F0FF 0%, #FFF0F8 100%)' }}>
-      <div style={{ background: 'white', borderRadius: 24, padding: '52px 48px', maxWidth: 440, width: '100%', boxShadow: '0 12px 48px rgba(5,5,109,0.12)', textAlign: 'center' }}>
+      <div style={{ background: 'white', borderRadius: 24, padding: 'clamp(28px, 5vw, 52px) clamp(20px, 4vw, 48px)', maxWidth: 440, width: '100%', boxShadow: '0 12px 48px rgba(5,5,109,0.12)', textAlign: 'center' }}>
         <div style={{ marginBottom: 32 }}>
           <div style={{ fontFamily: "'Nunito', sans-serif", fontWeight: 900, color: '#0000EA', fontSize: '2.05rem', lineHeight: 1.08, letterSpacing: '0.22em', textTransform: 'uppercase' }}>
             Hello<br />Pomelo

@@ -13,34 +13,34 @@ export default function CollabLayout() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         position: 'sticky', top: 0, zIndex: 50
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <img src="/logo.png" alt="Hello Pomelo" style={{ height: 36, width: 36, objectFit: 'contain', borderRadius: 8 }} />
-          <span style={{ color: 'white', fontWeight: 700, fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Hello Pomelo</span>
-          <span style={{ background: 'rgba(255,50,133,0.25)', color: '#FF3285', fontSize: '0.65rem', fontWeight: 700, padding: '3px 8px', borderRadius: 6, textTransform: 'uppercase' }}>Mon espace</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          <img src="/logo.png" alt="Hello Pomelo" style={{ height: 32, width: 32, objectFit: 'contain', borderRadius: 8, flexShrink: 0 }} />
+          <span className="hide-mobile" style={{ color: 'white', fontWeight: 700, fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>Hello Pomelo</span>
+          <span style={{ background: 'rgba(255,50,133,0.25)', color: '#FF3285', fontSize: '0.6rem', fontWeight: 700, padding: '3px 6px', borderRadius: 6, textTransform: 'uppercase', whiteSpace: 'nowrap', flexShrink: 0 }}>Mon espace</span>
         </div>
         {user && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
             {isAdmin && (
               <button onClick={() => navigate('/admin')}
-                style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '6px 14px', borderRadius: 8, fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit' }}
+                style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '5px 10px', borderRadius: 8, fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0 }}
                 onMouseOver={e => e.currentTarget.style.background = 'rgba(255,50,133,0.3)'}
                 onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>
                 🛠️ Admin
               </button>
             )}
             {user.picture ? (
-              <img src={user.picture} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} />
+              <img src={user.picture} alt="" style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
             ) : (
-              <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #FF3285, #0000EA)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.75rem', fontWeight: 700 }}>
+              <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg, #FF3285, #0000EA)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.7rem', fontWeight: 700, flexShrink: 0 }}>
                 {(user.name || '').split(' ').map(w => w[0] || '').join('').toUpperCase().slice(0, 2)}
               </div>
             )}
-            <span style={{ color: 'white', fontSize: '0.85rem', fontWeight: 600 }}>{user.name}</span>
+            <span className="hide-mobile" style={{ color: 'white', fontSize: '0.82rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 150 }}>{user.name}</span>
             <button onClick={() => { logout(); navigate('/'); }}
-              style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '6px 14px', borderRadius: 8, fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit' }}
+              style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '5px 10px', borderRadius: 8, fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0 }}
               onMouseOver={e => e.currentTarget.style.background = 'rgba(255,50,133,0.3)'}
               onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>
-              Déconnexion
+              ↩
             </button>
           </div>
         )}

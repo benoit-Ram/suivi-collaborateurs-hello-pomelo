@@ -139,6 +139,8 @@ tr:hover td { background: var(--hover-row, #F0F0FF); }
   td { padding: 10px; font-size: 0.8rem; }
   .section-title { font-size: 0.7rem; margin: 18px 0 10px; }
   .divider { margin: 12px 0 20px; }
+  /* Hide elements on mobile */
+  .hide-mobile { display: none !important; }
   /* Sidebar mobile */
   .sidebar-desktop { display: none !important; }
   .sidebar-mobile-toggle { display: flex !important; }
@@ -149,6 +151,10 @@ tr:hover td { background: var(--hover-row, #F0F0FF); }
 @media (min-width: 769px) {
   .sidebar-mobile-toggle { display: none !important; }
 }
+
+/* Scrollable tabs — hide scrollbar but keep scroll */
+.tabs-scroll::-webkit-scrollbar { display: none; }
+.tabs-scroll { -ms-overflow-style: none; scrollbar-width: none; }
 
 /* Animations */
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
