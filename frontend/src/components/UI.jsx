@@ -241,6 +241,13 @@ export function moisLabel(mois) {
   return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
 }
 
+/** Count days for an absence record (handles demi_journee) */
+export function absenceDays(a) {
+  if (!a || !a.date_debut || !a.date_fin) return 0;
+  if (a.demi_journee) return 0.5;
+  return countWorkDays(a.date_debut, a.date_fin);
+}
+
 // ── ENTRETIEN RH HELPERS ──
 export function isEntretienLocked(mois) {
   if (!mois) return false;
