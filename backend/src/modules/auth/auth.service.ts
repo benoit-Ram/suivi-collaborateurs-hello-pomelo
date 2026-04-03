@@ -32,11 +32,11 @@ export class AuthService {
 
     if (!payload?.email) throw new UnauthorizedException('Email manquant dans le token');
 
-    // Find collaborateur by email
+    // Find collaborateur by email (case-insensitive)
     const { data: collab } = await this.supabase.db
       .from('collaborateurs')
       .select('id, email, prenom, nom, is_admin, photo_url')
-      .eq('email', payload.email.toLowerCase())
+      .ilike('email', payload.email.toLowerCase())
       .single();
 
     if (!collab) throw new UnauthorizedException(`Aucun collaborateur pour ${payload.email}`);
