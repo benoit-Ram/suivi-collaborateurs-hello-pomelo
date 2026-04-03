@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import { useAuth } from '../../services/AuthContext';
-import { Avatar, Badge, ProgressBar, EmptyState, FadeIn, Modal, Skeleton, fmtDate, moisLabel, countWorkDays, absenceDays, STATUS_LABELS, STATUS_COLORS, ABS_TYPES, ABS_STATUTS, getAbsenceTypes, absenceDeductsSolde, isEntretienLocked, getEntretienStatus, ENTRETIEN_STATUS_BADGE } from '../../components/UI';
+import { Avatar, Badge, ProgressBar, EmptyState, FadeIn, Modal, Skeleton, fmtDate, moisLabel, countWorkDays, absenceDays, getFeriesSet, STATUS_LABELS, STATUS_COLORS, ABS_TYPES, ABS_STATUTS, getAbsenceTypes, absenceDeductsSolde, isEntretienLocked, getEntretienStatus, ENTRETIEN_STATUS_BADGE } from '../../components/UI';
 
 // ── UTILS ──
 
@@ -129,8 +129,9 @@ export default function CollabAccueil() {
   const solde = Math.round((soldeInit+acquis-pris)*100)/100;
 
   const pendingCount = teamPendingAbs.length;
-  const tabs = [['accueil','🏠 Accueil'],['objectifs','🎯 Objectifs'],['points','📋 Entretien RH'],['conges','🏖️ Congés']];
-  if (myTeam.length) tabs.splice(3, 0, ['management', pendingCount > 0 ? `👔 Management (${pendingCount})` : '👔 Management']);
+  const isManager = myTeam.length > 0;
+  const tabs = [['accueil','🏠 Accueil'],['objectifs','🎯 Objectifs'],['points', isManager ? '📋 Mes entretiens RH' : '📋 Entretien RH'],['conges','🏖️ Congés']];
+  if (isManager) tabs.splice(3, 0, ['management', pendingCount > 0 ? `👔 Management (${pendingCount})` : '👔 Management']);
 
   return (
     <div>
@@ -243,6 +244,7 @@ export default function CollabAccueil() {
 function ObjCard({ o, i }) {
   const pct = o.statut==='atteint'?100:(o.progression||0);
   const colors = { 'en-cours':'linear-gradient(90deg,var(--pink),var(--blue))', 'atteint':'var(--green)', 'non-atteint':'var(--orange)', 'en-attente':'var(--lavender)' };
+  const hist = o.historique || [];
   return (
     <div className="card" style={{marginBottom:10,padding:16,borderLeft:`4px solid ${o.statut==='atteint'?'var(--green)':'var(--pink)'}`,opacity:o.statut==='atteint'?0.85:1}}>
       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
@@ -254,6 +256,24 @@ function ObjCard({ o, i }) {
       {o.description && <div style={{fontSize:'0.82rem',color:'var(--muted)',marginBottom:8}}>{o.description}</div>}
       <div style={{marginBottom:6}}><div style={{display:'flex',justifyContent:'space-between',fontSize:'0.7rem',fontWeight:700,color:'var(--muted)',marginBottom:4}}><span>Progression</span><span>{pct}%</span></div><ProgressBar value={pct} color={colors[o.statut]} /></div>
       <div style={{fontSize:'0.72rem',color:'var(--muted)'}}>📅 {fmtDate(o.date_debut)} → {fmtDate(o.date_fin)}</div>
+      {hist.length > 0 && (
+        <details style={{marginTop:8}}>
+          <summary style={{fontSize:'0.72rem',color:'var(--muted)',cursor:'pointer',fontWeight:700}}>📜 Historique ({hist.length})</summary>
+          <div style={{marginTop:6,paddingLeft:8,borderLeft:'2px solid var(--lavender)'}}>
+            {hist.map((h,idx)=>(
+              <div key={idx} style={{marginBottom:6,fontSize:'0.75rem'}}>
+                <div style={{fontWeight:700,color:'var(--navy)'}}>{fmtDate(h.date)} — {h.auteur || 'Inconnu'}</div>
+                {(h.changes||[]).map((ch,j)=>(
+                  <div key={j} style={{color:'var(--muted)',marginLeft:8}}>
+                    {ch.champ === 'Création' ? <span>✨ Création : <strong>{ch.apres}</strong></span>
+                      : <span>{ch.champ} : <span style={{textDecoration:'line-through',opacity:0.6}}>{ch.avant}</span> → <strong>{ch.apres}</strong></span>}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
     </div>
   );
 }
@@ -638,6 +658,7 @@ function ManagerTeamCalendar({ team, teamPendingAbs = [] }) {
   const next = () => { if(month===11){setMonth(0);setYear(year+1)}else setMonth(month+1) };
   const daysInMonth = new Date(year, month+1, 0).getDate();
   const monthLabel = new Date(year, month, 1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+  const feries = getFeriesSet(year);
 
   return (
     <div className="card" style={{marginBottom:20,padding:16}}>
@@ -656,7 +677,9 @@ function ManagerTeamCalendar({ team, teamPendingAbs = [] }) {
             {Array.from({length:daysInMonth},(_,i)=>{
               const dow = new Date(year,month,i+1).getDay();
               const isWE = dow===0||dow===6;
-              return <th key={i} style={{padding:'2px 4px',textAlign:'center',color:isWE?'var(--lavender)':'var(--muted)',fontWeight:isWE?400:700}}>{i+1}</th>;
+              const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(i+1).padStart(2,'0')}`;
+              const isFerie = feries.has(ds);
+              return <th key={i} style={{padding:'2px 4px',textAlign:'center',color:isWE||isFerie?'var(--lavender)':'var(--muted)',fontWeight:isWE||isFerie?400:700}}>{i+1}</th>;
             })}
           </tr></thead>
           <tbody>{team.map(c => {
@@ -666,10 +689,11 @@ function ManagerTeamCalendar({ team, teamPendingAbs = [] }) {
                 const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(d+1).padStart(2,'0')}`;
                 const dow = new Date(year,month,d+1).getDay();
                 const isWE = dow===0||dow===6;
+                const isFerie = feries.has(ds);
                 const a = abs.find(x=>ds>=x.date_debut&&ds<=x.date_fin);
-                let bg = isWE?'var(--lavender)':'transparent';
-                let title = '';
-                if(a) { bg = a.statut==='approuve'?'#22C55E':'#F97316'; title = a.statut==='approuve'?'Approuve':'En attente'; }
+                let bg = isWE||isFerie?'var(--lavender)':'transparent';
+                let title = isFerie?'Jour férié':'';
+                if(a && !isWE && !isFerie) { bg = a.statut==='approuve'?'#22C55E':'#F97316'; title = a.statut==='approuve'?'Approuvé':'En attente'; }
                 return <td key={d} title={title} style={{padding:2,textAlign:'center',background:bg,borderRadius:2,minWidth:18}} />;
               })}
             </tr>;
@@ -722,13 +746,37 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
     return (
       <div>
         <div style={{display:'flex',gap:6,marginBottom:20,background:'var(--offwhite)',padding:6,borderRadius:12}}>
-          {[['objectifs','🎯 Objectifs'],['points','📋 Entretiens RH'],['conges','🏖️ Congés']].map(([k,l])=>(
+          {[['objectifs','🎯 Objectifs'],['affilies','👥 Affiliés'],['points','📋 Entretiens équipe'],['conges','🏖️ Congés']].map(([k,l])=>(
             <button key={k} onClick={()=>setOverviewTab(k)} style={{position:'relative',flex:1,padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',background:overviewTab===k?'var(--pink)':'transparent',color:overviewTab===k?'white':'var(--muted)',border:overviewTab===k?'none':'1.5px solid var(--lavender)',boxShadow:overviewTab===k?'0 4px 14px rgba(255,50,133,0.3)':'none'}}>
               {l}
               {k==='conges' && pendingCount > 0 && <span style={{position:'absolute',top:-4,right:-4,background:'var(--orange)',color:'white',borderRadius:'50%',width:20,height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'0.65rem',fontWeight:800,boxShadow:'0 2px 6px rgba(249,115,22,0.4)'}}>{pendingCount}</span>}
             </button>
           ))}
         </div>
+
+        {/* Vue affiliés — liste des membres de l'équipe */}
+        {overviewTab==='affilies' && <>
+          <div style={{fontSize:'0.78rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginBottom:12,display:'flex',alignItems:'center',gap:8}}>👥 Mes affiliés ({team.length})<span style={{flex:1,height:1,background:'var(--lavender)'}} /></div>
+          {team.map(m => {
+            const mObjs = (m.objectifs||[]).filter(o=>o.statut!=='atteint').length;
+            const mPoints = (m.points_suivi||[]).filter(p=>p.type==='mensuel');
+            const lastPoint = mPoints.sort((a,b)=>(b.mois||'')>(a.mois||'')?1:-1)[0];
+            const pointStatus = lastPoint ? (Object.keys(lastPoint.manager_data||{}).some(k=>k!=='objectifs'&&(lastPoint.manager_data||{})[k]) ? 'done' : 'pending') : 'none';
+            return <div key={m.id} className="card" style={{marginBottom:10,padding:16,cursor:'pointer'}} onClick={()=>{setSelectedMember(m);setView('detail');setMemberTab('objectifs');loadMemberAbs(m.id);}}>
+              <div style={{display:'flex',alignItems:'center',gap:12}}>
+                <Avatar prenom={m.prenom} nom={m.nom} photoUrl={m.photo_url} size={44} />
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:700,color:'var(--blue)',fontSize:'0.95rem'}}>{m.prenom} {m.nom}</div>
+                  <div style={{fontSize:'0.75rem',color:'var(--muted)'}}>{m.poste}{m.equipe ? ` · ${m.equipe}` : ''}</div>
+                </div>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                  {mObjs > 0 && <Badge type="pink">{mObjs} obj.</Badge>}
+                  <Badge type={pointStatus==='done'?'green':pointStatus==='pending'?'orange':'gray'}>{pointStatus==='done'?'✅ Point':'⏳ Point'}</Badge>
+                </div>
+              </div>
+            </div>;
+          })}
+        </>}
 
         {/* Vue objectifs de tous les managés */}
         {overviewTab==='objectifs' && team.map(m => {
@@ -894,7 +942,7 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
         <div><div style={{fontSize:'1.1rem',fontWeight:700,color:'var(--navy)'}}>{m.prenom} {m.nom}</div><div style={{fontSize:'0.85rem',color:'var(--muted)'}}>{m.poste}</div></div>
       </div>
       <div style={{display:'flex',gap:6,marginBottom:20,background:'var(--offwhite)',padding:6,borderRadius:12}}>
-        {[['objectifs','🎯 Objectifs'],['points','📋 Entretien RH'],['conges','🏖️ Congés']].map(([k,l])=>(
+        {[['objectifs','🎯 Objectifs'],['affilies','👥 Affiliés'],['points','📋 Entretiens équipe'],['conges','🏖️ Congés']].map(([k,l])=>(
           <button key={k} onClick={()=>{setMemberTab(k);if(k==='conges')loadMemberAbs(m.id);}} style={{flex:1,padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',background:memberTab===k?'var(--pink)':'transparent',color:memberTab===k?'white':'var(--muted)',border:memberTab===k?'none':'1.5px solid var(--lavender)',boxShadow:memberTab===k?'0 4px 14px rgba(255,50,133,0.3)':'none'}}>{l}</button>
         ))}
       </div>

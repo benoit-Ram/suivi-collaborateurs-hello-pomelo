@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useData } from '../../services/DataContext';
 import { api } from '../../services/api';
 import { useAuth } from '../../services/AuthContext';
-import { PageHeader, Badge, Avatar, Modal, FadeIn, Skeleton, fmtDate, countWorkDays, absenceDays, ABS_TYPES, ABS_STATUTS, getAbsenceTypes, absenceDeductsSolde } from '../../components/UI';
+import { PageHeader, Badge, Avatar, Modal, FadeIn, Skeleton, fmtDate, countWorkDays, absenceDays, getFeriesSet, ABS_TYPES, ABS_STATUTS, getAbsenceTypes, absenceDeductsSolde } from '../../components/UI';
 
 const ABS_BADGE = { en_attente:'orange', approuve:'green', refuse:'pink' };
 
@@ -147,6 +147,7 @@ export default function Absences() {
         </div>
         {(()=>{
           const fermetures = settings?.periodes_fermeture || [];
+          const feries = getFeriesSet(calYear);
           const filteredCollabs = calFilterEquipe ? collabs.filter(c=>(c.equipe||'').includes(calFilterEquipe)) : collabs;
           return <>
           <div style={{overflowX:'auto'}}>
@@ -165,11 +166,13 @@ export default function Absences() {
                     const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d+1).padStart(2,'0')}`;
                     const dow=new Date(calYear,calMonth,d+1).getDay();
                     const isWE=dow===0||dow===6;
+                    const isFerie=feries.has(ds);
                     const isFerm = fermetures.some(f=>ds>=f.debut&&ds<=f.fin);
                     const a=cAbs.find(x=>ds>=x.date_debut&&ds<=x.date_fin);
-                    let bg=isWE?'var(--lavender)':isFerm?'#EF444433':'transparent';
-                    if(a) bg=a.statut==='approuve'?'var(--bg-success)':'var(--bg-warning)';
-                    return <td key={d} title={isFerm?fermetures.find(f=>ds>=f.debut&&ds<=f.fin)?.label:''} style={{padding:1,background:bg,borderRadius:2}} />;
+                    let bg=isWE||isFerie?'var(--lavender)':isFerm?'#EF444433':'transparent';
+                    if(a && !isWE && !isFerie) bg=a.statut==='approuve'?'var(--bg-success)':'var(--bg-warning)';
+                    const title=isFerie?'Jour férié':isFerm?fermetures.find(f=>ds>=f.debut&&ds<=f.fin)?.label:'';
+                    return <td key={d} title={title} style={{padding:1,background:bg,borderRadius:2}} />;
                   })}
                 </tr>;
               })}</tbody>
@@ -178,7 +181,7 @@ export default function Absences() {
           <div style={{display:'flex',gap:12,marginTop:12,fontSize:'0.7rem',color:'var(--muted)',fontWeight:600,flexWrap:'wrap'}}>
             <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'var(--bg-success)'}} /> Approuve</div>
             <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'var(--bg-warning)'}} /> En attente</div>
-            <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'var(--lavender)'}} /> Weekend</div>
+            <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'var(--lavender)'}} /> Weekend / Ferié</div>
             {fermetures.length>0 && <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'#EF444433'}} /> Fermeture</div>}
           </div>
           </>;

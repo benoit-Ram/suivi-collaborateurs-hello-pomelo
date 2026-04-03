@@ -203,7 +203,7 @@ function getEasterDate(year) {
   return new Date(year, month-1, day2);
 }
 
-function getFeriesSet(year) {
+export function getFeriesSet(year) {
   const set = new Set();
   FERIES_FIXES.forEach(([m,d]) => set.add(`${year}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`));
   const easter = getEasterDate(year);
