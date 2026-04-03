@@ -6,27 +6,27 @@ export default function LoginPage() {
   const { login, isAuthenticated, isAdmin, GOOGLE_CLIENT_ID, loading } = useAuth();
   const [error, setError] = useState('');
   const [showChoice, setShowChoice] = useState(false);
+  const [loggingIn, setLoggingIn] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
   const googleBtnRef = useRef(null);
   const navigate = useNavigate();
 
   // If already authenticated, redirect
   useEffect(() => {
-    if (!loading && isAuthenticated) {
+    if (!loading && !loggingIn && isAuthenticated) {
       if (isAdmin) {
         setShowChoice(true);
       } else {
         navigate('/collab', { replace: true });
       }
     }
-  }, [isAuthenticated, isAdmin, loading]);
+  }, [isAuthenticated, isAdmin, loading, loggingIn]);
 
   // Google Sign-In init
   useEffect(() => {
-    if (loading || isAuthenticated) return;
+    if (loading || isAuthenticated || loggingIn) return;
     if (!GOOGLE_CLIENT_ID) return;
 
-    // Wait for Google script to load (may be delayed or blocked)
     const initGoogle = () => {
       if (window.google?.accounts?.id) {
         window.google.accounts.id.initialize({
@@ -45,25 +45,47 @@ export default function LoginPage() {
 
     initGoogle();
     if (!window.google?.accounts?.id) {
-      // Retry after script loads
       const timer = setTimeout(initGoogle, 2000);
       return () => clearTimeout(timer);
     }
-  }, [loading, isAuthenticated]);
+  }, [loading, isAuthenticated, loggingIn]);
 
   async function handleGoogleResponse(response) {
-    // Send raw Google credential to backend for server-side verification
-    const result = await login(response.credential);
-    if (result.error) {
-      setError(result.error);
-    } else if (result.user.isAdmin) {
-      setShowChoice(true);
-    } else {
-      navigate('/collab', { replace: true });
+    setLoggingIn(true);
+    setError('');
+    try {
+      const result = await login(response.credential);
+      if (result.error) {
+        setError(result.error);
+        setLoggingIn(false);
+      } else if (result.user.isAdmin) {
+        setLoggingIn(false);
+        setShowChoice(true);
+      } else {
+        // Small delay to let React state settle before navigating
+        setTimeout(() => navigate('/collab', { replace: true }), 100);
+      }
+    } catch (e) {
+      setError('Erreur de connexion. Réessayez.');
+      setLoggingIn(false);
     }
   }
 
-  if (loading) return null;
+  if (loading) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #F0F0FF 0%, #FFF0F8 100%)' }}>
+      <div style={{ textAlign: 'center', color: '#6B6B9A', fontSize: '0.9rem', fontWeight: 600 }}>Chargement...</div>
+    </div>
+  );
+
+  // Logging in spinner
+  if (loggingIn) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #F0F0FF 0%, #FFF0F8 100%)' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ width: 40, height: 40, border: '3px solid #CFD0E5', borderTopColor: '#FF3285', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
+        <div style={{ color: '#05056D', fontSize: '0.95rem', fontWeight: 700 }}>Connexion en cours...</div>
+      </div>
+    </div>
+  );
 
   // Admin choice screen
   if (showChoice) {
