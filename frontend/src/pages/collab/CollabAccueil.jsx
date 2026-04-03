@@ -496,7 +496,25 @@ function CongesTab({ c, absences, solde, onReload, settings }) {
       </>}
 
       {/* Historique (approuvés + refusés) */}
-      <div className="section-title">📋 Historique</div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <div className="section-title">📋 Historique</div>
+        {absences.filter(a=>a.statut==='approuve').length > 0 && (
+          <button className="btn btn-ghost btn-sm" onClick={()=>{
+            const approved = absences.filter(a=>a.statut==='approuve');
+            const lines = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Hello Pomelo//Conges//FR'];
+            approved.forEach(a=>{
+              const end = new Date(a.date_fin); end.setDate(end.getDate()+1);
+              const endStr = end.toISOString().split('T')[0].replace(/-/g,'');
+              lines.push('BEGIN:VEVENT',`DTSTART;VALUE=DATE:${a.date_debut.replace(/-/g,'')}`,`DTEND;VALUE=DATE:${endStr}`,`SUMMARY:${absTypes[a.type]||a.type}${a.demi_journee?' ('+a.demi_journee+')':''}`,`DESCRIPTION:${a.commentaire||''}`,`UID:hp-abs-${a.id}@hello-pomelo.com`,'END:VEVENT');
+            });
+            lines.push('END:VCALENDAR');
+            const blob = new Blob([lines.join('\r\n')],{type:'text/calendar'});
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a'); link.href=url; link.download=`conges_${c.prenom}_${c.nom}.ics`; link.click();
+            URL.revokeObjectURL(url);
+          }}>📅 Exporter ICS</button>
+        )}
+      </div>
       {absences.filter(a=>a.statut!=='en_attente').length===0 ? <p style={{color:'var(--muted)',fontSize:'0.82rem',fontStyle:'italic'}}>Aucun historique.</p> : absences.filter(a=>a.statut!=='en_attente').map(a => (
         <div key={a.id} style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',borderRadius:12,border:`1.5px solid ${a.statut==='approuve'?'var(--text-success)':'var(--border-danger)'}`,marginBottom:8,background:a.statut==='approuve'?'var(--bg-success)':'var(--bg-danger)'}}>
           <div style={{flex:1}}>
@@ -505,7 +523,14 @@ function CongesTab({ c, absences, solde, onReload, settings }) {
             {a.commentaire && <div style={{fontSize:'0.78rem',color:'var(--muted)',fontStyle:'italic',marginTop:2}}>{a.commentaire}</div>}
             {a.statut==='refuse' && a.motif_refus && <div style={{fontSize:'0.78rem',color:'var(--text-danger)',marginTop:4,background:'var(--white)',padding:'6px 10px',borderRadius:6,borderLeft:'3px solid var(--border-danger)'}}>❌ Motif du refus : {a.motif_refus}</div>}
           </div>
-          <Badge type={a.statut==='approuve'?'green':'pink'}>{a.statut==='approuve'?'✅ Approuvé':'❌ Refusé'}</Badge>
+          <div style={{display:'flex',flexDirection:'column',gap:4,alignItems:'flex-end'}}>
+            <Badge type={a.statut==='approuve'?'green':'pink'}>{a.statut==='approuve'?'✅ Approuvé':'❌ Refusé'}</Badge>
+            {a.statut==='approuve' && (()=>{
+              const end = new Date(a.date_fin); end.setDate(end.getDate()+1);
+              const gcalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent((absTypes[a.type]||a.type)+(a.demi_journee?' ('+a.demi_journee+')':''))}&dates=${a.date_debut.replace(/-/g,'')}/${end.toISOString().split('T')[0].replace(/-/g,'')}&details=${encodeURIComponent(a.commentaire||'')}`;
+              return <a href={gcalUrl} target="_blank" rel="noopener noreferrer" style={{fontSize:'0.68rem',color:'var(--blue)',fontWeight:700,textDecoration:'none'}} onClick={e=>e.stopPropagation()}>📅 Agenda</a>;
+            })()}
+          </div>
         </div>
       ))}
     </div>
