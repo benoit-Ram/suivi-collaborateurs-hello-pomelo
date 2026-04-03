@@ -2,13 +2,16 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../../services/DataContext';
 import { api } from '../../services/api';
-import { PageHeader, Badge, Avatar, Modal, FadeIn, Skeleton, fmtDate, countWorkDays, ABS_TYPES, ABS_STATUTS } from '../../components/UI';
+import { useAuth } from '../../services/AuthContext';
+import { PageHeader, Badge, Avatar, Modal, FadeIn, Skeleton, fmtDate, countWorkDays, ABS_TYPES, ABS_STATUTS, getAbsenceTypes, absenceDeductsSolde } from '../../components/UI';
 
 const ABS_BADGE = { en_attente:'orange', approuve:'green', refuse:'pink' };
 
 export default function Absences() {
-  const { absences, collabs, showToast, reload, loading } = useData();
+  const { absences, collabs, settings, showToast, reload, loading } = useData();
+  const { user: authUser } = useAuth();
   const navigate = useNavigate();
+  const absTypes = getAbsenceTypes(settings);
   const [tab, setTab] = useState('pending');
   const [histFilter, setHistFilter] = useState('');
   const [calYear, setCalYear] = useState(new Date().getFullYear());
@@ -23,6 +26,9 @@ export default function Absences() {
   const [soldeLoading, setSoldeLoading] = useState(false);
   // Action loading
   const [approving, setApproving] = useState(null);
+  // Calendar filters
+  const [calFilterEquipe, setCalFilterEquipe] = useState('');
+  const [calFilterType, setCalFilterType] = useState('');
 
   if (loading) return <div style={{maxWidth:600,margin:'40px auto'}}><Skeleton lines={5} /></div>;
 
@@ -32,13 +38,13 @@ export default function Absences() {
 
   const approve = async (id) => {
     setApproving(id);
-    try { await api.updateAbsence(id, { statut: 'approuve' }); await reload(); showToast('Congé approuvé ✓'); } catch(e) { showToast('Erreur: '+e.message); }
+    try { await api.updateAbsence(id, { statut: 'approuve', approved_by: authUser?.name || 'Admin', approved_at: new Date().toISOString() }); await reload(); showToast('Congé approuvé ✓'); } catch(e) { showToast('Erreur: '+e.message); }
     setApproving(null);
   };
   const submitRefuse = async () => {
     if (!refuseMotif.trim()) return;
     setRefuseLoading(true);
-    try { await api.updateAbsence(refuseId, { statut: 'refuse', motif_refus: refuseMotif.trim() }); await reload(); showToast('Congé refusé'); setRefuseId(null); setRefuseMotif(''); } catch(e) { showToast('Erreur: '+e.message); }
+    try { await api.updateAbsence(refuseId, { statut: 'refuse', motif_refus: refuseMotif.trim(), approved_by: authUser?.name || 'Admin', approved_at: new Date().toISOString() }); await reload(); showToast('Congé refusé'); setRefuseId(null); setRefuseMotif(''); } catch(e) { showToast('Erreur: '+e.message); }
     setRefuseLoading(false);
   };
   const submitSolde = async () => {
@@ -87,23 +93,36 @@ export default function Absences() {
 
       {/* HISTORY */}
       {tab==='history' && <FadeIn><div>
-        <div style={{marginBottom:16}}>
+        <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
           <select value={histFilter} onChange={e=>setHistFilter(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:10,padding:'8px 12px',fontFamily:'inherit',fontSize:'0.82rem',minWidth:250,background:'var(--offwhite)',color:'var(--navy)'}}>
             <option value="">Tous les collaborateurs</option>
             {collabs.map(c=><option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>)}
           </select>
+          <button className="btn btn-ghost btn-sm" onClick={()=>{
+            const BOM = '\uFEFF';
+            const rows = filteredHist.map(a => {
+              const c = collabs.find(x=>x.id===a.collaborateur_id);
+              return [c?c.nom:'',c?c.prenom:'',absTypes[a.type]||a.type,a.date_debut,a.date_fin,countWorkDays(a.date_debut,a.date_fin),ABS_STATUTS[a.statut]||a.statut,a.commentaire||'',a.motif_refus||'',a.approved_by||'',a.approved_at?fmtDate(a.approved_at.split('T')[0]):''].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';');
+            });
+            const csv = BOM + ['Nom;Prenom;Type;Du;Au;Jours;Statut;Commentaire;Motif refus;Traite par;Date traitement',...rows].join('\n');
+            const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href=url; a.download=`absences_export_${new Date().toISOString().split('T')[0]}.csv`; a.click();
+            URL.revokeObjectURL(url);
+          }}>📥 Exporter CSV</button>
         </div>
         <div className="card" style={{overflowX:'auto'}}>
           <table>
-            <thead><tr><th>Collaborateur</th><th>Type</th><th>Du</th><th>Au</th><th>Jours</th><th>Statut</th><th>Motif</th></tr></thead>
-            <tbody>{filteredHist.length===0 ? <tr><td colSpan={7} style={{textAlign:'center',color:'var(--muted)',padding:32}}>Aucun historique</td></tr> : filteredHist.map(a=>(
+            <thead><tr><th>Collaborateur</th><th>Type</th><th>Du</th><th>Au</th><th>Jours</th><th>Statut</th><th>Traite par</th><th>Motif</th></tr></thead>
+            <tbody>{filteredHist.length===0 ? <tr><td colSpan={8} style={{textAlign:'center',color:'var(--muted)',padding:32}}>Aucun historique</td></tr> : filteredHist.map(a=>(
               <tr key={a.id}>
                 <td style={{fontWeight:700,cursor:'pointer',color:'var(--blue)'}} onClick={()=>navigate(`/admin/collaborateurs/${collabs.find(x=>x.id===a.collaborateur_id)?.id}`)}>{getName(a.collaborateur_id)}</td>
-                <td>{ABS_TYPES[a.type]||a.type}</td>
+                <td>{absTypes[a.type]||a.type}</td>
                 <td>{fmtDate(a.date_debut)}</td>
                 <td>{fmtDate(a.date_fin)}</td>
-                <td style={{fontWeight:700}}>{countWorkDays(a.date_debut,a.date_fin)}j</td>
+                <td style={{fontWeight:700}}>{countWorkDays(a.date_debut,a.date_fin)}j{a.demi_journee ? ` (${a.demi_journee})` : ''}</td>
                 <td><Badge type={ABS_BADGE[a.statut]}>{ABS_STATUTS[a.statut]}</Badge></td>
+                <td style={{fontSize:'0.75rem',color:'var(--muted)'}}>{a.approved_by ? `${a.approved_by}${a.approved_at ? ' — '+fmtDate(a.approved_at.split('T')[0]) : ''}` : '—'}</td>
                 <td style={{fontSize:'0.78rem',color:'var(--text-danger)'}}>{a.motif_refus||'—'}</td>
               </tr>
             ))}</tbody>
@@ -113,38 +132,55 @@ export default function Absences() {
 
       {/* CALENDAR */}
       {tab==='calendar' && <FadeIn><div className="card">
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
           <button className="btn btn-ghost btn-sm" onClick={calPrev}>←</button>
           <span style={{fontWeight:700,color:'var(--navy)',fontSize:'0.95rem',textTransform:'capitalize'}}>{monthLabel}</span>
           <button className="btn btn-ghost btn-sm" onClick={calNext}>→</button>
         </div>
-        <div style={{overflowX:'auto'}}>
-          <table style={{fontSize:'0.72rem',width:'100%'}}>
-            <thead><tr><th style={{textAlign:'left',padding:'4px 8px',minWidth:120,position:'sticky',left:0,background:'var(--white)',zIndex:1}}>Collaborateur</th>
-              {Array.from({length:daysInMonth},(_,i)=><th key={i} style={{padding:'2px 3px',textAlign:'center',minWidth:22}}>{i+1}</th>)}
-            </tr></thead>
-            <tbody>{collabs.map(c => {
-              const cAbs = absences.filter(a=>a.collaborateur_id===c.id&&(a.statut==='approuve'||a.statut==='en_attente'));
-              return <tr key={c.id}>
-                <td style={{padding:'4px 8px',fontWeight:600,whiteSpace:'nowrap',cursor:'pointer',color:'var(--blue)',position:'sticky',left:0,background:'var(--white)',zIndex:1}} onClick={()=>navigate(`/admin/collaborateurs/${c.id}`)}>{c.prenom} {c.nom[0]}.</td>
-                {Array.from({length:daysInMonth},(_,d)=>{
-                  const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d+1).padStart(2,'0')}`;
-                  const dow=new Date(calYear,calMonth,d+1).getDay();
-                  const isWE=dow===0||dow===6;
-                  const a=cAbs.find(x=>ds>=x.date_debut&&ds<=x.date_fin);
-                  let bg=isWE?'var(--lavender)':'transparent';
-                  if(a) bg=a.statut==='approuve'?'var(--bg-success)':'var(--bg-warning)';
-                  return <td key={d} style={{padding:1,background:bg,borderRadius:2}} />;
+        <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}}>
+          <select value={calFilterEquipe} onChange={e=>setCalFilterEquipe(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 10px',fontFamily:'inherit',fontSize:'0.78rem',background:'var(--offwhite)',color:'var(--navy)'}}>
+            <option value="">Toutes equipes</option>
+            {[...new Set(collabs.flatMap(c=>(c.equipe||'').split(',').map(s=>s.trim())).filter(Boolean))].map(e=><option key={e} value={e}>{e}</option>)}
+          </select>
+        </div>
+        {(()=>{
+          const fermetures = settings?.periodes_fermeture || [];
+          const filteredCollabs = calFilterEquipe ? collabs.filter(c=>(c.equipe||'').includes(calFilterEquipe)) : collabs;
+          return <>
+          <div style={{overflowX:'auto'}}>
+            <table style={{fontSize:'0.72rem',width:'100%'}}>
+              <thead><tr><th style={{textAlign:'left',padding:'4px 8px',minWidth:120,position:'sticky',left:0,background:'var(--white)',zIndex:1}}>Collaborateur</th>
+                {Array.from({length:daysInMonth},(_,i)=>{
+                  const dow=new Date(calYear,calMonth,i+1).getDay();
+                  return <th key={i} style={{padding:'2px 3px',textAlign:'center',minWidth:22,color:dow===0||dow===6?'var(--lavender)':'var(--muted)'}}>{i+1}</th>;
                 })}
-              </tr>;
-            })}</tbody>
-          </table>
-        </div>
-        <div style={{display:'flex',gap:12,marginTop:12,fontSize:'0.7rem',color:'var(--muted)',fontWeight:600,flexWrap:'wrap'}}>
-          <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'var(--bg-success)'}} /> Approuvé</div>
-          <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'var(--bg-warning)'}} /> En attente</div>
-          <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'var(--lavender)'}} /> Weekend</div>
-        </div>
+              </tr></thead>
+              <tbody>{filteredCollabs.map(c => {
+                const cAbs = absences.filter(a=>a.collaborateur_id===c.id&&(a.statut==='approuve'||a.statut==='en_attente'));
+                return <tr key={c.id}>
+                  <td style={{padding:'4px 8px',fontWeight:600,whiteSpace:'nowrap',cursor:'pointer',color:'var(--blue)',position:'sticky',left:0,background:'var(--white)',zIndex:1}} onClick={()=>navigate(`/admin/collaborateurs/${c.id}`)}>{c.prenom} {c.nom[0]}.</td>
+                  {Array.from({length:daysInMonth},(_,d)=>{
+                    const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d+1).padStart(2,'0')}`;
+                    const dow=new Date(calYear,calMonth,d+1).getDay();
+                    const isWE=dow===0||dow===6;
+                    const isFerm = fermetures.some(f=>ds>=f.debut&&ds<=f.fin);
+                    const a=cAbs.find(x=>ds>=x.date_debut&&ds<=x.date_fin);
+                    let bg=isWE?'var(--lavender)':isFerm?'#EF444433':'transparent';
+                    if(a) bg=a.statut==='approuve'?'var(--bg-success)':'var(--bg-warning)';
+                    return <td key={d} title={isFerm?fermetures.find(f=>ds>=f.debut&&ds<=f.fin)?.label:''} style={{padding:1,background:bg,borderRadius:2}} />;
+                  })}
+                </tr>;
+              })}</tbody>
+            </table>
+          </div>
+          <div style={{display:'flex',gap:12,marginTop:12,fontSize:'0.7rem',color:'var(--muted)',fontWeight:600,flexWrap:'wrap'}}>
+            <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'var(--bg-success)'}} /> Approuve</div>
+            <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'var(--bg-warning)'}} /> En attente</div>
+            <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'var(--lavender)'}} /> Weekend</div>
+            {fermetures.length>0 && <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'#EF444433'}} /> Fermeture</div>}
+          </div>
+          </>;
+        })()}
       </div></FadeIn>}
 
       {/* SOLDES */}
@@ -152,7 +188,7 @@ export default function Absences() {
         <table>
           <thead><tr><th>Collaborateur</th><th>Solde initial</th><th>Acquisition/mois</th><th>Acquis</th><th>Pris</th><th>Solde</th><th></th></tr></thead>
           <tbody>{collabs.map(c => {
-            const pris = absences.filter(a => a.collaborateur_id===c.id && a.statut==='approuve' && a.type==='conge').reduce((s,a)=>s+countWorkDays(a.date_debut,a.date_fin),0);
+            const pris = absences.filter(a => a.collaborateur_id===c.id && a.statut==='approuve' && absenceDeductsSolde(a.type,settings)).reduce((s,a)=>s+countWorkDays(a.date_debut,a.date_fin),0);
             const soldeInit = c.solde_conges||0;
             const acq = c.acquisition_conges||2.08;
             let moisAcq = 0;

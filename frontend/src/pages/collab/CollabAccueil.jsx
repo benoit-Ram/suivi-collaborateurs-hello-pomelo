@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import { useAuth } from '../../services/AuthContext';
-import { Avatar, Badge, ProgressBar, EmptyState, FadeIn, Modal, Skeleton, fmtDate, moisLabel, countWorkDays, STATUS_LABELS, STATUS_COLORS, ABS_TYPES, ABS_STATUTS, isEntretienLocked, getEntretienStatus, ENTRETIEN_STATUS_BADGE } from '../../components/UI';
+import { Avatar, Badge, ProgressBar, EmptyState, FadeIn, Modal, Skeleton, fmtDate, moisLabel, countWorkDays, STATUS_LABELS, STATUS_COLORS, ABS_TYPES, ABS_STATUTS, getAbsenceTypes, absenceDeductsSolde, isEntretienLocked, getEntretienStatus, ENTRETIEN_STATUS_BADGE } from '../../components/UI';
 
 // ── UTILS ──
 
@@ -232,7 +232,7 @@ export default function CollabAccueil() {
       </div></FadeIn>}
 
       {/* CONGÉS */}
-      {tab==='conges' && <FadeIn><CongesTab c={c} absences={absences} solde={solde} onReload={() => loadAbsences(c.id)} api={api} /></FadeIn>}
+      {tab==='conges' && <FadeIn><CongesTab c={c} absences={absences} solde={solde} settings={settings} onReload={() => loadAbsences(c.id)} api={api} /></FadeIn>}
 
       {/* MANAGEMENT */}
       {tab==='management' && <FadeIn><ManagementTab manager={c} team={myTeam} collabs={collabs} settings={settings} teamPendingAbs={teamPendingAbs} onAbsenceUpdate={()=>loadTeamPendingAbs(c.id)} /></FadeIn>}
@@ -359,20 +359,33 @@ function PointCard({ p, collabId, settings }) {
 
 // ── CONGÉS TAB with request form ──
 /** Onglet Congés — formulaire de demande, historique, solde, calendrier personnel et équipe */
-function CongesTab({ c, absences, solde, onReload }) {
-  const [form, setForm] = useState({ type:'conge', date_debut:'', date_fin:'', commentaire:'' });
+function CongesTab({ c, absences, solde, onReload, settings }) {
+  const absTypes = getAbsenceTypes(settings);
+  const [form, setForm] = useState({ type: Object.keys(absTypes)[0] || 'conge', date_debut:'', date_fin:'', demi_journee:'', commentaire:'' });
   const [submitting, setSubmitting] = useState(false);
-
   const [error, setError] = useState('');
+
+  // Compute days for current form
+  const formDays = form.date_debut && form.date_fin && form.date_fin >= form.date_debut
+    ? (form.demi_journee ? 0.5 : countWorkDays(form.date_debut, form.date_fin)) : 0;
+  const typeDeducts = absenceDeductsSolde(form.type, settings);
+  const newSolde = typeDeducts ? solde - formDays : solde;
 
   const submit = async () => {
     setError('');
-    if (!form.date_debut || !form.date_fin) { setError('Veuillez renseigner les dates de début et de fin.'); return; }
-    if (form.date_fin < form.date_debut) { setError('La date de fin doit être après la date de début.'); return; }
+    if (!form.date_debut || !form.date_fin) { setError('Veuillez renseigner les dates.'); return; }
+    if (form.date_fin < form.date_debut) { setError('La date de fin doit etre apres la date de debut.'); return; }
+    if (form.demi_journee && form.date_debut !== form.date_fin) { setError('Pour une demi-journee, les dates doivent etre identiques.'); return; }
+    // Balance check
+    if (typeDeducts && newSolde < 0) { setError(`Solde insuffisant (${solde.toFixed(2)}j). Cette absence necessite ${formDays}j.`); return; }
+    // Overlap check
+    const overlap = absences.find(a => a.statut !== 'refuse' && form.date_debut <= a.date_fin && form.date_fin >= a.date_debut);
+    if (overlap) { setError(`Chevauchement avec une absence existante du ${fmtDate(overlap.date_debut)} au ${fmtDate(overlap.date_fin)}.`); return; }
+
     setSubmitting(true);
     try {
-      await api.createAbsence({ collaborateur_id: c.id, type: form.type, date_debut: form.date_debut, date_fin: form.date_fin, statut: 'en_attente', commentaire: form.commentaire || null });
-      setForm({ type:'conge', date_debut:'', date_fin:'', commentaire:'' });
+      await api.createAbsence({ collaborateur_id: c.id, type: form.type, date_debut: form.date_debut, date_fin: form.date_fin, demi_journee: form.demi_journee || null, statut: 'en_attente', commentaire: form.commentaire || null });
+      setForm({ type: Object.keys(absTypes)[0] || 'conge', date_debut:'', date_fin:'', demi_journee:'', commentaire:'' });
       onReload();
     } catch(e) { setError('Erreur: ' + e.message); }
     setSubmitting(false);
@@ -382,7 +395,7 @@ function CongesTab({ c, absences, solde, onReload }) {
     <div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(100px,1fr))',gap:10,marginBottom:20}}>
         <div className="card" style={{textAlign:'center',padding:16}}><div style={{fontSize:'1.5rem',fontWeight:700,color:'var(--green)'}}>{solde.toFixed(2)}j</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Solde</div></div>
-        <div className="card" style={{textAlign:'center',padding:16}}><div style={{fontSize:'1.5rem',fontWeight:700,color:'var(--pink)'}}>{absences.filter(a=>a.statut==='approuve').length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Approuvés</div></div>
+        <div className="card" style={{textAlign:'center',padding:16}}><div style={{fontSize:'1.5rem',fontWeight:700,color:'var(--pink)'}}>{absences.filter(a=>a.statut==='approuve').length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Approuves</div></div>
         <div className="card" style={{textAlign:'center',padding:16}}><div style={{fontSize:'1.5rem',fontWeight:700,color:'var(--orange)'}}>{absences.filter(a=>a.statut==='en_attente').length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>En attente</div></div>
       </div>
 
@@ -390,20 +403,24 @@ function CongesTab({ c, absences, solde, onReload }) {
       <div className="card" style={{marginBottom:24}}>
         <div className="section-title" style={{marginTop:0}}>Nouvelle demande</div>
         <div className="form-grid">
-          <div className="form-field"><label>Type</label><select value={form.type} onChange={e=>setForm({...form,type:e.target.value})}>{Object.entries(ABS_TYPES).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></div>
-          <div className="form-field"><label>Du</label><input type="date" value={form.date_debut} onChange={e=>setForm({...form,date_debut:e.target.value})} /></div>
-          <div className="form-field"><label>Au</label><input type="date" value={form.date_fin} onChange={e=>setForm({...form,date_fin:e.target.value})} /></div>
+          <div className="form-field"><label>Type</label><select value={form.type} onChange={e=>setForm({...form,type:e.target.value})}>{Object.entries(absTypes).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></div>
+          <div className="form-field"><label>Du</label><input type="date" value={form.date_debut} onChange={e=>setForm({...form,date_debut:e.target.value, date_fin: form.demi_journee ? e.target.value : form.date_fin})} /></div>
+          <div className="form-field"><label>Au</label><input type="date" value={form.date_fin} onChange={e=>setForm({...form,date_fin:e.target.value})} disabled={!!form.demi_journee} /></div>
+          <div className="form-field"><label>Duree</label><select value={form.demi_journee} onChange={e=>setForm({...form,demi_journee:e.target.value, date_fin: e.target.value ? form.date_debut : form.date_fin})}>
+            <option value="">Journee(s) complete(s)</option>
+            <option value="AM">Demi-journee matin</option>
+            <option value="PM">Demi-journee apres-midi</option>
+          </select></div>
           <div className="form-field"><label>Commentaire</label><input type="text" value={form.commentaire} onChange={e=>setForm({...form,commentaire:e.target.value})} placeholder="Optionnel..." /></div>
         </div>
-        {/* Calcul temps réel des jours ouvrés */}
-        {form.date_debut && form.date_fin && form.date_fin >= form.date_debut && (()=>{
-          const days = countWorkDays(form.date_debut, form.date_fin);
-          const newSolde = solde - days;
-          return <div style={{marginTop:10,padding:'12px 16px',background:'var(--bg-info)',borderRadius:10,fontSize:'0.85rem',color:'var(--text-info)',display:'flex',gap:20,flexWrap:'wrap'}}>
-            <span><strong>{days}</strong> jour{days>1?'s':''} ouvré{days>1?'s':''}</span>
-            <span>Solde après : <strong style={{color:newSolde<0?'var(--red)':'var(--text-info)'}}>{newSolde}j</strong></span>
-          </div>;
-        })()}
+        {/* Calcul temps réel */}
+        {formDays > 0 && (
+          <div style={{marginTop:10,padding:'12px 16px',background:'var(--bg-info)',borderRadius:10,fontSize:'0.85rem',color:'var(--text-info)',display:'flex',gap:20,flexWrap:'wrap'}}>
+            <span><strong>{formDays}</strong> jour{formDays>1?'s':''} ouvre{formDays>1?'s':''}{form.demi_journee ? ` (${form.demi_journee === 'AM' ? 'matin' : 'apres-midi'})` : ''}</span>
+            {typeDeducts && <span>Solde apres : <strong style={{color:newSolde<0?'var(--red)':'var(--text-info)'}}>{newSolde.toFixed(2)}j</strong></span>}
+            {!typeDeducts && <span style={{fontStyle:'italic'}}>Ce type ne decompte pas du solde</span>}
+          </div>
+        )}
         {error && <div style={{marginTop:10,padding:'10px 14px',background:'var(--bg-danger)',color:'var(--text-danger)',borderRadius:10,fontSize:'0.85rem',fontWeight:600,borderLeft:'4px solid var(--border-danger)'}}>{error}</div>}
         <div style={{display:'flex',justifyContent:'flex-end',marginTop:10}}>
           <button className="btn btn-primary" onClick={submit} disabled={submitting}>{submitting ? '⏳ En cours...' : '🏖️ Demander'}</button>

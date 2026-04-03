@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useData } from '../../services/DataContext';
 import { useAuth } from '../../services/AuthContext';
 import { api } from '../../services/api';
-import { PageHeader, Badge, Avatar, Modal, fmtDate } from '../../components/UI';
+import { PageHeader, Badge, Avatar, Modal, fmtDate, DEFAULT_ABSENCE_TYPES } from '../../components/UI';
+import { generateGuideAdmin, generateGuideCollab } from '../../components/GuidePDF';
 
 const SETTINGS_KEYS = [
   { key: 'equipes', label: 'Équipes', placeholder: 'Nouvelle équipe...' },
@@ -128,6 +129,9 @@ export default function Settings() {
         ))}
       </div>
 
+      {/* Types d'absence */}
+      <AbsenceTypesEditor types={settings['absence_types']||DEFAULT_ABSENCE_TYPES} onSave={async(list)=>{try{await api.upsertSetting('absence_types',list);await reload();showToast('Types d\'absence mis à jour !');}catch(e){showToast('Erreur: '+e.message);}}} />
+
       {/* Questions */}
       <div className="section-title" title="Les modifications s'appliqueront aux entretiens du mois prochain">Questions de l'entretien RH mensuel</div>
       <div style={{background:'var(--bg-warning)',borderRadius:10,padding:'10px 14px',marginBottom:16,fontSize:'0.82rem',color:'var(--text-warning)',fontWeight:600,borderLeft:'4px solid var(--border-warning)'}}>⚠️ Les modifications s'appliqueront aux entretiens du <strong>mois prochain</strong> uniquement. Les entretiens déjà créés ne sont pas impactés.</div>
@@ -190,6 +194,16 @@ export default function Settings() {
           </div>
         </>
       )}
+
+      {/* Guides utilisateurs */}
+      <div className="section-title">Guides utilisateurs</div>
+      <div className="card" style={{marginBottom:24}}>
+        <p style={{color:'var(--muted)',fontSize:'0.82rem',marginBottom:14}}>Generez les guides au format PDF pour vos equipes. Un document HTML s'ouvrira dans un nouvel onglet — utilisez <strong>Ctrl+P</strong> pour l'imprimer ou le sauvegarder en PDF.</p>
+        <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+          <button className="btn btn-primary" onClick={generateGuideAdmin}>📥 Guide Administrateur</button>
+          <button className="btn btn-navy" onClick={generateGuideCollab}>📥 Guide Collaborateur</button>
+        </div>
+      </div>
 
       {/* RENAME MODAL */}
       <Modal open={!!renameModal} onClose={()=>setRenameModal(null)} title="Renommer">
@@ -284,5 +298,57 @@ function QuestionEditor({ settingsKey, label, questions, onSave }) {
         </div>
       </>}
     </div>
+  );
+}
+
+function AbsenceTypesEditor({ types, onSave }) {
+  const [list, setList] = useState(types.map(t => typeof t === 'string' ? { key: t, label: t, decompte: false } : t));
+  const [newType, setNewType] = useState({ label: '', decompte: false });
+  const hasChanges = JSON.stringify(list) !== JSON.stringify(types);
+
+  const add = () => {
+    if (!newType.label.trim()) return;
+    const key = newType.label.trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
+    if (list.some(t => t.key === key)) return;
+    setList([...list, { key, label: newType.label.trim(), decompte: newType.decompte }]);
+    setNewType({ label: '', decompte: false });
+  };
+
+  const remove = (i) => { const l = [...list]; l.splice(i, 1); setList(l); };
+  const toggle = (i) => { const l = [...list]; l[i] = { ...l[i], decompte: !l[i].decompte }; setList(l); };
+  const move = (i, dir) => { const l = [...list]; const ni = i + dir; if (ni < 0 || ni >= l.length) return; [l[i], l[ni]] = [l[ni], l[i]]; setList(l); };
+
+  return (
+    <>
+      <div className="section-title">Types d'absence</div>
+      <div className="card" style={{ marginBottom: 24 }}>
+        <p style={{ color: 'var(--muted)', fontSize: '0.82rem', marginBottom: 14 }}>
+          Configurez les types d'absence disponibles. Cochez "Decompte" si le type deduit du solde de conges.
+        </p>
+        {list.map((t, i) => (
+          <div key={t.key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', border: '1.5px solid var(--lavender)', borderRadius: 10, marginBottom: 8 }}>
+            <div style={{ display: 'flex', gap: 4 }}>
+              <button className="btn btn-ghost btn-sm" style={{ padding: '2px 6px', fontSize: '0.7rem' }} onClick={() => move(i, -1)}>▲</button>
+              <button className="btn btn-ghost btn-sm" style={{ padding: '2px 6px', fontSize: '0.7rem' }} onClick={() => move(i, 1)}>▼</button>
+            </div>
+            <span style={{ flex: 1, fontWeight: 600, color: 'var(--navy)' }}>{t.label}</span>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.72rem', color: t.decompte ? 'var(--green)' : 'var(--muted)', fontWeight: 700, cursor: 'pointer' }}>
+              <input type="checkbox" checked={t.decompte} onChange={() => toggle(i)} style={{ accentColor: 'var(--green)' }} />
+              Decompte
+            </label>
+            <button className="btn btn-danger btn-sm" style={{ padding: '4px 8px' }} onClick={() => remove(i)}>✕</button>
+          </div>
+        ))}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+          <input value={newType.label} onChange={e => setNewType({ ...newType, label: e.target.value })} onKeyDown={e => { if (e.key === 'Enter') add(); }} placeholder="Nouveau type..." style={{ flex: 1, border: '1.5px solid var(--lavender)', borderRadius: 8, padding: '8px 12px', fontFamily: 'inherit', fontSize: '0.85rem' }} />
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.72rem', color: 'var(--muted)', fontWeight: 700, whiteSpace: 'nowrap', cursor: 'pointer' }}>
+            <input type="checkbox" checked={newType.decompte} onChange={e => setNewType({ ...newType, decompte: e.target.checked })} style={{ accentColor: 'var(--green)' }} />
+            Decompte
+          </label>
+          <button className="btn btn-primary btn-sm" onClick={add}>+</button>
+        </div>
+        {hasChanges && <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}><button className="btn btn-primary btn-sm" onClick={() => onSave(list)}>💾 Sauvegarder</button></div>}
+      </div>
+    </>
   );
 }
