@@ -2,7 +2,7 @@
   "name": "Suivi Collaborateurs — Hello Pomelo",
   "short_name": "Hello Pomelo",
   "description": "Outil de suivi des collaborateurs Hello Pomelo",
-  "start_url": "/admin",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#F8F7FC",
   "theme_color": "#05056D",
