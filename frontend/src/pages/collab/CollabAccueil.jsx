@@ -421,6 +421,20 @@ function CongesTab({ c, absences, solde, onReload, settings }) {
   const [form, setForm] = useState({ type: Object.keys(absTypes)[0] || 'conge', date_debut:'', date_fin:'', demi_journee:'', commentaire:'' });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [cancelId, setCancelId] = useState(null);
+  const [cancelMotif, setCancelMotif] = useState('');
+  const [cancelLoading, setCancelLoading] = useState(false);
+
+  const submitCancel = async () => {
+    if (!cancelMotif.trim()) return;
+    setCancelLoading(true);
+    try {
+      await api.updateAbsence(cancelId, { statut: 'annulation_demandee', commentaire_annulation: cancelMotif.trim() });
+      setCancelId(null); setCancelMotif('');
+      onReload();
+    } catch(e) { setError('Erreur: ' + e.message); }
+    setCancelLoading(false);
+  };
 
   // Compute days for current form
   const formDays = form.date_debut && form.date_fin && form.date_fin >= form.date_debut
@@ -433,10 +447,23 @@ function CongesTab({ c, absences, solde, onReload, settings }) {
     if (!form.date_debut || !form.date_fin) { setError('Veuillez renseigner les dates.'); return; }
     if (form.date_fin < form.date_debut) { setError('La date de fin doit etre apres la date de debut.'); return; }
     if (form.demi_journee && form.date_debut !== form.date_fin) { setError('Pour une demi-journee, les dates doivent etre identiques.'); return; }
+    // Block past dates
+    const today = new Date().toISOString().split('T')[0];
+    if (form.date_debut < today) { setError('Impossible de poser des conges dans le passe.'); return; }
+    // Block 0-day requests (weekends, holidays)
+    if (formDays === 0) { setError('Cette periode ne contient aucun jour ouvre (weekend ou jour ferie).'); return; }
     // Balance check
     if (typeDeducts && newSolde < 0) { setError(`Solde insuffisant (${solde.toFixed(2)}j). Cette absence necessite ${formDays}j.`); return; }
-    // Overlap check
-    const overlap = absences.find(a => a.statut !== 'refuse' && form.date_debut <= a.date_fin && form.date_fin >= a.date_debut);
+    // Overlap check (handles AM/PM half-days)
+    const overlap = absences.find(a => {
+      if (a.statut === 'refuse' || a.statut === 'annule') return false;
+      if (form.date_debut > a.date_fin || form.date_fin < a.date_debut) return false;
+      // Same day: check AM/PM compatibility
+      if (form.demi_journee && a.demi_journee && form.date_debut === a.date_debut) {
+        return form.demi_journee === a.demi_journee; // Only conflict if same slot
+      }
+      return true;
+    });
     if (overlap) { setError(`Chevauchement avec une absence existante du ${fmtDate(overlap.date_debut)} au ${fmtDate(overlap.date_fin)}.`); return; }
 
     setSubmitting(true);
@@ -461,8 +488,8 @@ function CongesTab({ c, absences, solde, onReload, settings }) {
         <div className="section-title" style={{marginTop:0}}>Nouvelle demande</div>
         <div className="form-grid">
           <div className="form-field"><label>Type</label><select value={form.type} onChange={e=>setForm({...form,type:e.target.value})}>{Object.entries(absTypes).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></div>
-          <div className="form-field"><label>Du</label><input type="date" value={form.date_debut} onChange={e=>setForm({...form,date_debut:e.target.value, date_fin: form.demi_journee ? e.target.value : form.date_fin})} /></div>
-          <div className="form-field"><label>Au</label><input type="date" value={form.date_fin} onChange={e=>setForm({...form,date_fin:e.target.value})} disabled={!!form.demi_journee} /></div>
+          <div className="form-field"><label>Du</label><input type="date" min={new Date().toISOString().split('T')[0]} value={form.date_debut} onChange={e=>setForm({...form,date_debut:e.target.value, date_fin: form.demi_journee ? e.target.value : form.date_fin})} /></div>
+          <div className="form-field"><label>Au</label><input type="date" min={form.date_debut||new Date().toISOString().split('T')[0]} value={form.date_fin} onChange={e=>setForm({...form,date_fin:e.target.value})} disabled={!!form.demi_journee} /></div>
           <div className="form-field"><label>Duree</label><select value={form.demi_journee} onChange={e=>setForm({...form,demi_journee:e.target.value, date_fin: e.target.value ? form.date_debut : form.date_fin})}>
             <option value="">Journee(s) complete(s)</option>
             <option value="AM">Demi-journee matin</option>
@@ -496,20 +523,37 @@ function CongesTab({ c, absences, solde, onReload, settings }) {
         <TeamCalendar collab={c} />
       </div>
 
-      {/* En attente */}
-      {absences.filter(a=>a.statut==='en_attente').length > 0 && <>
+      {/* En attente + annulation demandée */}
+      {absences.filter(a=>a.statut==='en_attente'||a.statut==='annulation_demandee').length > 0 && <>
         <div className="section-title">⏳ Demandes en attente</div>
-        {absences.filter(a=>a.statut==='en_attente').map(a => (
-          <div key={a.id} style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',borderRadius:12,border:'1.5px solid var(--orange)',marginBottom:8,background:'var(--bg-warning)'}}>
+        {absences.filter(a=>a.statut==='en_attente'||a.statut==='annulation_demandee').map(a => (
+          <div key={a.id} style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',borderRadius:12,border:`1.5px solid ${a.statut==='annulation_demandee'?'var(--red)':'var(--orange)'}`,marginBottom:8,background:a.statut==='annulation_demandee'?'var(--bg-danger)':'var(--bg-warning)'}}>
             <div style={{flex:1}}>
               <div style={{fontWeight:700,fontSize:'0.9rem',color:'var(--navy)'}}>{ABS_TYPES[a.type]||a.type}</div>
               <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)} · {absenceDays(a)}j ouvré{absenceDays(a)>1?'s':''}</div>
               {a.commentaire && <div style={{fontSize:'0.78rem',color:'var(--muted)',fontStyle:'italic',marginTop:2}}>{a.commentaire}</div>}
+              {a.statut==='annulation_demandee' && <div style={{fontSize:'0.78rem',color:'var(--red)',fontWeight:600,marginTop:4}}>🔄 Annulation demandee{a.commentaire_annulation ? ' : '+a.commentaire_annulation : ''}</div>}
             </div>
-            <Badge type="orange">En attente</Badge>
+            <div style={{display:'flex',flexDirection:'column',gap:4,alignItems:'flex-end'}}>
+              <Badge type={a.statut==='annulation_demandee'?'pink':'orange'}>{a.statut==='annulation_demandee'?'🔄 Annulation':'⏳ En attente'}</Badge>
+              {a.statut==='en_attente' && <button className="btn btn-danger btn-sm" style={{padding:'4px 10px',fontSize:'0.68rem'}} onClick={()=>{setCancelId(a.id);setCancelMotif('');}}>Annuler</button>}
+            </div>
           </div>
         ))}
       </>}
+
+      {/* Cancel modal */}
+      <Modal open={!!cancelId} onClose={()=>setCancelId(null)} title="Demander l'annulation">
+        <p style={{fontSize:'0.85rem',color:'var(--muted)',marginBottom:12}}>Votre demande d'annulation sera soumise a votre manager pour validation.</p>
+        <div className="form-field">
+          <label>Motif de l'annulation <span style={{color:'var(--red)'}}>*</span></label>
+          <textarea autoFocus value={cancelMotif} onChange={e=>setCancelMotif(e.target.value)} placeholder="Expliquez la raison de l'annulation..." style={{minHeight:80}} />
+        </div>
+        <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:16}}>
+          <button className="btn btn-ghost" onClick={()=>setCancelId(null)}>Fermer</button>
+          <button className="btn btn-danger" onClick={submitCancel} disabled={cancelLoading||!cancelMotif.trim()}>{cancelLoading?'⏳...':'Demander l\'annulation'}</button>
+        </div>
+      </Modal>
 
       {/* Historique (approuvés + refusés) */}
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
@@ -774,7 +818,7 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
     if (!refuseMotif.trim()) return;
     setRefuseLoading(true);
     try {
-      await api.updateAbsence(refuseId, { statut:'refuse', motif_refus: refuseMotif.trim() });
+      await api.updateAbsence(refuseId, { statut:'refuse', motif_refus: refuseMotif.trim(), approved_by: managerName, approved_at: new Date().toISOString() });
       if(onAbsenceUpdate) onAbsenceUpdate();
       if(selectedMember) loadMemberAbs(selectedMember.id);
       setRefuseId(null); setRefuseMotif('');
@@ -875,7 +919,7 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
                     {a.commentaire && <div style={{fontSize:'0.78rem',color:'var(--muted)',fontStyle:'italic',marginTop:2}}>{a.commentaire}</div>}
                   </div>
                   <div style={{display:'flex',gap:6}}>
-                    <button className="btn btn-sm" style={{background:'var(--green)',color:'white',padding:'5px 12px'}} onClick={async()=>{try{await api.updateAbsence(a.id,{statut:'approuve'});if(onAbsenceUpdate)onAbsenceUpdate();}catch(e){alert('Erreur: '+e.message);}}}>✓ Approuver</button>
+                    <button className="btn btn-sm" style={{background:'var(--green)',color:'white',padding:'5px 12px'}} onClick={async()=>{try{await api.updateAbsence(a.id,{statut:'approuve',approved_by:managerName,approved_at:new Date().toISOString()});if(onAbsenceUpdate)onAbsenceUpdate();}catch(e){alert('Erreur: '+e.message);}}}>✓ Approuver</button>
                     <button className="btn btn-danger btn-sm" style={{padding:'5px 12px'}} onClick={()=>{setRefuseId(a.id);setRefuseMotif('');}}>✕ Refuser</button>
                   </div>
                 </div>
@@ -1075,7 +1119,7 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
             </div>
             <Badge type={a.statut==='approuve'?'green':a.statut==='refuse'?'pink':'orange'}>{ABS_STATUTS[a.statut]}</Badge>
             {a.statut==='en_attente' && <>
-              <button className="btn btn-sm" style={{background:'var(--green)',color:'white',padding:'4px 10px'}} onClick={async()=>{try{await api.updateAbsence(a.id,{statut:'approuve'});loadMemberAbs(m.id);if(onAbsenceUpdate)onAbsenceUpdate();}catch(e){alert('Erreur: '+e.message);}}}>✓</button>
+              <button className="btn btn-sm" style={{background:'var(--green)',color:'white',padding:'4px 10px'}} onClick={async()=>{try{await api.updateAbsence(a.id,{statut:'approuve',approved_by:managerName,approved_at:new Date().toISOString()});loadMemberAbs(m.id);if(onAbsenceUpdate)onAbsenceUpdate();}catch(e){alert('Erreur: '+e.message);}}}>✓</button>
               <button className="btn btn-danger btn-sm" style={{padding:'4px 10px'}} onClick={()=>{setRefuseId(a.id);setRefuseMotif('');}}>✕</button>
             </>}
           </div>

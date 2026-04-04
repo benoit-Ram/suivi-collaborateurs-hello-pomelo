@@ -130,3 +130,16 @@ UPDATE collaborateurs SET is_admin = true WHERE email = 'benoit@hello-pomelo.com
 ALTER TABLE absences ADD COLUMN IF NOT EXISTS approved_by text;
 ALTER TABLE absences ADD COLUMN IF NOT EXISTS approved_at timestamptz;
 ```
+
+## Migration v8 — Annulation congés + compteurs RTT + cycle
+
+```sql
+-- Commentaire d'annulation de congé
+ALTER TABLE absences ADD COLUMN IF NOT EXISTS commentaire_annulation text;
+
+-- Compteur RTT séparé (jours)
+ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS solde_rtt numeric DEFAULT 0;
+
+-- Cycle de congés (date de début du cycle, optionnel)
+ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS cycle_conges_debut date;
+```

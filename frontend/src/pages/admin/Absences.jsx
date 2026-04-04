@@ -34,11 +34,14 @@ export default function Absences() {
 
   if (loading) return <div style={{maxWidth:600,margin:'40px auto'}}><Skeleton lines={5} /></div>;
 
-  const pending = absences.filter(a => a.statut === 'en_attente');
-  const history = absences.filter(a => a.statut !== 'en_attente');
+  const pending = absences.filter(a => a.statut === 'en_attente' || a.statut === 'annulation_demandee');
+  const history = absences.filter(a => a.statut !== 'en_attente' && a.statut !== 'annulation_demandee');
   const filteredHist = histFilter ? history.filter(a => a.collaborateur_id === histFilter) : history;
 
   const approve = async (id) => {
+    // Block self-approval
+    const absence = absences.find(a=>a.id===id);
+    if (absence && absence.collaborateur_id === authUser?.collabId) { showToast('Vous ne pouvez pas approuver vos propres conges.'); return; }
     setApproving(id);
     try { await api.updateAbsence(id, { statut: 'approuve', approved_by: authUser?.name || 'Admin', approved_at: new Date().toISOString() }); await reload(); showToast('Congé approuvé ✓'); } catch(e) { showToast('Erreur: '+e.message); }
     setApproving(null);
@@ -76,17 +79,24 @@ export default function Absences() {
       {tab==='pending' && <FadeIn><div>
         {pending.length===0 ? <div className="card" style={{textAlign:'center',padding:32,color:'var(--muted)'}}>✅ Aucune demande en attente</div> : pending.map(a => {
           const c = collabs.find(x=>x.id===a.collaborateur_id);
-          return <div key={a.id} className="card" style={{marginBottom:10,padding:16,borderLeft:'4px solid var(--orange)'}}>
+          const isCancelRequest = a.statut === 'annulation_demandee';
+          return <div key={a.id} className="card" style={{marginBottom:10,padding:16,borderLeft:`4px solid ${isCancelRequest?'var(--red)':'var(--orange)'}`}}>
             <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
               {c && <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={36} />}
               <div style={{flex:1,minWidth:200}}>
                 <div style={{fontWeight:700,color:'var(--blue)',cursor:'pointer',fontSize:'0.9rem'}} onClick={()=>c&&navigate(`/admin/collaborateurs/${c.id}`)}>{getName(a.collaborateur_id)}</div>
-                <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>{ABS_TYPES[a.type]||a.type} · Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)} · {absenceDays(a)}j ouvrés</div>
+                <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>{absTypes[a.type]||a.type} · Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)} · {absenceDays(a)}j ouvres{a.demi_journee ? ` (${a.demi_journee})` : ''}</div>
                 {a.commentaire && <div style={{fontSize:'0.78rem',color:'var(--muted)',fontStyle:'italic',marginTop:2}}>{a.commentaire}</div>}
+                {isCancelRequest && <div style={{fontSize:'0.78rem',color:'var(--red)',fontWeight:600,marginTop:4}}>🔄 Demande d'annulation{a.commentaire_annulation ? ' : '+a.commentaire_annulation : ''}</div>}
               </div>
               <div style={{display:'flex',gap:6}}>
-                <button className="btn btn-sm" style={{background:'var(--green)',color:'white'}} onClick={()=>approve(a.id)} disabled={approving===a.id}>{approving===a.id ? '⏳...' : '✓ Approuver'}</button>
-                <button className="btn btn-danger btn-sm" onClick={()=>{setRefuseId(a.id);setRefuseMotif('');}}>✕ Refuser</button>
+                {isCancelRequest ? <>
+                  <button className="btn btn-sm" style={{background:'var(--green)',color:'white'}} onClick={async()=>{try{await api.updateAbsence(a.id,{statut:'annule',approved_by:authUser?.name||'Admin',approved_at:new Date().toISOString()});await reload();showToast('Annulation validee');}catch(e){showToast('Erreur: '+e.message);}}} disabled={approving===a.id}>✓ Valider annulation</button>
+                  <button className="btn btn-danger btn-sm" onClick={async()=>{try{await api.updateAbsence(a.id,{statut:'approuve',commentaire_annulation:null});await reload();showToast('Annulation refusee — conge maintenu');}catch(e){showToast('Erreur: '+e.message);}}}>✕ Refuser annulation</button>
+                </> : <>
+                  <button className="btn btn-sm" style={{background:'var(--green)',color:'white'}} onClick={()=>approve(a.id)} disabled={approving===a.id}>{approving===a.id ? '⏳...' : '✓ Approuver'}</button>
+                  <button className="btn btn-danger btn-sm" onClick={()=>{setRefuseId(a.id);setRefuseMotif('');}}>✕ Refuser</button>
+                </>}
               </div>
             </div>
           </div>;
