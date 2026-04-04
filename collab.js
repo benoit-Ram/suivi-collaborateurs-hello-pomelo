@@ -1390,6 +1390,31 @@ async function submitAbsence() {
   if (!dateDebut || !dateFin) { showToast('Veuillez renseigner les dates.'); return; }
   if (dateFin < dateDebut) { showToast('La date de fin doit être après la date de début.'); return; }
 
+  // Bloquer les demandes rétroactives (dates passées)
+  const today = new Date().toISOString().split('T')[0];
+  if (dateDebut < today) { showToast('Impossible de poser un congé sur des dates passées.'); return; }
+
+  // Bloquer le chevauchement avec des demandes existantes (en attente ou approuvées)
+  const chevauchement = myAbsences.find(a =>
+    (a.statut === 'en_attente' || a.statut === 'approuve') &&
+    dateDebut <= a.dateFin && dateFin >= a.dateDebut
+  );
+  if (chevauchement) {
+    showToast(`Chevauchement avec une demande existante du ${new Date(chevauchement.dateDebut).toLocaleDateString('fr-FR')} au ${new Date(chevauchement.dateFin).toLocaleDateString('fr-FR')}.`);
+    return;
+  }
+
+  // Bloquer si solde insuffisant (congés payés uniquement)
+  if (type === 'conge') {
+    const joursDemandesNow = demiJournee ? 0.5 : countWorkDays(dateDebut, dateFin);
+    const s = getMySolde();
+    const soldeApres = Math.round((s.solde - s.enAttente - joursDemandesNow) * 100) / 100;
+    if (soldeApres < 0) {
+      showToast(`Solde insuffisant. Il vous reste ${s.solde - s.enAttente}j disponibles (${joursDemandesNow}j demandés).`);
+      return;
+    }
+  }
+
   const { data, error } = await sb.from('absences').insert({
     collaborateur_id: currentCollab.id,
     type, date_debut: dateDebut, date_fin: dateFin,
