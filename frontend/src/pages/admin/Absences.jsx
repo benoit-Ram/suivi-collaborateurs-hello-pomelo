@@ -39,9 +39,6 @@ export default function Absences() {
   const filteredHist = histFilter ? history.filter(a => a.collaborateur_id === histFilter) : history;
 
   const approve = async (id) => {
-    // Block self-approval
-    const absence = absences.find(a=>a.id===id);
-    if (absence && absence.collaborateur_id === authUser?.collabId) { showToast('Vous ne pouvez pas approuver vos propres conges.'); return; }
     setApproving(id);
     try { await api.updateAbsence(id, { statut: 'approuve', approved_by: authUser?.name || 'Admin', approved_at: new Date().toISOString() }); await reload(); showToast('Congé approuvé ✓'); } catch(e) { showToast('Erreur: '+e.message); }
     setApproving(null);
