@@ -6,7 +6,7 @@ export default function CollabAccueil() {
       <h2 style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--navy)', marginBottom: 4 }}>Bonjour 👋</h2>
       <p style={{ fontSize: '0.88rem', color: 'var(--muted)' }}>Votre espace collaborateur est en cours de migration vers React.</p>
       <div className="divider" />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+      <div className="stats-grid stats-grid--3">
         <div className="card" style={{ textAlign: 'center', padding: 18 }}>
           <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--pink)' }}>—</div>
           <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', marginTop: 4 }}>Objectifs en cours</div>
