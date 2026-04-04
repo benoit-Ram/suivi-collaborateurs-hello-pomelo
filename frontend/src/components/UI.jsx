@@ -156,7 +156,7 @@ export const STATUS_LABELS = { 'en-cours': 'En cours', 'atteint': 'Atteint ✓',
 export const STATUS_COLORS = { 'en-cours': 'blue', 'atteint': 'green', 'non-atteint': 'orange', 'en-attente': 'gray' };
 // Default absence types (used as fallback if settings not loaded)
 export const ABS_TYPES = { conge: 'Congé payé', sans_solde: 'Sans solde', maladie: 'Maladie', rtt: 'RTT' };
-export const ABS_STATUTS = { en_attente: 'En attente', approuve: 'Approuvé', refuse: 'Refusé' };
+export const ABS_STATUTS = { en_attente: 'En attente', approuve: 'Approuvé', refuse: 'Refusé', annulation_demandee: 'Annulation demandée', annule: 'Annulé' };
 
 // Default absence type configs with decompte_solde flag
 export const DEFAULT_ABSENCE_TYPES = [
@@ -246,6 +246,21 @@ export function absenceDays(a) {
   if (!a || !a.date_debut || !a.date_fin) return 0;
   if (a.demi_journee) return 0.5;
   return countWorkDays(a.date_debut, a.date_fin);
+}
+
+/** Calculate leave balance for a collaborateur */
+export function calculateSolde(collab, absences, settings) {
+  const soldeInit = collab.solde_conges || 0;
+  const acq = collab.acquisition_conges || 2.08;
+  let moisAcq = 0;
+  if (collab.date_entree) {
+    const e = new Date(collab.date_entree);
+    const n = new Date();
+    moisAcq = Math.max(0, (n.getFullYear() - e.getFullYear()) * 12 + (n.getMonth() - e.getMonth()));
+  }
+  const acquis = Math.round(moisAcq * acq * 100) / 100;
+  const pris = (absences || []).filter(a => a.statut === 'approuve' && absenceDeductsSolde(a.type, settings)).reduce((s, a) => s + absenceDays(a), 0);
+  return { soldeInit, acq, moisAcq, acquis, pris, solde: Math.round((soldeInit + acquis - pris) * 100) / 100 };
 }
 
 // ── ENTRETIEN RH HELPERS ──
