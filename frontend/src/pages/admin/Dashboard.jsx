@@ -26,7 +26,7 @@ export default function Dashboard() {
       </div>
       <div className="divider" />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+      <div className="stats-grid">
         <div className="stat-card" style={{ borderColor: 'var(--pink)' }}>
           <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--navy)' }}>{total}</div>
           <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', marginTop: 4 }}>Collaborateurs</div>
@@ -46,7 +46,7 @@ export default function Dashboard() {
       </div>
 
       <div className="section-title" style={{ marginTop: 28 }}>Collaborateurs</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16, marginTop: 20 }}>
+      <div className="collab-grid">
         {collabs.map(c => (
           <div key={c.id} className="card" onClick={() => navigate(`/admin/collaborateurs/${c.id}`)}
             style={{ cursor: 'pointer', padding: 20, transition: 'all 0.2s', border: '2px solid transparent' }}
