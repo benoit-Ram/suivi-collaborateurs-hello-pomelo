@@ -424,6 +424,7 @@ function CongesTab({ c, absences, solde, onReload, settings }) {
   const [cancelId, setCancelId] = useState(null);
   const [cancelMotif, setCancelMotif] = useState('');
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [editingId, setEditingId] = useState(null); // editing a pending request
 
   const submitCancel = async () => {
     if (!cancelMotif.trim()) return;
@@ -454,13 +455,13 @@ function CongesTab({ c, absences, solde, onReload, settings }) {
     if (formDays === 0) { setError('Cette periode ne contient aucun jour ouvre (weekend ou jour ferie).'); return; }
     // Balance check
     if (typeDeducts && newSolde < 0) { setError(`Solde insuffisant (${solde.toFixed(2)}j). Cette absence necessite ${formDays}j.`); return; }
-    // Overlap check (handles AM/PM half-days)
+    // Overlap check (handles AM/PM half-days, exclude self if editing)
     const overlap = absences.find(a => {
+      if (a.id === editingId) return false; // skip self when editing
       if (a.statut === 'refuse' || a.statut === 'annule') return false;
       if (form.date_debut > a.date_fin || form.date_fin < a.date_debut) return false;
-      // Same day: check AM/PM compatibility
       if (form.demi_journee && a.demi_journee && form.date_debut === a.date_debut) {
-        return form.demi_journee === a.demi_journee; // Only conflict if same slot
+        return form.demi_journee === a.demi_journee;
       }
       return true;
     });
@@ -468,7 +469,12 @@ function CongesTab({ c, absences, solde, onReload, settings }) {
 
     setSubmitting(true);
     try {
-      await api.createAbsence({ collaborateur_id: c.id, type: form.type, date_debut: form.date_debut, date_fin: form.date_fin, demi_journee: form.demi_journee || null, statut: 'en_attente', commentaire: form.commentaire || null });
+      if (editingId) {
+        await api.updateAbsence(editingId, { type: form.type, date_debut: form.date_debut, date_fin: form.date_fin, demi_journee: form.demi_journee || null, commentaire: form.commentaire || null });
+        setEditingId(null);
+      } else {
+        await api.createAbsence({ collaborateur_id: c.id, type: form.type, date_debut: form.date_debut, date_fin: form.date_fin, demi_journee: form.demi_journee || null, statut: 'en_attente', commentaire: form.commentaire || null });
+      }
       setForm({ type: Object.keys(absTypes)[0] || 'conge', date_debut:'', date_fin:'', demi_journee:'', commentaire:'' });
       onReload();
     } catch(e) { setError('Erreur: ' + e.message); }
@@ -485,10 +491,10 @@ function CongesTab({ c, absences, solde, onReload, settings }) {
 
       {/* Formulaire de demande */}
       <div className="card" style={{marginBottom:24}}>
-        <div className="section-title" style={{marginTop:0}}>Nouvelle demande</div>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><div className="section-title" style={{marginTop:0}}>{editingId ? '✏️ Modifier la demande' : 'Nouvelle demande'}</div>{editingId && <button className="btn btn-ghost btn-sm" onClick={()=>{setEditingId(null);setForm({type:Object.keys(absTypes)[0]||'conge',date_debut:'',date_fin:'',demi_journee:'',commentaire:''});}}>Annuler modification</button>}</div>
         <div className="form-grid">
           <div className="form-field"><label>Type</label><select value={form.type} onChange={e=>setForm({...form,type:e.target.value})}>{Object.entries(absTypes).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></div>
-          <div className="form-field"><label>Du</label><input type="date" min={new Date().toISOString().split('T')[0]} value={form.date_debut} onChange={e=>setForm({...form,date_debut:e.target.value, date_fin: form.demi_journee ? e.target.value : form.date_fin})} /></div>
+          <div className="form-field"><label>Du</label><input type="date" min={new Date().toISOString().split('T')[0]} value={form.date_debut} onChange={e=>{const v=e.target.value; const next=new Date(v); next.setDate(next.getDate()+1); const nextStr=next.toISOString().split('T')[0]; setForm({...form,date_debut:v, date_fin: form.demi_journee ? v : (form.date_fin && form.date_fin > v ? form.date_fin : nextStr)});}} /></div>
           <div className="form-field"><label>Au</label><input type="date" min={form.date_debut||new Date().toISOString().split('T')[0]} value={form.date_fin} onChange={e=>setForm({...form,date_fin:e.target.value})} disabled={!!form.demi_journee} /></div>
           <div className="form-field"><label>Duree</label><select value={form.demi_journee} onChange={e=>setForm({...form,demi_journee:e.target.value, date_fin: e.target.value ? form.date_debut : form.date_fin})}>
             <option value="">Journee(s) complete(s)</option>
@@ -507,7 +513,7 @@ function CongesTab({ c, absences, solde, onReload, settings }) {
         )}
         {error && <div style={{marginTop:10,padding:'10px 14px',background:'var(--bg-danger)',color:'var(--text-danger)',borderRadius:10,fontSize:'0.85rem',fontWeight:600,borderLeft:'4px solid var(--border-danger)'}}>{error}</div>}
         <div style={{display:'flex',justifyContent:'flex-end',marginTop:10}}>
-          <button className="btn btn-primary" onClick={submit} disabled={submitting}>{submitting ? '⏳ En cours...' : '🏖️ Demander'}</button>
+          <button className="btn btn-primary" onClick={submit} disabled={submitting}>{submitting ? '⏳ En cours...' : editingId ? '💾 Modifier' : '🏖️ Demander'}</button>
         </div>
       </div>
 
@@ -536,7 +542,10 @@ function CongesTab({ c, absences, solde, onReload, settings }) {
             </div>
             <div style={{display:'flex',flexDirection:'column',gap:4,alignItems:'flex-end'}}>
               <Badge type={a.statut==='annulation_demandee'?'pink':'orange'}>{a.statut==='annulation_demandee'?'🔄 Annulation':'⏳ En attente'}</Badge>
-              {a.statut==='en_attente' && <button className="btn btn-danger btn-sm" style={{padding:'4px 10px',fontSize:'0.68rem'}} onClick={()=>{setCancelId(a.id);setCancelMotif('');}}>Annuler</button>}
+              {a.statut==='en_attente' && <div style={{display:'flex',gap:4}}>
+                <button className="btn btn-ghost btn-sm" style={{padding:'4px 10px',fontSize:'0.68rem'}} onClick={()=>{setEditingId(a.id);setForm({type:a.type,date_debut:a.date_debut,date_fin:a.date_fin,demi_journee:a.demi_journee||'',commentaire:a.commentaire||''});window.scrollTo({top:0,behavior:'smooth'});}}>✏️ Modifier</button>
+                <button className="btn btn-danger btn-sm" style={{padding:'4px 10px',fontSize:'0.68rem'}} onClick={async()=>{if(!confirm('Supprimer cette demande ?'))return;try{await api.deleteAbsence(a.id);onReload();}catch(e){setError('Erreur: '+e.message);}}}>✕</button>
+              </div>}
             </div>
           </div>
         ))}
@@ -575,24 +584,29 @@ function CongesTab({ c, absences, solde, onReload, settings }) {
           }}>📅 Exporter ICS</button>
         )}
       </div>
-      {absences.filter(a=>a.statut!=='en_attente').length===0 ? <p style={{color:'var(--muted)',fontSize:'0.82rem',fontStyle:'italic'}}>Aucun historique.</p> : absences.filter(a=>a.statut!=='en_attente').map(a => (
-        <div key={a.id} style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',borderRadius:12,border:`1.5px solid ${a.statut==='approuve'?'var(--text-success)':'var(--border-danger)'}`,marginBottom:8,background:a.statut==='approuve'?'var(--bg-success)':'var(--bg-danger)'}}>
-          <div style={{flex:1}}>
-            <div style={{fontWeight:700,fontSize:'0.9rem',color:'var(--navy)'}}>{ABS_TYPES[a.type]||a.type}</div>
-            <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)} · {absenceDays(a)}j ouvré{absenceDays(a)>1?'s':''}</div>
-            {a.commentaire && <div style={{fontSize:'0.78rem',color:'var(--muted)',fontStyle:'italic',marginTop:2}}>{a.commentaire}</div>}
-            {a.statut==='refuse' && a.motif_refus && <div style={{fontSize:'0.78rem',color:'var(--text-danger)',marginTop:4,background:'var(--white)',padding:'6px 10px',borderRadius:6,borderLeft:'3px solid var(--border-danger)'}}>❌ Motif du refus : {a.motif_refus}</div>}
+      {(()=>{
+        const hist = absences.filter(a=>a.statut!=='en_attente'&&a.statut!=='annulation_demandee');
+        const badgeMap = {approuve:'green',refuse:'pink',annule:'gray'};
+        const labelMap = {approuve:'✅ Approuve',refuse:'❌ Refuse',annule:'🚫 Annule'};
+        return hist.length===0 ? <p style={{color:'var(--muted)',fontSize:'0.82rem',fontStyle:'italic'}}>Aucun historique.</p> : hist.map(a => (
+          <div key={a.id} style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',borderRadius:12,border:`1.5px solid ${a.statut==='approuve'?'var(--text-success)':a.statut==='annule'?'var(--lavender)':'var(--border-danger)'}`,marginBottom:8,background:a.statut==='approuve'?'var(--bg-success)':a.statut==='annule'?'var(--offwhite)':'var(--bg-danger)',opacity:a.statut==='annule'?0.7:1}}>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:700,fontSize:'0.9rem',color:'var(--navy)'}}>{ABS_TYPES[a.type]||a.type}</div>
+              <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>Du {fmtDate(a.date_debut)} au {fmtDate(a.date_fin)} · {absenceDays(a)}j ouvre{absenceDays(a)>1?'s':''}</div>
+              {a.commentaire && <div style={{fontSize:'0.78rem',color:'var(--muted)',fontStyle:'italic',marginTop:2}}>{a.commentaire}</div>}
+              {a.statut==='refuse' && a.motif_refus && <div style={{fontSize:'0.78rem',color:'var(--text-danger)',marginTop:4,background:'var(--white)',padding:'6px 10px',borderRadius:6,borderLeft:'3px solid var(--border-danger)'}}>❌ Motif : {a.motif_refus}</div>}
+              {a.approved_by && <div style={{fontSize:'0.7rem',color:'var(--muted)',marginTop:4}}>Traite par {a.approved_by}{a.approved_at?' le '+fmtDate(a.approved_at.split('T')[0]):''}</div>}
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:4,alignItems:'flex-end'}}>
+              <Badge type={badgeMap[a.statut]||'gray'}>{labelMap[a.statut]||a.statut}</Badge>
+              {a.statut==='approuve' && <>
+                {(()=>{const end=new Date(a.date_fin);end.setDate(end.getDate()+1);const gcalUrl=`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent((absTypes[a.type]||a.type)+(a.demi_journee?' ('+a.demi_journee+')':''))}&dates=${a.date_debut.replace(/-/g,'')}/${end.toISOString().split('T')[0].replace(/-/g,'')}&details=${encodeURIComponent(a.commentaire||'')}`;return <a href={gcalUrl} target="_blank" rel="noopener noreferrer" style={{fontSize:'0.68rem',color:'var(--blue)',fontWeight:700,textDecoration:'none'}} onClick={e=>e.stopPropagation()}>📅 Agenda</a>;})()}
+                <button className="btn btn-danger btn-sm" style={{padding:'3px 8px',fontSize:'0.65rem'}} onClick={()=>{setCancelId(a.id);setCancelMotif('');}}>Demander annulation</button>
+              </>}
+            </div>
           </div>
-          <div style={{display:'flex',flexDirection:'column',gap:4,alignItems:'flex-end'}}>
-            <Badge type={a.statut==='approuve'?'green':'pink'}>{a.statut==='approuve'?'✅ Approuvé':'❌ Refusé'}</Badge>
-            {a.statut==='approuve' && (()=>{
-              const end = new Date(a.date_fin); end.setDate(end.getDate()+1);
-              const gcalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent((absTypes[a.type]||a.type)+(a.demi_journee?' ('+a.demi_journee+')':''))}&dates=${a.date_debut.replace(/-/g,'')}/${end.toISOString().split('T')[0].replace(/-/g,'')}&details=${encodeURIComponent(a.commentaire||'')}`;
-              return <a href={gcalUrl} target="_blank" rel="noopener noreferrer" style={{fontSize:'0.68rem',color:'var(--blue)',fontWeight:700,textDecoration:'none'}} onClick={e=>e.stopPropagation()}>📅 Agenda</a>;
-            })()}
-          </div>
-        </div>
-      ))}
+        ));
+      })()}
     </div>
   );
 }
@@ -602,8 +616,7 @@ function LeaveCalendar({ absences }) {
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth());
 
-  const FERIES_FIXES = [[1,1],[5,1],[5,8],[7,14],[8,15],[11,1],[11,11],[12,25]];
-  const feriesSet = new Set(FERIES_FIXES.map(([m,d]) => `${year}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`));
+  const feriesSet = getFeriesSet(year);
 
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month+1, 0);
@@ -626,13 +639,12 @@ function LeaveCalendar({ absences }) {
         const isFerie = feriesSet.has(ds);
         const isWE = col>=5;
         const isToday = ds===today;
-        const abs = absences.find(a => ds>=a.date_debut && ds<=a.date_fin);
+        const abs = absences.find(a => ds>=a.date_debut && ds<=a.date_fin && a.statut!=='annule');
         let bg='transparent',color='var(--navy)';
-        if(isWE) { bg='var(--offwhite)'; color='var(--muted)'; }
-        if(isFerie) { bg='var(--bg-info)'; color='var(--text-info)'; }
+        if(isWE||isFerie) { bg='#8F8FBC33'; color='#8F8FBC'; }
         if(abs) { bg=abs.statut==='approuve'?'var(--bg-success)':abs.statut==='en_attente'?'var(--bg-warning)':'var(--bg-danger)'; color=abs.statut==='approuve'?'var(--text-success)':abs.statut==='en_attente'?'var(--text-warning)':'var(--text-danger)'; }
         if(isToday) { bg='var(--pink)'; color='white'; }
-        cells.push(<td key={col} style={{padding:2,textAlign:'center'}}><div style={{width:28,height:28,lineHeight:'28px',margin:'0 auto',borderRadius:8,background:bg,color,fontWeight:isToday||abs?700:500,fontSize:'0.78rem'}}>{dayNum}</div></td>);
+        cells.push(<td key={col} title={isFerie?'Jour ferie':''} style={{padding:2,textAlign:'center'}}><div style={{width:28,height:28,lineHeight:'28px',margin:'0 auto',borderRadius:8,background:bg,color,fontWeight:isToday||abs?700:500,fontSize:'0.78rem'}}>{dayNum}</div></td>);
         dayNum++;
       }
     }
@@ -690,6 +702,7 @@ function TeamCalendar({ collab }) {
   const next = () => { if(month===11){setMonth(0);setYear(year+1)}else setMonth(month+1) };
   const daysInMonth = new Date(year, month+1, 0).getDate();
   const monthLabel = new Date(year, month, 1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+  const feries = getFeriesSet(year);
 
   return (
     <div>
@@ -700,8 +713,13 @@ function TeamCalendar({ collab }) {
       </div>
       <div style={{overflowX:'auto'}}>
         <table style={{fontSize:'0.72rem',width:'100%'}}>
-          <thead><tr><th style={{textAlign:'left',padding:'4px 8px'}}>Collègue</th>
-            {Array.from({length:daysInMonth},(_,i)=><th key={i} style={{padding:'2px 4px',textAlign:'center'}}>{i+1}</th>)}
+          <thead><tr><th style={{textAlign:'left',padding:'4px 8px'}}>Collegue</th>
+            {Array.from({length:daysInMonth},(_,i)=>{
+              const dow=new Date(year,month,i+1).getDay();
+              const ds=`${year}-${String(month+1).padStart(2,'0')}-${String(i+1).padStart(2,'0')}`;
+              const isOff=dow===0||dow===6||feries.has(ds);
+              return <th key={i} style={{padding:'2px 4px',textAlign:'center',color:isOff?'#8F8FBC':'var(--muted)',fontWeight:isOff?400:700}}>{i+1}</th>;
+            })}
           </tr></thead>
           <tbody>{teammates.map(c => {
             const abs = teamAbs.filter(a=>a.collaborateur_id===c.id);
@@ -710,10 +728,11 @@ function TeamCalendar({ collab }) {
                 const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(d+1).padStart(2,'0')}`;
                 const dow = new Date(year,month,d+1).getDay();
                 const isWE = dow===0||dow===6;
+                const isFerie = feries.has(ds);
                 const a = abs.find(x=>ds>=x.date_debut&&ds<=x.date_fin);
-                let bg = isWE?'var(--lavender)':'transparent';
-                if(a) bg = a.statut==='approuve'?'var(--bg-success)':'var(--bg-warning)';
-                return <td key={d} style={{padding:2,textAlign:'center',background:bg,borderRadius:2}} />;
+                let bg = isWE||isFerie?'#8F8FBC33':'transparent';
+                if(a && !isWE && !isFerie) bg = a.statut==='approuve'?'var(--bg-success)':'var(--bg-warning)';
+                return <td key={d} title={isFerie?'Jour ferie':''} style={{padding:2,textAlign:'center',background:bg,borderRadius:2}} />;
               })}
             </tr>;
           })}</tbody>
