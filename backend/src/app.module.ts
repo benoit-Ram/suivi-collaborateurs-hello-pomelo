@@ -10,11 +10,14 @@ import { ObjectifsModule } from './modules/objectifs/objectifs.module';
 import { AbsencesModule } from './modules/absences/absences.module';
 import { PointsSuiviModule } from './modules/points-suivi/points-suivi.module';
 import { SettingsModule } from './modules/settings/settings.module';
+import { MissionsModule } from './modules/missions/missions.module';
+import { AssignmentsModule } from './modules/assignments/assignments.module';
+import { TimeEntriesModule } from './modules/time-entries/time-entries.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]), // 100 requests per minute
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     SupabaseModule,
     AuthModule,
     CollaborateursModule,
@@ -22,6 +25,9 @@ import { SettingsModule } from './modules/settings/settings.module';
     AbsencesModule,
     PointsSuiviModule,
     SettingsModule,
+    MissionsModule,
+    AssignmentsModule,
+    TimeEntriesModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: AuthGuard },

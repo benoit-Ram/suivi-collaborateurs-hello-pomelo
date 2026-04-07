@@ -143,3 +143,52 @@ ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS solde_rtt numeric DEFAULT 0;
 -- Cycle de congés (date de début du cycle, optionnel)
 ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS cycle_conges_debut date;
 ```
+
+## Migration v9 — Missions & Staffing
+
+```sql
+-- Missions (projets clients)
+CREATE TABLE IF NOT EXISTS missions (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  nom text NOT NULL,
+  client text NOT NULL,
+  description text,
+  categorie text,
+  statut text DEFAULT 'en_cours',
+  date_debut date,
+  date_fin date,
+  tjm numeric,
+  budget_vendu numeric,
+  methode_facturation text,
+  responsable_id uuid REFERENCES collaborateurs(id),
+  created_at timestamptz DEFAULT now()
+);
+
+-- Affectations (collaborateur ↔ mission)
+CREATE TABLE IF NOT EXISTS assignments (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  mission_id uuid REFERENCES missions(id) ON DELETE CASCADE,
+  collaborateur_id uuid REFERENCES collaborateurs(id) ON DELETE CASCADE,
+  role text,
+  taux_staffing numeric DEFAULT 100,
+  tjm numeric,
+  date_debut date,
+  date_fin date,
+  statut text DEFAULT 'actif',
+  created_at timestamptz DEFAULT now()
+);
+
+-- Feuilles de temps
+CREATE TABLE IF NOT EXISTS time_entries (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  assignment_id uuid REFERENCES assignments(id) ON DELETE CASCADE,
+  collaborateur_id uuid REFERENCES collaborateurs(id),
+  date date NOT NULL,
+  temps_prevu numeric DEFAULT 1,
+  temps_reel numeric,
+  commentaire text,
+  statut text DEFAULT 'planifie',
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(assignment_id, date)
+);
+```
