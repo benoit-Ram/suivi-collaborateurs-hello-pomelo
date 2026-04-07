@@ -29,6 +29,7 @@ const SETTINGS_KEYS = [
   { key: 'bureaux', label: 'Bureaux', placeholder: 'Nouveau bureau...' },
   { key: 'contrats', label: 'Types de contrat', placeholder: 'Nouveau type...' },
   { key: 'typePostes', label: 'Types de poste', placeholder: 'Ex : Senior, Lead...' },
+  { key: 'mission_categories', label: 'Catégories de mission', placeholder: 'Ex : Web, Mobile, TMA...' },
 ];
 
 export default function Settings() {

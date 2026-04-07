@@ -9,6 +9,7 @@ const STATUT_LABEL = { en_cours:'En cours', termine:'Terminé', annule:'Annulé'
 
 export default function Missions() {
   const { collabs, settings, showToast, loading: ctxLoading } = useData();
+  const missionCategories = settings?.mission_categories || ['Web','Mobile','ERP','DevOps','Design','Data','Conseil','TMA'];
   const missionRoles = settings?.mission_roles || [
     {label:'Directeur Projet',tjm:900},{label:'Product Manager',tjm:700},{label:'Product Owner',tjm:650},
     {label:'Proxi Product Owner',tjm:600},{label:'Lead Designer',tjm:800},{label:'Designer (UX/UI)',tjm:650},
@@ -35,6 +36,7 @@ export default function Missions() {
   // Client modal + detail
   const [clientModal, setClientModal] = useState(null);
   const [clientForm, setClientForm] = useState({});
+  const [sirenResults, setSirenResults] = useState([]);
   const [selectedClient, setSelectedClient] = useState(null);
   // Timeline/Staffing filters
   const [filterClient, setFilterClient] = useState('');
@@ -51,6 +53,11 @@ export default function Missions() {
   }, [showEquipeDropdown]);
   const [staffingDateDebut, setStaffingDateDebut] = useState('');
   const [staffingDateFin, setStaffingDateFin] = useState('');
+  // Missions view
+  const [viewMode, setViewMode] = useState('cartes'); // cartes | liste
+  const [missionDateDebut, setMissionDateDebut] = useState('');
+  const [missionDateFin, setMissionDateFin] = useState('');
+  const [missionStatut, setMissionStatut] = useState('');
 
   useEffect(() => { loadData(); }, []);
 
@@ -65,14 +72,14 @@ export default function Missions() {
 
   const getClientName = (m) => m.clients?.nom || m.client || '—';
 
-  const openCreate = (clientId) => { setForm({ nom:'', client_id:clientId||'', description:'', categorie:'', statut:'en_cours', date_debut:'', date_fin:'', tjm:'', budget_vendu:'', methode_facturation:'regie', responsable_id:'' }); setModal('create'); };
-  const openEdit = (m) => { setForm({ nom:m.nom, client_id:m.client_id||'', description:m.description||'', categorie:m.categorie||'', statut:m.statut, date_debut:m.date_debut||'', date_fin:m.date_fin||'', tjm:m.tjm||'', budget_vendu:m.budget_vendu||'', methode_facturation:m.methode_facturation||'regie', responsable_id:m.responsable_id||'' }); setModal(m); };
+  const openCreate = (clientId) => { setForm({ nom:'', client_id:clientId||'', description:'', categorie:'', statut:'en_cours', date_debut:'', date_fin:'', budget_vendu:'', methode_facturation:'regie', responsable_id:'', lien_propale:'' }); setModal('create'); };
+  const openEdit = (m) => { setForm({ nom:m.nom, client_id:m.client_id||'', description:m.description||'', categorie:m.categorie||'', statut:m.statut, date_debut:m.date_debut||'', date_fin:m.date_fin||'', budget_vendu:m.budget_vendu||'', methode_facturation:m.methode_facturation||'regie', responsable_id:m.responsable_id||'', lien_propale:m.lien_propale||'' }); setModal(m); };
 
   const saveMission = async () => {
     if (!form.nom || !form.client_id) { showToast('Nom et client sont obligatoires'); return; }
     setFormLoading(true);
     try {
-      const row = { ...form, tjm: form.tjm ? parseFloat(form.tjm) : null, budget_vendu: form.budget_vendu ? parseFloat(form.budget_vendu) : null, responsable_id: form.responsable_id || null };
+      const row = { ...form, budget_vendu: form.budget_vendu ? parseFloat(form.budget_vendu) : null, responsable_id: form.responsable_id || null, lien_propale: form.lien_propale || null };
       if (modal === 'create') {
         await api.createMission(row);
         showToast('Mission créée ✓');
@@ -156,7 +163,7 @@ export default function Missions() {
       </div>
 
       <div className="tabs-scroll" style={{display:'flex',gap:6,marginBottom:24,background:'var(--offwhite)',padding:6,borderRadius:12,overflowX:'auto'}}>
-        {[['clients',`🏢 Clients (${clients.length})`],['active',`🚀 En cours (${active.length})`],['all','📋 Toutes'],['timeline','📅 Calendrier'],['staffing','📊 Staffing']].map(([k,l])=>(
+        {[['clients',`🏢 Clients (${clients.length})`],['missions',`🚀 Missions (${missions.length})`],['timeline','📅 Calendrier'],['staffing','📊 Staffing']].map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)} style={{flex:'1 0 auto',padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',background:tab===k?'var(--pink)':'transparent',color:tab===k?'white':'var(--muted)',border:tab===k?'none':'1.5px solid var(--lavender)',boxShadow:tab===k?'0 4px 14px rgba(255,50,133,0.3)':'none'}}>{l}</button>
         ))}
       </div>
@@ -219,24 +226,41 @@ export default function Missions() {
         </>}
       </div></FadeIn>}
 
-      {/* EN COURS */}
-      {tab==='active' && <FadeIn><div>
-        {active.length === 0 ? <div className="card" style={{textAlign:'center',padding:32,color:'var(--muted)'}}>Aucune mission en cours</div> :
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(320px,1fr))',gap:16}}>
-          {active.map(m => <MissionCard key={m.id} m={m} collabs={collabs} onEdit={openEdit} onDelete={deleteMission} onAssign={()=>{setAssignModal(m.id);setAssignForm({collaborateur_id:'',role:'',taux_staffing:100,jours_par_semaine:5,tjm:'',date_debut:m.date_debut||'',date_fin:m.date_fin||''});}} onRemoveAssign={removeAssignment} onDetail={setDetail} />)}
-        </div>}
-      </div></FadeIn>}
-
-      {/* TOUTES */}
-      {tab==='all' && <FadeIn><div>
-        <input type="text" value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher une mission..." style={{width:'100%',maxWidth:400,border:'1.5px solid var(--lavender)',borderRadius:10,padding:'10px 16px',fontFamily:'inherit',fontSize:'0.9rem',outline:'none',background:'var(--offwhite)',color:'var(--navy)',marginBottom:16}} />
-        <div className="card" style={{overflowX:'auto'}}>
-          <table>
-            <thead><tr><th>Mission</th><th>Client</th><th>Statut</th><th>Dates</th><th>Equipe</th><th>Budget</th><th></th></tr></thead>
-            <tbody>{filtered.map(m=>(
+      {/* MISSIONS (unified) */}
+      {tab==='missions' && <FadeIn><div>
+        <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
+          <input type="text" value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher..." style={{flex:1,maxWidth:250,border:'1.5px solid var(--lavender)',borderRadius:10,padding:'8px 14px',fontFamily:'inherit',fontSize:'0.82rem',outline:'none',background:'var(--offwhite)',color:'var(--navy)'}} />
+          <select value={missionStatut} onChange={e=>setMissionStatut(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 10px',fontFamily:'inherit',fontSize:'0.78rem',background:'var(--offwhite)',color:'var(--navy)'}}>
+            <option value="">Tous statuts</option>
+            {Object.entries(STATUT_LABEL).map(([k,v])=><option key={k} value={k}>{v}</option>)}
+          </select>
+          <div style={{display:'flex',alignItems:'center',gap:4}}>
+            <input type="date" value={missionDateDebut} onChange={e=>setMissionDateDebut(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'5px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)'}} />
+            <span style={{color:'var(--muted)',fontSize:'0.75rem'}}>→</span>
+            <input type="date" value={missionDateFin} onChange={e=>setMissionDateFin(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'5px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)'}} />
+          </div>
+          <div style={{display:'flex',gap:2,marginLeft:'auto'}}>
+            <button onClick={()=>setViewMode('cartes')} className={`btn btn-sm ${viewMode==='cartes'?'btn-primary':'btn-ghost'}`} style={{padding:'5px 10px',fontSize:'0.72rem'}}>🃏 Cartes</button>
+            <button onClick={()=>setViewMode('liste')} className={`btn btn-sm ${viewMode==='liste'?'btn-primary':'btn-ghost'}`} style={{padding:'5px 10px',fontSize:'0.72rem'}}>📋 Liste</button>
+          </div>
+        </div>
+        {(()=>{
+          let list = missions;
+          if (search) list = list.filter(m => (m.nom+getClientName(m)+(m.categorie||'')).toLowerCase().includes(search.toLowerCase()));
+          if (missionStatut) list = list.filter(m => m.statut === missionStatut);
+          if (missionDateDebut) list = list.filter(m => !m.date_fin || m.date_fin >= missionDateDebut);
+          if (missionDateFin) list = list.filter(m => !m.date_debut || m.date_debut <= missionDateFin);
+          if (list.length === 0) return <div className="card" style={{textAlign:'center',padding:32,color:'var(--muted)'}}>Aucune mission trouvée</div>;
+          if (viewMode === 'cartes') return <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(320px,1fr))',gap:16}}>
+            {list.map(m => <MissionCard key={m.id} m={m} collabs={collabs} onEdit={openEdit} onDelete={deleteMission} onAssign={()=>{setAssignModal(m.id);setAssignForm({collaborateur_id:'',role:'',taux_staffing:100,jours_par_semaine:5,tjm:'',date_debut:m.date_debut||'',date_fin:m.date_fin||''});}} onRemoveAssign={removeAssignment} onDetail={setDetail} />)}
+          </div>;
+          return <div className="card" style={{overflowX:'auto'}}><table>
+            <thead><tr><th>Mission</th><th>Client</th><th>Catégorie</th><th>Statut</th><th>Dates</th><th>Équipe</th><th>Budget</th><th></th></tr></thead>
+            <tbody>{list.map(m=>(
               <tr key={m.id}>
                 <td style={{fontWeight:700,color:'var(--navy)',cursor:'pointer'}} onClick={()=>setDetail(m)}>{m.nom}</td>
                 <td>{getClientName(m)}</td>
+                <td style={{fontSize:'0.78rem',color:'var(--muted)'}}>{m.categorie||'—'}</td>
                 <td><Badge type={STATUT_BADGE[m.statut]}>{STATUT_LABEL[m.statut]||m.statut}</Badge></td>
                 <td style={{fontSize:'0.78rem',color:'var(--muted)'}}>{fmtDate(m.date_debut)} → {fmtDate(m.date_fin)}</td>
                 <td><div style={{display:'flex',gap:-4}}>{(m.assignments||[]).slice(0,4).map(a=>a.collaborateurs&&<Avatar key={a.id} prenom={a.collaborateurs.prenom} nom={a.collaborateurs.nom} photoUrl={a.collaborateurs.photo_url} size={24} />)}{(m.assignments||[]).length>4&&<span style={{fontSize:'0.7rem',color:'var(--muted)'}}>+{(m.assignments||[]).length-4}</span>}</div></td>
@@ -244,8 +268,8 @@ export default function Missions() {
                 <td><div style={{display:'flex',gap:4}}><button className="btn btn-ghost btn-sm" style={{padding:'3px 8px'}} onClick={()=>openEdit(m)}>✏️</button><button className="btn btn-danger btn-sm" style={{padding:'3px 8px'}} onClick={()=>deleteMission(m.id)}>🗑️</button></div></td>
               </tr>
             ))}</tbody>
-          </table>
-        </div>
+          </table></div>;
+        })()}
       </div></FadeIn>}
 
       {/* TIMELINE / CALENDRIER GLOBAL */}
@@ -336,11 +360,11 @@ export default function Missions() {
         <div className="form-grid">
           <div className="form-field"><label>Nom <span style={{color:'var(--red)'}}>*</span></label><input autoFocus value={form.nom||''} onChange={e=>setForm({...form,nom:e.target.value})} /></div>
           <div className="form-field"><label>Client <span style={{color:'var(--red)'}}>*</span></label><select value={form.client_id||''} onChange={e=>setForm({...form,client_id:e.target.value})}><option value="">Sélectionner un client...</option>{clients.map(c=><option key={c.id} value={c.id}>{c.nom}</option>)}</select></div>
-          <div className="form-field"><label>Catégorie</label><input value={form.categorie||''} onChange={e=>setForm({...form,categorie:e.target.value})} placeholder="Ex: Web, Mobile, ERP..." /></div>
+          <div className="form-field"><label>Catégorie</label><select value={form.categorie||''} onChange={e=>setForm({...form,categorie:e.target.value})}><option value="">—</option>{missionCategories.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
           <div className="form-field"><label>Statut</label><select value={form.statut||'en_cours'} onChange={e=>setForm({...form,statut:e.target.value})}>{Object.entries(STATUT_LABEL).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></div>
           <div className="form-field"><label>Date début</label><input type="date" value={form.date_debut||''} onChange={e=>setForm({...form,date_debut:e.target.value})} /></div>
           <div className="form-field"><label>Date fin</label><input type="date" value={form.date_fin||''} onChange={e=>setForm({...form,date_fin:e.target.value})} /></div>
-          <div className="form-field"><label>TJM moyen (€)</label><input type="number" value={form.tjm||''} onChange={e=>setForm({...form,tjm:e.target.value})} /></div>
+          <div className="form-field"><label>Lien propale signée</label><input type="url" value={form.lien_propale||''} onChange={e=>setForm({...form,lien_propale:e.target.value})} placeholder="https://drive.google.com/..." /></div>
           <div className="form-field"><label>Budget vendu (€)</label><input type="number" value={form.budget_vendu||''} onChange={e=>setForm({...form,budget_vendu:e.target.value})} /></div>
           <div className="form-field"><label>Facturation</label><select value={form.methode_facturation||'regie'} onChange={e=>setForm({...form,methode_facturation:e.target.value})}><option value="regie">Régie</option><option value="forfait">Forfait</option></select></div>
           <div className="form-field"><label>Responsable</label><select value={form.responsable_id||''} onChange={e=>setForm({...form,responsable_id:e.target.value})}><option value="">Aucun</option>{collabs.map(c=><option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>)}</select></div>
@@ -380,7 +404,7 @@ export default function Missions() {
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
             <div><div style={{fontSize:'0.7rem',fontWeight:700,color:'var(--muted)',textTransform:'uppercase'}}>Dates</div><div style={{fontWeight:600}}>{fmtDate(detail.date_debut)} → {fmtDate(detail.date_fin)}</div></div>
             <div><div style={{fontSize:'0.7rem',fontWeight:700,color:'var(--muted)',textTransform:'uppercase'}}>Budget vendu</div><div style={{fontWeight:700,color:'var(--navy)'}}>{detail.budget_vendu?detail.budget_vendu.toLocaleString('fr-FR')+' €':'—'}</div></div>
-            <div><div style={{fontSize:'0.7rem',fontWeight:700,color:'var(--muted)',textTransform:'uppercase'}}>TJM moyen</div><div style={{fontWeight:600}}>{detail.tjm?detail.tjm+' €/j':'—'}</div></div>
+            <div><div style={{fontSize:'0.7rem',fontWeight:700,color:'var(--muted)',textTransform:'uppercase'}}>Propale</div><div style={{fontWeight:600}}>{detail.lien_propale?<a href={detail.lien_propale} target="_blank" rel="noopener noreferrer" style={{color:'var(--blue)',textDecoration:'none'}}>📄 Voir</a>:'—'}</div></div>
             <div><div style={{fontSize:'0.7rem',fontWeight:700,color:'var(--muted)',textTransform:'uppercase'}}>Responsable</div><div style={{fontWeight:600}}>{(()=>{const r=collabs.find(c=>c.id===detail.responsable_id);return r?r.prenom+' '+r.nom:'—';})()}</div></div>
           </div>
           <div style={{fontSize:'0.78rem',fontWeight:700,textTransform:'uppercase',color:'var(--pink)',marginBottom:8}}>Équipe ({(detail.assignments||[]).length})</div>
@@ -400,10 +424,21 @@ export default function Missions() {
         {clientModal==='create' && <div style={{marginBottom:16,padding:'12px 16px',background:'var(--offwhite)',borderRadius:10,border:'1px dashed var(--lavender)'}}>
           <div style={{fontSize:'0.78rem',fontWeight:700,color:'var(--navy)',marginBottom:6}}>🔍 Recherche par SIREN ou raison sociale</div>
           <div style={{display:'flex',gap:6}}>
-            <input id="siren-search" placeholder="SIREN ou nom d'entreprise..." style={{flex:1,border:'1.5px solid var(--lavender)',borderRadius:8,padding:'8px 12px',fontFamily:'inherit',fontSize:'0.85rem'}} onKeyDown={e=>{if(e.key==='Enter'){const q=e.target.value.trim();if(!q)return;fetch(`https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(q)}&page=1&per_page=1`).then(r=>r.json()).then(d=>{const r=d.results?.[0];if(r){setClientForm({...clientForm,nom:r.nom_raison_sociale||r.nom_complet||'',siren:r.siren||'',siret:r.siege?.siret||'',tva_intra:r.siren?`FR${(12+3*(parseInt(r.siren)%97))%97}${r.siren}`:'',adresse:r.siege?.geo_adresse||'',code_postal:r.siege?.code_postal||'',ville:r.siege?.libelle_commune||'',categorie_entreprise:r.categorie_entreprise||'',secteur:r.activite_principale||''});showToast('Entreprise trouvee !')}else showToast('Aucun resultat')}).catch(()=>showToast('Erreur de recherche'));}}} />
-            <button className="btn btn-ghost btn-sm" onClick={()=>{const q=document.getElementById('siren-search')?.value?.trim();if(!q)return;fetch(`https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(q)}&page=1&per_page=1`).then(r=>r.json()).then(d=>{const r=d.results?.[0];if(r){setClientForm({...clientForm,nom:r.nom_raison_sociale||r.nom_complet||'',siren:r.siren||'',siret:r.siege?.siret||'',tva_intra:r.siren?`FR${(12+3*(parseInt(r.siren)%97))%97}${r.siren}`:'',adresse:r.siege?.geo_adresse||'',code_postal:r.siege?.code_postal||'',ville:r.siege?.libelle_commune||'',categorie_entreprise:r.categorie_entreprise||'',secteur:r.activite_principale||''});showToast('Entreprise trouvee !')}else showToast('Aucun resultat')}).catch(()=>showToast('Erreur de recherche'))}}>Rechercher</button>
+            <input id="siren-search" placeholder="SIREN ou nom d'entreprise..." style={{flex:1,border:'1.5px solid var(--lavender)',borderRadius:8,padding:'8px 12px',fontFamily:'inherit',fontSize:'0.85rem'}} onKeyDown={e=>{if(e.key==='Enter'){const q=e.target.value.trim();if(!q)return;fetch(`https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(q)}&page=1&per_page=5`).then(r=>r.json()).then(d=>{const results=d.results||[];if(results.length===1){const r=results[0];setClientForm({...clientForm,nom:r.nom_raison_sociale||r.nom_complet||'',siren:r.siren||'',siret:r.siege?.siret||'',tva_intra:r.siren?`FR${(12+3*(parseInt(r.siren)%97))%97}${r.siren}`:'',adresse:r.siege?.geo_adresse||'',code_postal:r.siege?.code_postal||'',ville:r.siege?.libelle_commune||'',categorie_entreprise:r.categorie_entreprise||'',secteur:r.activite_principale||''});setSirenResults([]);showToast('Entreprise trouvee !');}else if(results.length>1){setSirenResults(results);}else{showToast('Aucun resultat');setSirenResults([]);}}).catch(()=>showToast('Erreur de recherche'));}}} />
+            <button className="btn btn-ghost btn-sm" onClick={()=>{const q=document.getElementById('siren-search')?.value?.trim();if(!q)return;fetch(`https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(q)}&page=1&per_page=5`).then(r=>r.json()).then(d=>{const results=d.results||[];if(results.length===1){const r=results[0];setClientForm({...clientForm,nom:r.nom_raison_sociale||r.nom_complet||'',siren:r.siren||'',siret:r.siege?.siret||'',tva_intra:r.siren?`FR${(12+3*(parseInt(r.siren)%97))%97}${r.siren}`:'',adresse:r.siege?.geo_adresse||'',code_postal:r.siege?.code_postal||'',ville:r.siege?.libelle_commune||'',categorie_entreprise:r.categorie_entreprise||'',secteur:r.activite_principale||''});setSirenResults([]);showToast('Entreprise trouvee !');}else if(results.length>1){setSirenResults(results);}else{showToast('Aucun resultat');setSirenResults([]);}}).catch(()=>showToast('Erreur de recherche'))}}>Rechercher</button>
           </div>
-          <div style={{fontSize:'0.68rem',color:'var(--muted)',marginTop:4}}>Source : API Entreprise (data.gouv.fr) — pré-remplit les champs automatiquement</div>
+          {sirenResults.length > 1 && <div style={{marginTop:8,maxHeight:200,overflowY:'auto',border:'1px solid var(--lavender)',borderRadius:8}}>
+            <div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--navy)',padding:'8px 10px',borderBottom:'1px solid var(--lavender)'}}>Plusieurs résultats — choisissez :</div>
+            {sirenResults.map((r,i)=>(
+              <div key={i} style={{padding:'8px 10px',borderBottom:'1px solid var(--lavender)',cursor:'pointer',fontSize:'0.78rem',transition:'background 0.1s'}}
+                onMouseOver={e=>e.currentTarget.style.background='var(--offwhite)'} onMouseOut={e=>e.currentTarget.style.background=''}
+                onClick={()=>{setClientForm({...clientForm,nom:r.nom_raison_sociale||r.nom_complet||'',siren:r.siren||'',siret:r.siege?.siret||'',tva_intra:r.siren?`FR${(12+3*(parseInt(r.siren)%97))%97}${r.siren}`:'',adresse:r.siege?.geo_adresse||'',code_postal:r.siege?.code_postal||'',ville:r.siege?.libelle_commune||'',categorie_entreprise:r.categorie_entreprise||'',secteur:r.activite_principale||''});setSirenResults([]);showToast('Entreprise sélectionnée !');}}>
+                <div style={{fontWeight:700,color:'var(--navy)'}}>{r.nom_raison_sociale||r.nom_complet}</div>
+                <div style={{color:'var(--muted)',fontSize:'0.7rem'}}>SIREN {r.siren} · {r.siege?.libelle_commune||'—'} · {r.categorie_entreprise||'—'}</div>
+              </div>
+            ))}
+          </div>}
+          <div style={{fontSize:'0.68rem',color:'var(--muted)',marginTop:4}}>Source : API Entreprise (data.gouv.fr)</div>
         </div>}
 
         <div style={{fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--pink)',marginBottom:8}}>Informations entreprise</div>
@@ -484,6 +519,7 @@ function MissionCard({ m, collabs, onEdit, onDelete, onAssign, onRemoveAssign, o
 /** Vue timeline Gantt — collabs en lignes × semaines en colonnes, barres de staffing */
 function TimelineView({ missions, collabs, staffingMap, allMissions }) {
   const [weekOffset, setWeekOffset] = useState(0);
+  const [selectedCollab, setSelectedCollab] = useState(null);
   const WEEKS = 16; // show 16 weeks
 
   // Calculate start Monday
@@ -539,12 +575,12 @@ function TimelineView({ missions, collabs, staffingMap, allMissions }) {
           <tbody>
             {assignedCollabs.map(c => {
               const myMissions = staffingMap[c.id]?.missions || [];
-              return <tr key={c.id} style={{borderBottom:'1px solid var(--lavender)'}}>
-                <td style={{padding:'8px 14px',position:'sticky',left:0,background:'var(--white)',zIndex:1}}>
+              return <tr key={c.id} style={{borderBottom:'1px solid var(--lavender)',background:selectedCollab===c.id?'rgba(255,50,133,0.04)':'transparent',cursor:'pointer'}} onClick={()=>setSelectedCollab(selectedCollab===c.id?null:c.id)}>
+                <td style={{padding:'8px 14px',position:'sticky',left:0,background:selectedCollab===c.id?'rgba(255,50,133,0.06)':'var(--white)',zIndex:1}}>
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
                     <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={24} />
                     <div>
-                      <div style={{fontWeight:700,color:'var(--navy)',fontSize:'0.75rem'}}>{c.prenom} {c.nom[0]}.</div>
+                      <div style={{fontWeight:700,color:selectedCollab===c.id?'var(--pink)':'var(--navy)',fontSize:'0.75rem'}}>{c.prenom} {c.nom[0]}.</div>
                       <div style={{fontSize:'0.6rem',color:'var(--muted)'}}>{c.poste}</div>
                     </div>
                   </div>
@@ -588,6 +624,40 @@ function TimelineView({ missions, collabs, staffingMap, allMissions }) {
           </tbody>
         </table>
       </div>
+      {/* Detail panel when a collab is selected */}
+      {selectedCollab && (()=>{
+        const c = collabs.find(x=>x.id===selectedCollab);
+        if (!c) return null;
+        const myAssignments = (allMissions||missions).flatMap(m => (m.assignments||[]).filter(a => a.collaborateur_id === selectedCollab && a.statut === 'actif').map(a => ({...a, mission: m})));
+        const totalTaux = myAssignments.reduce((s,a) => s + (a.taux_staffing||0), 0);
+        return <div style={{padding:'16px 18px',borderTop:'2px solid var(--pink)',background:'rgba(255,50,133,0.02)'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+            <div style={{display:'flex',alignItems:'center',gap:10}}>
+              <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={36} />
+              <div>
+                <div style={{fontWeight:700,color:'var(--navy)',fontSize:'1rem'}}>{c.prenom} {c.nom}</div>
+                <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>{c.poste} · Staffing: <strong style={{color:totalTaux>100?'var(--red)':totalTaux>=80?'var(--orange)':'var(--green)'}}>{totalTaux}%</strong> ({(totalTaux/100*5).toFixed(1)}j/sem)</div>
+              </div>
+            </div>
+            <button className="btn btn-ghost btn-sm" onClick={(e)=>{e.stopPropagation();setSelectedCollab(null);}}>✕ Fermer</button>
+          </div>
+          {myAssignments.length === 0 ? <p style={{color:'var(--muted)',fontSize:'0.82rem',fontStyle:'italic'}}>Aucune mission active</p> :
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:10}}>
+            {myAssignments.map(a => (
+              <div key={a.id} style={{padding:'12px 16px',border:'1.5px solid var(--lavender)',borderRadius:12,borderLeft:'4px solid var(--blue)',background:'white'}}>
+                <div style={{fontWeight:700,color:'var(--navy)',fontSize:'0.88rem'}}>{a.mission.nom}</div>
+                <div style={{fontSize:'0.75rem',color:'var(--muted)',marginTop:2}}>{a.mission.clients?.nom || a.mission.client || '—'}</div>
+                <div style={{display:'flex',gap:12,marginTop:8,fontSize:'0.75rem',color:'var(--muted)'}}>
+                  <span>👤 {a.role || '—'}</span>
+                  <span style={{fontWeight:700,color:'var(--blue)'}}>{a.taux_staffing}%</span>
+                </div>
+                <div style={{fontSize:'0.72rem',color:'var(--muted)',marginTop:4}}>📅 {fmtDate(a.date_debut)} → {fmtDate(a.date_fin)}</div>
+                {a.tjm && <div style={{fontSize:'0.72rem',color:'var(--muted)',marginTop:2}}>💰 {a.tjm} €/j</div>}
+              </div>
+            ))}
+          </div>}
+        </div>;
+      })()}
     </div>
   );
 }
