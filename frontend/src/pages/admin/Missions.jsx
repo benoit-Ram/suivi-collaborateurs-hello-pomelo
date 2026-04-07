@@ -206,24 +206,15 @@ export default function Missions() {
         <button className="btn btn-primary btn-sm" onClick={openCreate}>+ Nouvelle mission</button>
       </div>
 
-      <div className="tabs-scroll" style={{display:'flex',gap:6,marginBottom:24,background:'var(--offwhite)',padding:6,borderRadius:12,overflowX:'auto'}}>
       {/* Stat cards */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:12,marginBottom:20}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:12,marginBottom:20}}>
         <div className="stat-card pink"><div className="stat-num">{active.length}</div><div className="stat-label">Missions actives</div></div>
         <div className="stat-card blue"><div className="stat-num">{staffingMoyen}%</div><div className="stat-label">Staffing moyen</div></div>
         <div className="stat-card sky"><div className="stat-num">{Math.round(caPrevu/1000)}k€</div><div className="stat-label">CA mensuel prévu</div></div>
         <div className="stat-card green"><div className="stat-num">{clients.length}</div><div className="stat-label">Clients</div></div>
       </div>
 
-      {/* Alerts */}
-      {alerts.length > 0 && <div className="card" style={{marginBottom:20,padding:'14px 18px',borderLeft:'4px solid var(--orange)'}}>
-        <div style={{fontSize:'0.78rem',fontWeight:700,color:'var(--navy)',marginBottom:8}}>⚠️ Alertes ({alerts.length})</div>
-        {alerts.slice(0,8).map((a,i) => (
-          <div key={i} style={{fontSize:'0.78rem',padding:'4px 0',color:a.type==='danger'?'var(--red)':a.type==='warning'?'var(--orange)':'var(--muted)'}}>{a.icon} {a.text}</div>
-        ))}
-        {alerts.length > 8 && <div style={{fontSize:'0.72rem',color:'var(--muted)'}}>+ {alerts.length-8} autres</div>}
-      </div>}
-
+      <div className="tabs-scroll" style={{display:'flex',gap:6,marginBottom:24,background:'var(--offwhite)',padding:6,borderRadius:12,overflowX:'auto'}}>
         {[['clients',`🏢 Clients (${clients.length})`],['missions',`🚀 Missions (${missions.length})`],['timeline','📅 Calendrier'],['staffing','📊 Staffing'],['finance','💰 Finance']].map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)} style={{flex:'1 0 auto',padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',background:tab===k?'var(--pink)':'transparent',color:tab===k?'white':'var(--muted)',border:tab===k?'none':'1.5px solid var(--lavender)',boxShadow:tab===k?'0 4px 14px rgba(255,50,133,0.3)':'none'}}>{l}</button>
         ))}
