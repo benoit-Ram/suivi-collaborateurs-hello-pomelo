@@ -70,6 +70,13 @@ export const api = {
   updateSetting: (id, data) => request(`/settings/${id}`, { method: 'PUT', body: data }),
   upsertSetting: (key, value) => request('/settings/upsert', { method: 'POST', body: { key, value } }),
 
+  // Clients
+  getClients: () => request('/clients'),
+  getClient: (id) => request(`/clients/${id}`),
+  createClient: (data) => request('/clients', { method: 'POST', body: data }),
+  updateClient: (id, data) => request(`/clients/${id}`, { method: 'PUT', body: data }),
+  deleteClient: (id) => request(`/clients/${id}`, { method: 'DELETE' }),
+
   // Missions
   getMissions: (filters) => request('/missions?' + new URLSearchParams(filters || {})),
   getMission: (id) => request(`/missions/${id}`),

@@ -192,3 +192,34 @@ CREATE TABLE IF NOT EXISTS time_entries (
   UNIQUE(assignment_id, date)
 );
 ```
+
+## Migration v10 — Clients + restructuration missions
+
+```sql
+-- Table clients
+CREATE TABLE IF NOT EXISTS clients (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  nom text NOT NULL,
+  description text,
+  secteur text,
+  contact_nom text,
+  contact_email text,
+  actif boolean DEFAULT true,
+  created_at timestamptz DEFAULT now()
+);
+
+-- Ajouter client_id FK sur missions (remplace le champ texte 'client')
+ALTER TABLE missions ADD COLUMN IF NOT EXISTS client_id uuid REFERENCES clients(id);
+
+-- Migrer les données existantes : créer un client pour chaque valeur unique de 'client'
+INSERT INTO clients (nom)
+SELECT DISTINCT client FROM missions WHERE client IS NOT NULL AND client != ''
+ON CONFLICT DO NOTHING;
+
+-- Mettre à jour client_id
+UPDATE missions SET client_id = c.id FROM clients c WHERE missions.client = c.nom AND missions.client_id IS NULL;
+
+-- Granularité fine des affectations : jours par semaine (0.1 à 5)
+-- Le champ taux_staffing existant (%) reste, on ajoute jours_par_semaine
+ALTER TABLE assignments ADD COLUMN IF NOT EXISTS jours_par_semaine numeric DEFAULT 5;
+```
