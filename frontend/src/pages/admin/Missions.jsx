@@ -132,6 +132,11 @@ export default function Missions() {
     } catch(e) { showToast('Erreur: ' + e.message); }
   };
 
+  const duplicateMission = (m) => {
+    setForm({ nom: m.nom + ' (copie)', client_id: m.client_id||'', description: m.description||'', categorie: m.categorie||'', date_debut: '', date_fin: '', budget_vendu: m.budget_vendu||'', methode_facturation: m.methode_facturation||'regie', responsable_id: m.responsable_id||'', lien_propale: '' });
+    setModal('create');
+  };
+
   const removeAssignment = async (id) => {
     try { await api.deleteAssignment(id); loadData(); showToast('Affectation retirée'); } catch(e) { showToast('Erreur: ' + e.message); }
   };
@@ -248,7 +253,7 @@ export default function Missions() {
             </div>
             <div className="section-title">Missions ({cMissions.length})</div>
             {cMissions.length === 0 ? <div className="card" style={{textAlign:'center',padding:24,color:'var(--muted)'}}>Aucune mission pour ce client</div> :
-            cMissions.map(m => <MissionCard key={m.id} m={m} collabs={collabs} onEdit={openEdit} onDelete={(id)=>{deleteMission(id);}} onAssign={()=>{setAssignModal(m.id);setAssignForm({collaborateur_id:'',role:'',taux_staffing:100,jours_par_semaine:5,tjm:'',date_debut:m.date_debut||'',date_fin:m.date_fin||''});}} onRemoveAssign={removeAssignment} onDetail={setDetail} />)}
+            cMissions.map(m => <MissionCard key={m.id} m={m} collabs={collabs} onEdit={openEdit} onDelete={(id)=>{deleteMission(id);}} onAssign={()=>{setAssignModal(m.id);setAssignForm({collaborateur_id:'',role:'',taux_staffing:100,jours_par_semaine:5,tjm:'',date_debut:m.date_debut||'',date_fin:m.date_fin||''});}} onRemoveAssign={removeAssignment} onDetail={setDetail} onDuplicate={duplicateMission} />)}
           </div>;
         })() : <>
         <div style={{display:'flex',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:8}}>
@@ -303,7 +308,7 @@ export default function Missions() {
           if (missionDateFin) list = list.filter(m => !m.date_debut || m.date_debut <= missionDateFin);
           if (list.length === 0) return <div className="card" style={{textAlign:'center',padding:32,color:'var(--muted)'}}>Aucune mission trouvée</div>;
           if (viewMode === 'cartes') return <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(320px,1fr))',gap:16}}>
-            {list.map(m => <MissionCard key={m.id} m={m} collabs={collabs} onEdit={openEdit} onDelete={deleteMission} onAssign={()=>{setAssignModal(m.id);setAssignForm({collaborateur_id:'',role:'',taux_staffing:100,jours_par_semaine:5,tjm:'',date_debut:m.date_debut||'',date_fin:m.date_fin||''});}} onRemoveAssign={removeAssignment} onDetail={setDetail} />)}
+            {list.map(m => <MissionCard key={m.id} m={m} collabs={collabs} onEdit={openEdit} onDelete={deleteMission} onAssign={()=>{setAssignModal(m.id);setAssignForm({collaborateur_id:'',role:'',taux_staffing:100,jours_par_semaine:5,tjm:'',date_debut:m.date_debut||'',date_fin:m.date_fin||''});}} onRemoveAssign={removeAssignment} onDetail={setDetail} onDuplicate={duplicateMission} />)}
           </div>;
           return <div className="card" style={{overflowX:'auto'}}><table>
             <thead><tr><th>Mission</th><th>Client</th><th>Catégorie</th><th>Statut</th><th>Dates</th><th>Équipe</th><th>Budget</th><th></th></tr></thead>
@@ -597,24 +602,45 @@ export default function Missions() {
   );
 }
 
-function MissionCard({ m, collabs, onEdit, onDelete, onAssign, onRemoveAssign, onDetail }) {
+function MissionCard({ m, collabs, onEdit, onDelete, onAssign, onRemoveAssign, onDetail, onDuplicate }) {
   const team = (m.assignments || []).filter(a => a.statut === 'actif');
   const resp = m.responsable_id ? collabs.find(c => c.id === m.responsable_id) : null;
+  const todayStr = new Date().toISOString().split('T')[0];
+  const isActive = !m.date_fin || m.date_fin >= todayStr;
+  const daysLeft = m.date_fin ? Math.ceil((new Date(m.date_fin) - new Date()) / 86400000) : null;
+  // Budget progress
+  const consumed = (m.assignments||[]).reduce((s,a) => {
+    if (!a.date_debut || !a.tjm) return s;
+    const start = new Date(a.date_debut);
+    const end = a.date_fin ? new Date(Math.min(new Date(a.date_fin), new Date())) : new Date();
+    const weeks = Math.max(0, (end - start) / (7*86400000));
+    return s + (a.tjm * (a.jours_par_semaine||a.taux_staffing/100*5) * weeks);
+  }, 0);
+  const budgetPct = m.budget_vendu > 0 ? Math.round(consumed/m.budget_vendu*100) : null;
+
   return (
-    <div className="card" style={{padding:20,borderLeft:`4px solid ${(!m.date_fin||m.date_fin>=new Date().toISOString().split('T')[0])?'var(--blue)':'var(--lavender)'}`}}>
+    <div className="card" style={{padding:20,borderLeft:`4px solid ${isActive?'var(--blue)':'var(--lavender)'}`}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
         <div style={{cursor:'pointer'}} onClick={()=>onDetail(m)}>
           <div style={{fontWeight:700,fontSize:'1rem',color:'var(--navy)'}}>{m.nom}</div>
-          <div style={{fontSize:'0.82rem',color:'var(--muted)',marginTop:2}}>{m.clients?.nom || m.client || '—'}</div>
+          <div style={{fontSize:'0.82rem',color:'var(--muted)',marginTop:2}}>{m.clients?.nom || m.client || '—'}{m.categorie ? ` · ${m.categorie}` : ''}</div>
         </div>
-        <Badge type={(!m.date_fin||m.date_fin>=new Date().toISOString().split('T')[0])?'blue':'gray'}>{(!m.date_fin||m.date_fin>=new Date().toISOString().split('T')[0])?'En cours':'Passée'}</Badge>
+        <div style={{display:'flex',flexDirection:'column',gap:4,alignItems:'flex-end'}}>
+          <Badge type={isActive?'blue':'gray'}>{isActive?'En cours':'Passée'}</Badge>
+          {daysLeft !== null && daysLeft >= 0 && daysLeft <= 30 && <span style={{fontSize:'0.65rem',fontWeight:700,color:'var(--orange)'}}>⏰ {daysLeft}j restants</span>}
+        </div>
       </div>
-      <div style={{display:'flex',gap:16,fontSize:'0.78rem',color:'var(--muted)',marginBottom:12,flexWrap:'wrap'}}>
+      <div style={{display:'flex',gap:12,fontSize:'0.78rem',color:'var(--muted)',marginBottom:8,flexWrap:'wrap'}}>
         <span>📅 {fmtDate(m.date_debut)} → {fmtDate(m.date_fin)}</span>
         {m.budget_vendu && <span>💰 {m.budget_vendu.toLocaleString('fr-FR')} €</span>}
-        {m.tjm && <span>📊 {m.tjm} €/j</span>}
         {m.methode_facturation && <span>{m.methode_facturation==='forfait'?'📦 Forfait':'⏱️ Régie'}</span>}
+        {m.lien_propale && <a href={m.lien_propale} target="_blank" rel="noopener noreferrer" style={{color:'var(--blue)',textDecoration:'none'}} onClick={e=>e.stopPropagation()}>📄 Propale</a>}
       </div>
+      {/* Budget bar */}
+      {budgetPct !== null && <div style={{marginBottom:10}}>
+        <div style={{display:'flex',justifyContent:'space-between',fontSize:'0.68rem',color:'var(--muted)',marginBottom:3}}><span>Budget</span><span style={{fontWeight:700,color:budgetPct>90?'var(--red)':'var(--navy)'}}>{budgetPct}%</span></div>
+        <div style={{height:6,background:'var(--offwhite)',borderRadius:4,overflow:'hidden'}}><div style={{height:'100%',width:`${Math.min(budgetPct,100)}%`,background:budgetPct>90?'var(--red)':budgetPct>70?'var(--orange)':'var(--green)',borderRadius:4}} /></div>
+      </div>}
       {resp && <div style={{fontSize:'0.75rem',color:'var(--muted)',marginBottom:8}}>👔 {resp.prenom} {resp.nom}</div>}
       <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10}}>
         {team.slice(0,5).map(a => a.collaborateurs && <Avatar key={a.id} prenom={a.collaborateurs.prenom} nom={a.collaborateurs.nom} photoUrl={a.collaborateurs.photo_url} size={28} tooltip={true} />)}
@@ -624,6 +650,7 @@ function MissionCard({ m, collabs, onEdit, onDelete, onAssign, onRemoveAssign, o
       <div style={{display:'flex',gap:6}}>
         <button className="btn btn-ghost btn-sm" onClick={()=>onAssign()}>+ Affecter</button>
         <button className="btn btn-ghost btn-sm" onClick={()=>onEdit(m)}>✏️</button>
+        {onDuplicate && <button className="btn btn-ghost btn-sm" onClick={()=>onDuplicate(m)} title="Dupliquer">📋</button>}
         <button className="btn btn-danger btn-sm" style={{padding:'5px 8px'}} onClick={()=>onDelete(m.id)}>🗑️</button>
       </div>
     </div>
