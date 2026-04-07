@@ -22,7 +22,7 @@ export default function Sidebar() {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : '');
-    document.documentElement.style.setProperty('--sidebar-w', collapsed ? '64px' : '240px');
+    document.documentElement.style.setProperty('--sidebar-w', collapsed ? '0px' : '240px');
     localStorage.setItem('hp_sidebar_collapsed', collapsed ? 'true' : 'false');
     localStorage.setItem('hp_theme', dark ? 'dark' : 'light');
   }, [dark]);
@@ -135,7 +135,10 @@ export default function Sidebar() {
       }} />}
 
       {/* Desktop sidebar — hidden via CSS on mobile */}
-      <nav className="sidebar-desktop" style={{ width:'var(--sidebar-w)', minHeight:'100vh', background:'#05056D', display:'flex', flexDirection:'column', position:'fixed', left:0, top:0, zIndex:100 }}>
+      {/* Toggle button when collapsed */}
+      {collapsed && <button onClick={()=>setCollapsed(false)} className="sidebar-desktop" style={{ position:'fixed', top:12, left:12, zIndex:101, width:40, height:40, borderRadius:10, border:'none', background:'#05056D', color:'white', fontSize:'1.1rem', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 4px 14px rgba(5,5,109,0.3)' }}>☰</button>}
+
+      <nav className="sidebar-desktop" style={{ width:'var(--sidebar-w)', minHeight:'100vh', background:'#05056D', display:collapsed?'none':'flex', flexDirection:'column', position:'fixed', left:0, top:0, zIndex:100, transition:'width 0.2s' }}>
         {sidebarContent}
       </nav>
 
