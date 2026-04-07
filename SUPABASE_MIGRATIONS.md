@@ -241,4 +241,7 @@ ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact_facturation_email text;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact_facturation_tel text;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS siret text;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS categorie_entreprise text;
+
+-- Lien proposition commerciale sur les missions
+ALTER TABLE missions ADD COLUMN IF NOT EXISTS lien_propale text;
 ```
