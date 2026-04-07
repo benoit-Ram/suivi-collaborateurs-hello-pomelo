@@ -24,9 +24,14 @@ export default function Missions() {
   const [assignForm, setAssignForm] = useState({ collaborateur_id:'', role:'', taux_staffing:100, jours_par_semaine:5, date_debut:'', date_fin:'' });
   // Detail modal
   const [detail, setDetail] = useState(null);
-  // Client modal
+  // Client modal + detail
   const [clientModal, setClientModal] = useState(null);
   const [clientForm, setClientForm] = useState({});
+  const [selectedClient, setSelectedClient] = useState(null);
+  // Timeline/Staffing filters
+  const [filterClient, setFilterClient] = useState('');
+  const [filterEquipe, setFilterEquipe] = useState('');
+  const [staffingPeriod, setStaffingPeriod] = useState('current'); // current, q1, q2, q3, q4, year
 
   useEffect(() => { loadData(); }, []);
 
@@ -137,40 +142,59 @@ export default function Missions() {
 
       {/* CLIENTS */}
       {tab==='clients' && <FadeIn><div>
-        <div style={{display:'flex',justifyContent:'flex-end',marginBottom:16}}>
+        {selectedClient ? (()=>{
+          const sc = clients.find(x=>x.id===selectedClient);
+          if (!sc) return null;
+          const cMissions = missions.filter(m => m.client_id === sc.id);
+          return <div>
+            <button className="btn btn-ghost btn-sm" onClick={()=>setSelectedClient(null)} style={{marginBottom:16}}>← Retour aux clients</button>
+            <div className="card" style={{marginBottom:20,padding:20}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                <div>
+                  <div style={{fontWeight:700,fontSize:'1.3rem',color:'var(--navy)'}}>{sc.nom}</div>
+                  {sc.secteur && <Badge type="blue">{sc.secteur}</Badge>}
+                  {sc.description && <p style={{color:'var(--muted)',fontSize:'0.85rem',marginTop:8}}>{sc.description}</p>}
+                  {sc.contact_nom && <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:6}}>👤 {sc.contact_nom}{sc.contact_email ? ` · ${sc.contact_email}` : ''}</div>}
+                </div>
+                <div style={{display:'flex',gap:6}}>
+                  <button className="btn btn-ghost btn-sm" onClick={()=>{setClientModal(sc);setClientForm({nom:sc.nom,description:sc.description||'',secteur:sc.secteur||'',contact_nom:sc.contact_nom||'',contact_email:sc.contact_email||''});}}>✏️ Modifier</button>
+                  <button className="btn btn-primary btn-sm" onClick={()=>openCreate(sc.id)}>+ Mission</button>
+                </div>
+              </div>
+            </div>
+            <div className="section-title">Missions ({cMissions.length})</div>
+            {cMissions.length === 0 ? <div className="card" style={{textAlign:'center',padding:24,color:'var(--muted)'}}>Aucune mission pour ce client</div> :
+            cMissions.map(m => <MissionCard key={m.id} m={m} collabs={collabs} onEdit={openEdit} onDelete={(id)=>{deleteMission(id);}} onAssign={()=>{setAssignModal(m.id);setAssignForm({collaborateur_id:'',role:'',taux_staffing:100,jours_par_semaine:5,date_debut:m.date_debut||'',date_fin:m.date_fin||''});}} onRemoveAssign={removeAssignment} onDetail={setDetail} />)}
+          </div>;
+        })() : <>
+        <div style={{display:'flex',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:8}}>
+          <input type="text" value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher un client..." style={{flex:1,maxWidth:300,border:'1.5px solid var(--lavender)',borderRadius:10,padding:'8px 14px',fontFamily:'inherit',fontSize:'0.85rem',outline:'none',background:'var(--offwhite)',color:'var(--navy)'}} />
           <button className="btn btn-primary btn-sm" onClick={()=>{setClientModal('create');setClientForm({nom:'',description:'',secteur:'',contact_nom:'',contact_email:''});}}>+ Nouveau client</button>
         </div>
         {clients.length === 0 ? <div className="card" style={{textAlign:'center',padding:32,color:'var(--muted)'}}>Aucun client</div> :
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:16}}>
-          {clients.map(c => {
+          {clients.filter(c=>!search||(c.nom+(c.secteur||'')).toLowerCase().includes(search.toLowerCase())).map(c => {
             const cMissions = missions.filter(m => m.client_id === c.id);
             const activeMissions = cMissions.filter(m => m.statut === 'en_cours');
             return (
-              <div key={c.id} className="card" style={{padding:20,borderLeft:`4px solid ${activeMissions.length>0?'var(--blue)':'var(--lavender)'}`}}>
+              <div key={c.id} className="card" style={{padding:20,borderLeft:`4px solid ${activeMissions.length>0?'var(--blue)':'var(--lavender)'}`,cursor:'pointer'}} onClick={()=>setSelectedClient(c.id)}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
                   <div>
                     <div style={{fontWeight:700,fontSize:'1rem',color:'var(--navy)'}}>{c.nom}</div>
                     {c.secteur && <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>{c.secteur}</div>}
                   </div>
-                  <div style={{display:'flex',gap:4}}>
+                  <div style={{display:'flex',gap:4}} onClick={e=>e.stopPropagation()}>
                     <button className="btn btn-ghost btn-sm" style={{padding:'3px 8px'}} onClick={()=>{setClientModal(c);setClientForm({nom:c.nom,description:c.description||'',secteur:c.secteur||'',contact_nom:c.contact_nom||'',contact_email:c.contact_email||''});}}>✏️</button>
                     <button className="btn btn-danger btn-sm" style={{padding:'3px 8px'}} onClick={()=>deleteClient(c.id)}>🗑️</button>
                   </div>
                 </div>
                 {c.contact_nom && <div style={{fontSize:'0.75rem',color:'var(--muted)',marginBottom:6}}>👤 {c.contact_nom}{c.contact_email ? ` · ${c.contact_email}` : ''}</div>}
-                <div style={{fontSize:'0.78rem',fontWeight:700,color:'var(--navy)',marginBottom:6}}>{activeMissions.length} mission{activeMissions.length>1?'s':''} en cours · {cMissions.length} au total</div>
-                {activeMissions.map(m => (
-                  <div key={m.id} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 10px',background:'var(--offwhite)',borderRadius:8,marginBottom:4,cursor:'pointer',fontSize:'0.78rem'}} onClick={()=>setDetail(m)}>
-                    <Badge type="blue">En cours</Badge>
-                    <span style={{fontWeight:600,color:'var(--navy)'}}>{m.nom}</span>
-                    <span style={{color:'var(--muted)',fontSize:'0.7rem',marginLeft:'auto'}}>{(m.assignments||[]).length} pers.</span>
-                  </div>
-                ))}
-                <button className="btn btn-ghost btn-sm" style={{marginTop:6,width:'100%'}} onClick={()=>openCreate(c.id)}>+ Ajouter une mission</button>
+                <div style={{fontSize:'0.82rem',fontWeight:700,color:'var(--navy)'}}>{activeMissions.length} en cours · {cMissions.length} au total</div>
               </div>
             );
           })}
         </div>}
+        </>}
       </div></FadeIn>}
 
       {/* EN COURS */}
@@ -203,23 +227,55 @@ export default function Missions() {
       </div></FadeIn>}
 
       {/* TIMELINE / CALENDRIER GLOBAL */}
-      {tab==='timeline' && <FadeIn><div className="card" style={{padding:0,overflow:'hidden'}}>
-        <TimelineView missions={active} collabs={collabs} staffingMap={staffingMap} />
+      {tab==='timeline' && <FadeIn><div>
+        <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap'}}>
+          <select value={filterClient} onChange={e=>setFilterClient(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 10px',fontFamily:'inherit',fontSize:'0.78rem',background:'var(--offwhite)',color:'var(--navy)'}}>
+            <option value="">Tous les clients</option>
+            {clients.map(c=><option key={c.id} value={c.id}>{c.nom}</option>)}
+          </select>
+          <select value={filterEquipe} onChange={e=>setFilterEquipe(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 10px',fontFamily:'inherit',fontSize:'0.78rem',background:'var(--offwhite)',color:'var(--navy)'}}>
+            <option value="">Toutes les equipes</option>
+            {[...new Set(collabs.flatMap(c=>(c.equipe||'').split(',').map(s=>s.trim())).filter(Boolean))].map(e=><option key={e} value={e}>{e}</option>)}
+          </select>
+        </div>
+        <div className="card" style={{padding:0,overflow:'hidden'}}>
+          <TimelineView missions={filterClient ? active.filter(m=>m.client_id===filterClient) : active} collabs={filterEquipe ? collabs.filter(c=>(c.equipe||'').includes(filterEquipe)) : collabs} staffingMap={staffingMap} allMissions={active} />
+        </div>
       </div></FadeIn>}
 
       {/* STAFFING */}
-      {tab==='staffing' && <FadeIn><div className="card" style={{overflowX:'auto'}}>
+      {tab==='staffing' && <FadeIn><div>
+        <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
+          <select value={staffingPeriod} onChange={e=>setStaffingPeriod(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 10px',fontFamily:'inherit',fontSize:'0.78rem',background:'var(--offwhite)',color:'var(--navy)'}}>
+            <option value="current">Période actuelle</option>
+            <option value="q1">T1 (Jan-Mar)</option>
+            <option value="q2">T2 (Avr-Jun)</option>
+            <option value="q3">T3 (Jul-Sep)</option>
+            <option value="q4">T4 (Oct-Déc)</option>
+            <option value="year">Année complète</option>
+          </select>
+          <select value={filterEquipe} onChange={e=>setFilterEquipe(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 10px',fontFamily:'inherit',fontSize:'0.78rem',background:'var(--offwhite)',color:'var(--navy)'}}>
+            <option value="">Toutes les équipes</option>
+            {[...new Set(collabs.flatMap(c=>(c.equipe||'').split(',').map(s=>s.trim())).filter(Boolean))].map(e=><option key={e} value={e}>{e}</option>)}
+          </select>
+          <span style={{fontSize:'0.78rem',color:'var(--muted)',fontWeight:600}}>
+            {(()=>{const vals=Object.values(staffingMap); const avg=vals.length?Math.round(vals.reduce((s,v)=>s+v.taux,0)/vals.length):0; return `Taux moyen: ${avg}%`;})()}
+          </span>
+        </div>
+        <div className="card" style={{overflowX:'auto'}}>
         <table>
-          <thead><tr><th>Collaborateur</th><th>Taux staffing</th><th>Missions</th></tr></thead>
-          <tbody>{Object.values(staffingMap).sort((a,b)=>b.taux-a.taux).map(({collab:c,taux,missions:ms})=>(
+          <thead><tr><th>Collaborateur</th><th>Poste</th><th>Taux staffing</th><th>Jours/sem.</th><th>Missions</th></tr></thead>
+          <tbody>{Object.values(staffingMap).filter(({collab:c})=>!filterEquipe||(c.equipe||'').includes(filterEquipe)).sort((a,b)=>b.taux-a.taux).map(({collab:c,taux,missions:ms})=>(
             <tr key={c.id}>
               <td><div style={{display:'flex',alignItems:'center',gap:8}}><Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={28} /><span style={{fontWeight:700,color:'var(--navy)'}}>{c.prenom} {c.nom}</span></div></td>
+              <td style={{fontSize:'0.78rem',color:'var(--muted)'}}>{c.poste||'—'}</td>
               <td><div style={{display:'flex',alignItems:'center',gap:8}}><div style={{width:80,height:8,background:'var(--offwhite)',borderRadius:4,overflow:'hidden'}}><div style={{height:'100%',width:`${Math.min(taux,100)}%`,background:taux>100?'var(--red)':taux>=80?'var(--orange)':'var(--green)',borderRadius:4}} /></div><span style={{fontWeight:700,fontSize:'0.85rem',color:taux>100?'var(--red)':taux>=80?'var(--orange)':'var(--green)'}}>{taux}%</span></div></td>
+              <td style={{fontWeight:600,color:'var(--navy)'}}>{(taux/100*5).toFixed(1)}j</td>
               <td style={{fontSize:'0.78rem',color:'var(--muted)'}}>{ms.length===0?'Non staffé':ms.map(m=>`${m.nom} (${m.taux}%)`).join(', ')}</td>
             </tr>
           ))}</tbody>
         </table>
-      </div></FadeIn>}
+      </div></div></FadeIn>}
 
       {/* CREATE/EDIT MODAL */}
       <Modal open={!!modal} onClose={()=>setModal(null)} title={modal==='create'?'Nouvelle mission':'Modifier la mission'}>
@@ -335,7 +391,7 @@ function MissionCard({ m, collabs, onEdit, onDelete, onAssign, onRemoveAssign, o
 }
 
 /** Vue timeline Gantt — collabs en lignes × semaines en colonnes, barres de staffing */
-function TimelineView({ missions, collabs, staffingMap }) {
+function TimelineView({ missions, collabs, staffingMap, allMissions }) {
   const [weekOffset, setWeekOffset] = useState(0);
   const WEEKS = 16; // show 16 weeks
 
@@ -405,7 +461,7 @@ function TimelineView({ missions, collabs, staffingMap }) {
                 {weeks.map((w,wi) => {
                   const isCurrent = todayStr >= w.start && todayStr <= w.end;
                   // Find missions active this week
-                  const weekMissions = missions.filter(m => {
+                  const weekMissions = (allMissions||missions).filter(m => {
                     if (!m.date_debut || !m.date_fin) return false;
                     return (m.assignments||[]).some(a => a.collaborateur_id === c.id && a.statut === 'actif') && m.date_debut <= w.end && m.date_fin >= w.start;
                   });
