@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../services/AuthContext';
 import { fmtDate, moisLabel } from '../../components/UI';
+import { generateGuideCollab } from '../../components/GuidePDF';
 
 /** Compute relative time label in French */
 function timeAgo(dateStr) {
@@ -139,6 +140,13 @@ export default function CollabLayout() {
                 🛠️ Admin
               </button>
             )}
+            {/* Guide PDF */}
+            <button onClick={generateGuideCollab} title="Guide utilisateur"
+              style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', width: 32, height: 32, borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', flexShrink: 0, transition: 'all 0.15s' }}
+              onMouseOver={e => e.currentTarget.style.background = 'rgba(255,50,133,0.3)'}
+              onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>
+              📖
+            </button>
             {/* Notification bell */}
             <div ref={panelRef} style={{ position: 'relative' }}>
               <button onClick={() => setShowPanel(!showPanel)}
