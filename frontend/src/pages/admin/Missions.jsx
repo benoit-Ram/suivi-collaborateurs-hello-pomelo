@@ -11,34 +11,41 @@ export default function Missions() {
   const { collabs, showToast, loading: ctxLoading } = useData();
   const { user: authUser } = useAuth();
   const [missions, setMissions] = useState([]);
+  const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState('active');
+  const [tab, setTab] = useState('clients');
   const [search, setSearch] = useState('');
   // Create/Edit modal
-  const [modal, setModal] = useState(null); // null | 'create' | mission object
+  const [modal, setModal] = useState(null);
   const [form, setForm] = useState({});
   const [formLoading, setFormLoading] = useState(false);
   // Assignment modal
-  const [assignModal, setAssignModal] = useState(null); // mission id
-  const [assignForm, setAssignForm] = useState({ collaborateur_id:'', role:'', taux_staffing:100, date_debut:'', date_fin:'' });
+  const [assignModal, setAssignModal] = useState(null);
+  const [assignForm, setAssignForm] = useState({ collaborateur_id:'', role:'', taux_staffing:100, jours_par_semaine:5, date_debut:'', date_fin:'' });
   // Detail modal
   const [detail, setDetail] = useState(null);
+  // Client modal
+  const [clientModal, setClientModal] = useState(null);
+  const [clientForm, setClientForm] = useState({});
 
-  useEffect(() => { loadMissions(); }, []);
+  useEffect(() => { loadData(); }, []);
 
-  async function loadMissions() {
+  async function loadData() {
     try {
-      const data = await api.getMissions();
-      setMissions(data || []);
-    } catch(e) { console.error('Erreur missions:', e); }
+      const [m, c] = await Promise.all([api.getMissions(), api.getClients()]);
+      setMissions(m || []);
+      setClients(c || []);
+    } catch(e) { console.error('Erreur chargement:', e); }
     setLoading(false);
   }
 
-  const openCreate = () => { setForm({ nom:'', client:'', description:'', categorie:'', statut:'en_cours', date_debut:'', date_fin:'', tjm:'', budget_vendu:'', methode_facturation:'regie', responsable_id:'' }); setModal('create'); };
-  const openEdit = (m) => { setForm({ nom:m.nom, client:m.client, description:m.description||'', categorie:m.categorie||'', statut:m.statut, date_debut:m.date_debut||'', date_fin:m.date_fin||'', tjm:m.tjm||'', budget_vendu:m.budget_vendu||'', methode_facturation:m.methode_facturation||'regie', responsable_id:m.responsable_id||'' }); setModal(m); };
+  const getClientName = (m) => m.clients?.nom || m.client || '—';
+
+  const openCreate = (clientId) => { setForm({ nom:'', client_id:clientId||'', description:'', categorie:'', statut:'en_cours', date_debut:'', date_fin:'', tjm:'', budget_vendu:'', methode_facturation:'regie', responsable_id:'' }); setModal('create'); };
+  const openEdit = (m) => { setForm({ nom:m.nom, client_id:m.client_id||'', description:m.description||'', categorie:m.categorie||'', statut:m.statut, date_debut:m.date_debut||'', date_fin:m.date_fin||'', tjm:m.tjm||'', budget_vendu:m.budget_vendu||'', methode_facturation:m.methode_facturation||'regie', responsable_id:m.responsable_id||'' }); setModal(m); };
 
   const saveMission = async () => {
-    if (!form.nom || !form.client) { showToast('Nom et client sont obligatoires'); return; }
+    if (!form.nom || !form.client_id) { showToast('Nom et client sont obligatoires'); return; }
     setFormLoading(true);
     try {
       const row = { ...form, tjm: form.tjm ? parseFloat(form.tjm) : null, budget_vendu: form.budget_vendu ? parseFloat(form.budget_vendu) : null, responsable_id: form.responsable_id || null };
@@ -50,9 +57,31 @@ export default function Missions() {
         showToast('Mission mise à jour ✓');
       }
       setModal(null);
-      loadMissions();
+      loadData();
     } catch(e) { showToast('Erreur: ' + e.message); }
     setFormLoading(false);
+  };
+
+  const saveClient = async () => {
+    if (!clientForm.nom) { showToast('Le nom du client est obligatoire'); return; }
+    try {
+      if (clientModal === 'create') {
+        await api.createClient(clientForm);
+        showToast('Client créé ✓');
+      } else {
+        await api.updateClient(clientModal.id, clientForm);
+        showToast('Client mis à jour ✓');
+      }
+      setClientModal(null);
+      loadData();
+    } catch(e) { showToast('Erreur: ' + e.message); }
+  };
+
+  const deleteClient = async (id) => {
+    const clientMissions = missions.filter(m => m.client_id === id);
+    if (clientMissions.length > 0) { showToast('Impossible : ce client a des missions actives'); return; }
+    if (!confirm('Supprimer ce client ?')) return;
+    try { await api.deleteClient(id); loadData(); showToast('Client supprimé'); } catch(e) { showToast('Erreur: ' + e.message); }
   };
 
   const deleteMission = async (id) => {
@@ -63,7 +92,9 @@ export default function Missions() {
   const saveAssignment = async () => {
     if (!assignForm.collaborateur_id) { showToast('Sélectionnez un collaborateur'); return; }
     try {
-      await api.createAssignment({ ...assignForm, mission_id: assignModal, taux_staffing: parseFloat(assignForm.taux_staffing) || 100 });
+      const jps = parseFloat(assignForm.jours_par_semaine) || 5;
+      const taux = Math.round(jps / 5 * 100);
+      await api.createAssignment({ ...assignForm, mission_id: assignModal, taux_staffing: taux, jours_par_semaine: jps });
       setAssignModal(null);
       loadMissions();
       showToast('Collaborateur affecté ✓');
@@ -99,10 +130,48 @@ export default function Missions() {
       </div>
 
       <div className="tabs-scroll" style={{display:'flex',gap:6,marginBottom:24,background:'var(--offwhite)',padding:6,borderRadius:12,overflowX:'auto'}}>
-        {[['active',`🚀 En cours (${active.length})`],['all','📋 Toutes'],['timeline','📅 Calendrier'],['staffing','📊 Staffing']].map(([k,l])=>(
+        {[['clients',`🏢 Clients (${clients.length})`],['active',`🚀 En cours (${active.length})`],['all','📋 Toutes'],['timeline','📅 Calendrier'],['staffing','📊 Staffing']].map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)} style={{flex:'1 0 auto',padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',background:tab===k?'var(--pink)':'transparent',color:tab===k?'white':'var(--muted)',border:tab===k?'none':'1.5px solid var(--lavender)',boxShadow:tab===k?'0 4px 14px rgba(255,50,133,0.3)':'none'}}>{l}</button>
         ))}
       </div>
+
+      {/* CLIENTS */}
+      {tab==='clients' && <FadeIn><div>
+        <div style={{display:'flex',justifyContent:'flex-end',marginBottom:16}}>
+          <button className="btn btn-primary btn-sm" onClick={()=>{setClientModal('create');setClientForm({nom:'',description:'',secteur:'',contact_nom:'',contact_email:''});}}>+ Nouveau client</button>
+        </div>
+        {clients.length === 0 ? <div className="card" style={{textAlign:'center',padding:32,color:'var(--muted)'}}>Aucun client</div> :
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:16}}>
+          {clients.map(c => {
+            const cMissions = missions.filter(m => m.client_id === c.id);
+            const activeMissions = cMissions.filter(m => m.statut === 'en_cours');
+            return (
+              <div key={c.id} className="card" style={{padding:20,borderLeft:`4px solid ${activeMissions.length>0?'var(--blue)':'var(--lavender)'}`}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
+                  <div>
+                    <div style={{fontWeight:700,fontSize:'1rem',color:'var(--navy)'}}>{c.nom}</div>
+                    {c.secteur && <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>{c.secteur}</div>}
+                  </div>
+                  <div style={{display:'flex',gap:4}}>
+                    <button className="btn btn-ghost btn-sm" style={{padding:'3px 8px'}} onClick={()=>{setClientModal(c);setClientForm({nom:c.nom,description:c.description||'',secteur:c.secteur||'',contact_nom:c.contact_nom||'',contact_email:c.contact_email||''});}}>✏️</button>
+                    <button className="btn btn-danger btn-sm" style={{padding:'3px 8px'}} onClick={()=>deleteClient(c.id)}>🗑️</button>
+                  </div>
+                </div>
+                {c.contact_nom && <div style={{fontSize:'0.75rem',color:'var(--muted)',marginBottom:6}}>👤 {c.contact_nom}{c.contact_email ? ` · ${c.contact_email}` : ''}</div>}
+                <div style={{fontSize:'0.78rem',fontWeight:700,color:'var(--navy)',marginBottom:6}}>{activeMissions.length} mission{activeMissions.length>1?'s':''} en cours · {cMissions.length} au total</div>
+                {activeMissions.map(m => (
+                  <div key={m.id} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 10px',background:'var(--offwhite)',borderRadius:8,marginBottom:4,cursor:'pointer',fontSize:'0.78rem'}} onClick={()=>setDetail(m)}>
+                    <Badge type="blue">En cours</Badge>
+                    <span style={{fontWeight:600,color:'var(--navy)'}}>{m.nom}</span>
+                    <span style={{color:'var(--muted)',fontSize:'0.7rem',marginLeft:'auto'}}>{(m.assignments||[]).length} pers.</span>
+                  </div>
+                ))}
+                <button className="btn btn-ghost btn-sm" style={{marginTop:6,width:'100%'}} onClick={()=>openCreate(c.id)}>+ Ajouter une mission</button>
+              </div>
+            );
+          })}
+        </div>}
+      </div></FadeIn>}
 
       {/* EN COURS */}
       {tab==='active' && <FadeIn><div>
@@ -121,7 +190,7 @@ export default function Missions() {
             <tbody>{filtered.map(m=>(
               <tr key={m.id}>
                 <td style={{fontWeight:700,color:'var(--navy)',cursor:'pointer'}} onClick={()=>setDetail(m)}>{m.nom}</td>
-                <td>{m.client}</td>
+                <td>{getClientName(m)}</td>
                 <td><Badge type={STATUT_BADGE[m.statut]}>{STATUT_LABEL[m.statut]||m.statut}</Badge></td>
                 <td style={{fontSize:'0.78rem',color:'var(--muted)'}}>{fmtDate(m.date_debut)} → {fmtDate(m.date_fin)}</td>
                 <td><div style={{display:'flex',gap:-4}}>{(m.assignments||[]).slice(0,4).map(a=>a.collaborateurs&&<Avatar key={a.id} prenom={a.collaborateurs.prenom} nom={a.collaborateurs.nom} photoUrl={a.collaborateurs.photo_url} size={24} />)}{(m.assignments||[]).length>4&&<span style={{fontSize:'0.7rem',color:'var(--muted)'}}>+{(m.assignments||[]).length-4}</span>}</div></td>
@@ -156,7 +225,7 @@ export default function Missions() {
       <Modal open={!!modal} onClose={()=>setModal(null)} title={modal==='create'?'Nouvelle mission':'Modifier la mission'}>
         <div className="form-grid">
           <div className="form-field"><label>Nom <span style={{color:'var(--red)'}}>*</span></label><input autoFocus value={form.nom||''} onChange={e=>setForm({...form,nom:e.target.value})} /></div>
-          <div className="form-field"><label>Client <span style={{color:'var(--red)'}}>*</span></label><input value={form.client||''} onChange={e=>setForm({...form,client:e.target.value})} /></div>
+          <div className="form-field"><label>Client <span style={{color:'var(--red)'}}>*</span></label><select value={form.client_id||''} onChange={e=>setForm({...form,client_id:e.target.value})}><option value="">Sélectionner un client...</option>{clients.map(c=><option key={c.id} value={c.id}>{c.nom}</option>)}</select></div>
           <div className="form-field"><label>Catégorie</label><input value={form.categorie||''} onChange={e=>setForm({...form,categorie:e.target.value})} placeholder="Ex: Web, Mobile, ERP..." /></div>
           <div className="form-field"><label>Statut</label><select value={form.statut||'en_cours'} onChange={e=>setForm({...form,statut:e.target.value})}>{Object.entries(STATUT_LABEL).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></div>
           <div className="form-field"><label>Date début</label><input type="date" value={form.date_debut||''} onChange={e=>setForm({...form,date_debut:e.target.value})} /></div>
@@ -178,7 +247,7 @@ export default function Missions() {
         <div className="form-grid">
           <div className="form-field"><label>Collaborateur <span style={{color:'var(--red)'}}>*</span></label><select value={assignForm.collaborateur_id} onChange={e=>setAssignForm({...assignForm,collaborateur_id:e.target.value})}><option value="">Sélectionner...</option>{collabs.map(c=><option key={c.id} value={c.id}>{c.prenom} {c.nom} — {c.poste||''}</option>)}</select></div>
           <div className="form-field"><label>Rôle</label><input value={assignForm.role} onChange={e=>setAssignForm({...assignForm,role:e.target.value})} placeholder="Ex: Développeur, Designer..." /></div>
-          <div className="form-field"><label>Taux staffing (%)</label><input type="number" min="0" max="100" value={assignForm.taux_staffing} onChange={e=>setAssignForm({...assignForm,taux_staffing:e.target.value})} /></div>
+          <div className="form-field"><label>Jours / semaine</label><input type="number" step="0.1" min="0.1" max="5" value={assignForm.jours_par_semaine} onChange={e=>{const jps=parseFloat(e.target.value)||0; setAssignForm({...assignForm,jours_par_semaine:jps,taux_staffing:Math.round(jps/5*100)});}} /><div style={{fontSize:'0.7rem',color:'var(--muted)',marginTop:2}}>= {Math.round((parseFloat(assignForm.jours_par_semaine)||0)/5*100)}% du temps</div></div>
           <div className="form-field"><label>Du</label><input type="date" value={assignForm.date_debut} onChange={e=>setAssignForm({...assignForm,date_debut:e.target.value})} /></div>
           <div className="form-field"><label>Au</label><input type="date" value={assignForm.date_fin} onChange={e=>setAssignForm({...assignForm,date_fin:e.target.value})} /></div>
         </div>
@@ -212,6 +281,21 @@ export default function Missions() {
             </div>
           ))}
         </>}
+      </Modal>
+
+      {/* CLIENT MODAL */}
+      <Modal open={!!clientModal} onClose={()=>setClientModal(null)} title={clientModal==='create'?'Nouveau client':'Modifier le client'}>
+        <div className="form-grid">
+          <div className="form-field"><label>Nom <span style={{color:'var(--red)'}}>*</span></label><input autoFocus value={clientForm.nom||''} onChange={e=>setClientForm({...clientForm,nom:e.target.value})} /></div>
+          <div className="form-field"><label>Secteur</label><input value={clientForm.secteur||''} onChange={e=>setClientForm({...clientForm,secteur:e.target.value})} placeholder="Ex: E-commerce, Industrie..." /></div>
+          <div className="form-field"><label>Contact</label><input value={clientForm.contact_nom||''} onChange={e=>setClientForm({...clientForm,contact_nom:e.target.value})} placeholder="Nom du contact" /></div>
+          <div className="form-field"><label>Email contact</label><input type="email" value={clientForm.contact_email||''} onChange={e=>setClientForm({...clientForm,contact_email:e.target.value})} /></div>
+        </div>
+        <div className="form-field" style={{marginTop:8}}><label>Description</label><textarea value={clientForm.description||''} onChange={e=>setClientForm({...clientForm,description:e.target.value})} style={{minHeight:60}} /></div>
+        <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:16}}>
+          <button className="btn btn-ghost" onClick={()=>setClientModal(null)}>Annuler</button>
+          <button className="btn btn-primary" onClick={saveClient}>💾 Enregistrer</button>
+        </div>
       </Modal>
     </div>
   );

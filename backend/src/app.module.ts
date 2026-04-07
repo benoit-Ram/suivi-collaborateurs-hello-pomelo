@@ -10,6 +10,7 @@ import { ObjectifsModule } from './modules/objectifs/objectifs.module';
 import { AbsencesModule } from './modules/absences/absences.module';
 import { PointsSuiviModule } from './modules/points-suivi/points-suivi.module';
 import { SettingsModule } from './modules/settings/settings.module';
+import { ClientsModule } from './modules/clients/clients.module';
 import { MissionsModule } from './modules/missions/missions.module';
 import { AssignmentsModule } from './modules/assignments/assignments.module';
 import { TimeEntriesModule } from './modules/time-entries/time-entries.module';
@@ -25,6 +26,7 @@ import { TimeEntriesModule } from './modules/time-entries/time-entries.module';
     AbsencesModule,
     PointsSuiviModule,
     SettingsModule,
+    ClientsModule,
     MissionsModule,
     AssignmentsModule,
     TimeEntriesModule,
