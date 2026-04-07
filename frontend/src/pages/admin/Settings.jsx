@@ -5,6 +5,25 @@ import { api } from '../../services/api';
 import { PageHeader, Badge, Avatar, Modal, fmtDate, DEFAULT_ABSENCE_TYPES } from '../../components/UI';
 import { generateGuideAdmin, generateGuideCollab } from '../../components/GuidePDF';
 
+const DEFAULT_MISSION_ROLES = [
+  { label: 'Directeur Projet', tjm: 900 },
+  { label: 'Product Manager', tjm: 700 },
+  { label: 'Product Owner', tjm: 650 },
+  { label: 'Proxi Product Owner', tjm: 600 },
+  { label: 'Lead Designer', tjm: 800 },
+  { label: 'Designer (UX/UI)', tjm: 650 },
+  { label: 'Tech Lead', tjm: 900 },
+  { label: 'Team Lead', tjm: 800 },
+  { label: 'Développeur', tjm: 600 },
+  { label: 'Ingénieur QA', tjm: 700 },
+  { label: 'Lead Devops', tjm: 900 },
+  { label: 'Ingénieur Devops', tjm: 700 },
+  { label: 'Architecte cloud', tjm: 900 },
+  { label: 'Chef de projet ERP', tjm: 900 },
+  { label: 'Consultant fonctionnel', tjm: 800 },
+  { label: 'Développeur intégrateur', tjm: 900 },
+];
+
 const SETTINGS_KEYS = [
   { key: 'equipes', label: 'Équipes', placeholder: 'Nouvelle équipe...' },
   { key: 'bureaux', label: 'Bureaux', placeholder: 'Nouveau bureau...' },
@@ -130,6 +149,9 @@ export default function Settings() {
       </div>
 
       {/* Types d'absence */}
+      {/* Rôles missions */}
+      <MissionRolesEditor roles={settings['mission_roles']||DEFAULT_MISSION_ROLES} onSave={async(list)=>{try{await api.upsertSetting('mission_roles',list);await reload();showToast('Rôles missions mis à jour !');}catch(e){showToast('Erreur: '+e.message);}}} />
+
       <AbsenceTypesEditor types={settings['absence_types']||DEFAULT_ABSENCE_TYPES} onSave={async(list)=>{try{await api.upsertSetting('absence_types',list);await reload();showToast('Types d\'absence mis à jour !');}catch(e){showToast('Erreur: '+e.message);}}} />
 
       {/* Questions */}
@@ -357,6 +379,67 @@ function AbsenceTypesEditor({ types, onSave }) {
             <input type="checkbox" checked={newType.decompte} onChange={e => setNewType({ ...newType, decompte: e.target.checked })} style={{ accentColor: 'var(--green)' }} />
             Decompte
           </label>
+          <button className="btn btn-primary btn-sm" onClick={add}>+</button>
+        </div>
+        {hasChanges && <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}><button className="btn btn-primary btn-sm" onClick={() => onSave(list)}>💾 Sauvegarder</button></div>}
+      </div>
+    </>
+  );
+}
+
+function MissionRolesEditor({ roles, onSave }) {
+  const [list, setList] = useState(roles);
+  const [newRole, setNewRole] = useState({ label: '', tjm: '' });
+  const hasChanges = JSON.stringify(list) !== JSON.stringify(roles);
+
+  const add = () => {
+    if (!newRole.label.trim() || !newRole.tjm) return;
+    if (list.some(r => r.label.toLowerCase() === newRole.label.trim().toLowerCase())) return;
+    setList([...list, { label: newRole.label.trim(), tjm: parseInt(newRole.tjm) }]);
+    setNewRole({ label: '', tjm: '' });
+  };
+
+  const remove = (i) => { const l = [...list]; l.splice(i, 1); setList(l); };
+  const move = (i, dir) => { const l = [...list]; const ni = i + dir; if (ni < 0 || ni >= l.length) return; [l[i], l[ni]] = [l[ni], l[i]]; setList(l); };
+  const edit = (i, field, val) => { const l = [...list]; l[i] = { ...l[i], [field]: field === 'tjm' ? parseInt(val) || 0 : val }; setList(l); };
+
+  return (
+    <>
+      <div className="section-title">Roles missions & TJM indicatifs</div>
+      <div className="card" style={{ marginBottom: 24 }}>
+        <p style={{ color: 'var(--muted)', fontSize: '0.82rem', marginBottom: 14 }}>
+          Definissez les roles disponibles pour les affectations de missions, avec un TJM indicatif par defaut (modifiable par affectation).
+        </p>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', fontSize: '0.82rem' }}>
+            <thead><tr><th style={{ textAlign: 'left', padding: '8px' }}>Role</th><th style={{ textAlign: 'right', padding: '8px', width: 100 }}>TJM</th><th style={{ width: 80 }}></th></tr></thead>
+            <tbody>
+              {list.map((r, i) => (
+                <tr key={i} style={{ borderBottom: '1px solid var(--lavender)' }}>
+                  <td style={{ padding: '6px 8px' }}>
+                    <input value={r.label} onChange={e => edit(i, 'label', e.target.value)} style={{ border: '1px solid var(--lavender)', borderRadius: 6, padding: '4px 8px', fontFamily: 'inherit', fontSize: '0.82rem', width: '100%', fontWeight: 600, color: 'var(--navy)' }} />
+                  </td>
+                  <td style={{ padding: '6px 8px', textAlign: 'right' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
+                      <input type="number" value={r.tjm} onChange={e => edit(i, 'tjm', e.target.value)} style={{ border: '1px solid var(--lavender)', borderRadius: 6, padding: '4px 8px', fontFamily: 'inherit', fontSize: '0.82rem', width: 70, textAlign: 'right', fontWeight: 700 }} />
+                      <span style={{ color: 'var(--muted)', fontSize: '0.75rem' }}>€</span>
+                    </div>
+                  </td>
+                  <td style={{ padding: '4px' }}>
+                    <div style={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+                      <button className="btn btn-ghost btn-sm" style={{ padding: '2px 4px', fontSize: '0.65rem' }} onClick={() => move(i, -1)}>▲</button>
+                      <button className="btn btn-ghost btn-sm" style={{ padding: '2px 4px', fontSize: '0.65rem' }} onClick={() => move(i, 1)}>▼</button>
+                      <button className="btn btn-danger btn-sm" style={{ padding: '2px 4px', fontSize: '0.65rem' }} onClick={() => remove(i)}>✕</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}>
+          <input value={newRole.label} onChange={e => setNewRole({ ...newRole, label: e.target.value })} onKeyDown={e => { if (e.key === 'Enter') add(); }} placeholder="Nouveau role..." style={{ flex: 1, border: '1.5px solid var(--lavender)', borderRadius: 8, padding: '8px 12px', fontFamily: 'inherit', fontSize: '0.85rem' }} />
+          <input type="number" value={newRole.tjm} onChange={e => setNewRole({ ...newRole, tjm: e.target.value })} onKeyDown={e => { if (e.key === 'Enter') add(); }} placeholder="TJM €" style={{ width: 80, border: '1.5px solid var(--lavender)', borderRadius: 8, padding: '8px 12px', fontFamily: 'inherit', fontSize: '0.85rem', textAlign: 'right' }} />
           <button className="btn btn-primary btn-sm" onClick={add}>+</button>
         </div>
         {hasChanges && <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}><button className="btn btn-primary btn-sm" onClick={() => onSave(list)}>💾 Sauvegarder</button></div>}

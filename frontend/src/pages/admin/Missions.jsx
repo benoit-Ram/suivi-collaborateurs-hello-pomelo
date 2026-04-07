@@ -8,7 +8,15 @@ const STATUT_BADGE = { en_cours:'blue', termine:'green', annule:'pink', en_atten
 const STATUT_LABEL = { en_cours:'En cours', termine:'Terminé', annule:'Annulé', en_attente:'En attente' };
 
 export default function Missions() {
-  const { collabs, showToast, loading: ctxLoading } = useData();
+  const { collabs, settings, showToast, loading: ctxLoading } = useData();
+  const missionRoles = settings?.mission_roles || [
+    {label:'Directeur Projet',tjm:900},{label:'Product Manager',tjm:700},{label:'Product Owner',tjm:650},
+    {label:'Proxi Product Owner',tjm:600},{label:'Lead Designer',tjm:800},{label:'Designer (UX/UI)',tjm:650},
+    {label:'Tech Lead',tjm:900},{label:'Team Lead',tjm:800},{label:'Développeur',tjm:600},
+    {label:'Ingénieur QA',tjm:700},{label:'Lead Devops',tjm:900},{label:'Ingénieur Devops',tjm:700},
+    {label:'Architecte cloud',tjm:900},{label:'Chef de projet ERP',tjm:900},
+    {label:'Consultant fonctionnel',tjm:800},{label:'Développeur intégrateur',tjm:900}
+  ];
   const { user: authUser } = useAuth();
   const [missions, setMissions] = useState([]);
   const [clients, setClients] = useState([]);
@@ -107,6 +115,8 @@ export default function Missions() {
 
   const saveAssignment = async () => {
     if (!assignForm.collaborateur_id) { showToast('Sélectionnez un collaborateur'); return; }
+    if (!assignForm.role) { showToast('Sélectionnez un rôle'); return; }
+    if (!assignForm.tjm) { showToast('Le TJM est obligatoire'); return; }
     try {
       const jps = parseFloat(assignForm.jours_par_semaine) || 5;
       const taux = Math.round(jps / 5 * 100);
@@ -345,11 +355,11 @@ export default function Missions() {
       <Modal open={!!assignModal} onClose={()=>setAssignModal(null)} title="Affecter un collaborateur">
         <div className="form-grid">
           <div className="form-field"><label>Collaborateur <span style={{color:'var(--red)'}}>*</span></label><select value={assignForm.collaborateur_id} onChange={e=>setAssignForm({...assignForm,collaborateur_id:e.target.value})}><option value="">Sélectionner...</option>{collabs.map(c=><option key={c.id} value={c.id}>{c.prenom} {c.nom} — {c.poste||''}</option>)}</select></div>
-          <div className="form-field"><label>Rôle</label><input value={assignForm.role} onChange={e=>setAssignForm({...assignForm,role:e.target.value})} placeholder="Ex: Développeur, Designer..." /></div>
+          <div className="form-field"><label>Rôle <span style={{color:'var(--red)'}}>*</span></label><select value={assignForm.role} onChange={e=>{const role=missionRoles.find(r=>r.label===e.target.value); setAssignForm({...assignForm, role:e.target.value, tjm:role?String(role.tjm):assignForm.tjm});}}><option value="">Sélectionner un rôle...</option>{missionRoles.map(r=><option key={r.label} value={r.label}>{r.label} ({r.tjm}€/j)</option>)}</select></div>
           <div className="form-field"><label>Jours / semaine</label><input type="number" step="0.1" min="0.1" max="5" value={assignForm.jours_par_semaine} onChange={e=>{const jps=parseFloat(e.target.value)||0; setAssignForm({...assignForm,jours_par_semaine:jps,taux_staffing:Math.round(jps/5*100)});}} /><div style={{fontSize:'0.7rem',color:'var(--muted)',marginTop:2}}>= {Math.round((parseFloat(assignForm.jours_par_semaine)||0)/5*100)}% du temps</div></div>
           <div className="form-field"><label>Du</label><input type="date" value={assignForm.date_debut} onChange={e=>setAssignForm({...assignForm,date_debut:e.target.value})} /></div>
           <div className="form-field"><label>Au</label><input type="date" value={assignForm.date_fin} onChange={e=>setAssignForm({...assignForm,date_fin:e.target.value})} /></div>
-          <div className="form-field"><label>TJM (€/jour)</label><input type="number" value={assignForm.tjm} onChange={e=>setAssignForm({...assignForm,tjm:e.target.value})} placeholder="Optionnel" /></div>
+          <div className="form-field"><label>TJM (€/jour) <span style={{color:'var(--red)'}}>*</span></label><input type="number" value={assignForm.tjm} onChange={e=>setAssignForm({...assignForm,tjm:e.target.value})} /><div style={{fontSize:'0.68rem',color:'var(--muted)',marginTop:2}}>Pré-rempli selon le rôle, modifiable</div></div>
         </div>
         <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:16}}>
           <button className="btn btn-ghost" onClick={()=>setAssignModal(null)}>Annuler</button>
