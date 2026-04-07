@@ -219,7 +219,26 @@ ON CONFLICT DO NOTHING;
 -- Mettre à jour client_id
 UPDATE missions SET client_id = c.id FROM clients c WHERE missions.client = c.nom AND missions.client_id IS NULL;
 
--- Granularité fine des affectations : jours par semaine (0.1 à 5)
--- Le champ taux_staffing existant (%) reste, on ajoute jours_par_semaine
+-- Granularité fine des affectations
 ALTER TABLE assignments ADD COLUMN IF NOT EXISTS jours_par_semaine numeric DEFAULT 5;
+```
+
+## Migration v11 — Enrichissement clients
+
+```sql
+-- Renommer nom → raison_sociale (conceptuellement, on garde 'nom' en base pour compatibilité)
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS siren text;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS tva_intra text;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS adresse text;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS code_postal text;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS ville text;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS referent_id uuid REFERENCES collaborateurs(id);
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact_signature_nom text;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact_signature_email text;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact_signature_tel text;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact_facturation_nom text;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact_facturation_email text;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact_facturation_tel text;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS siret text;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS categorie_entreprise text;
 ```

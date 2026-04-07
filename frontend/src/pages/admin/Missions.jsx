@@ -190,7 +190,7 @@ export default function Missions() {
         })() : <>
         <div style={{display:'flex',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:8}}>
           <input type="text" value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher un client..." style={{flex:1,maxWidth:300,border:'1.5px solid var(--lavender)',borderRadius:10,padding:'8px 14px',fontFamily:'inherit',fontSize:'0.85rem',outline:'none',background:'var(--offwhite)',color:'var(--navy)'}} />
-          <button className="btn btn-primary btn-sm" onClick={()=>{setClientModal('create');setClientForm({nom:'',description:'',secteur:'',contact_nom:'',contact_email:''});}}>+ Nouveau client</button>
+          <button className="btn btn-primary btn-sm" onClick={()=>{setClientModal('create');setClientForm({nom:'',description:'',secteur:'',siren:'',siret:'',tva_intra:'',adresse:'',code_postal:'',ville:'',categorie_entreprise:'',referent_id:'',contact_signature_nom:'',contact_signature_email:'',contact_signature_tel:'',contact_facturation_nom:'',contact_facturation_email:'',contact_facturation_tel:''});}}>+ Nouveau client</button>
         </div>
         {clients.length === 0 ? <div className="card" style={{textAlign:'center',padding:32,color:'var(--muted)'}}>Aucun client</div> :
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:16}}>
@@ -205,11 +205,12 @@ export default function Missions() {
                     {c.secteur && <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>{c.secteur}</div>}
                   </div>
                   <div style={{display:'flex',gap:4}} onClick={e=>e.stopPropagation()}>
-                    <button className="btn btn-ghost btn-sm" style={{padding:'3px 8px'}} onClick={()=>{setClientModal(c);setClientForm({nom:c.nom,description:c.description||'',secteur:c.secteur||'',contact_nom:c.contact_nom||'',contact_email:c.contact_email||''});}}>✏️</button>
+                    <button className="btn btn-ghost btn-sm" style={{padding:'3px 8px'}} onClick={()=>{setClientModal(c);setClientForm({nom:c.nom,description:c.description||'',secteur:c.secteur||'',siren:c.siren||'',siret:c.siret||'',tva_intra:c.tva_intra||'',adresse:c.adresse||'',code_postal:c.code_postal||'',ville:c.ville||'',categorie_entreprise:c.categorie_entreprise||'',referent_id:c.referent_id||'',contact_signature_nom:c.contact_signature_nom||'',contact_signature_email:c.contact_signature_email||'',contact_signature_tel:c.contact_signature_tel||'',contact_facturation_nom:c.contact_facturation_nom||'',contact_facturation_email:c.contact_facturation_email||'',contact_facturation_tel:c.contact_facturation_tel||''});}}>✏️</button>
                     <button className="btn btn-danger btn-sm" style={{padding:'3px 8px'}} onClick={()=>deleteClient(c.id)}>🗑️</button>
                   </div>
                 </div>
-                {c.contact_nom && <div style={{fontSize:'0.75rem',color:'var(--muted)',marginBottom:6}}>👤 {c.contact_nom}{c.contact_email ? ` · ${c.contact_email}` : ''}</div>}
+                {c.siren && <div style={{fontSize:'0.7rem',color:'var(--muted)',marginBottom:4}}>SIREN {c.siren}{c.ville ? ` · ${c.ville}` : ''}</div>}
+                {(()=>{const ref=c.referent_id?collabs.find(x=>x.id===c.referent_id):null; return ref?<div style={{fontSize:'0.7rem',color:'var(--muted)',marginBottom:4}}>👔 {ref.prenom} {ref.nom}</div>:null;})()}
                 <div style={{fontSize:'0.82rem',fontWeight:700,color:'var(--navy)'}}>{activeMissions.length} en cours · {cMissions.length} au total</div>
               </div>
             );
@@ -395,13 +396,49 @@ export default function Missions() {
 
       {/* CLIENT MODAL */}
       <Modal open={!!clientModal} onClose={()=>setClientModal(null)} title={clientModal==='create'?'Nouveau client':'Modifier le client'}>
+        {/* SIREN lookup */}
+        {clientModal==='create' && <div style={{marginBottom:16,padding:'12px 16px',background:'var(--offwhite)',borderRadius:10,border:'1px dashed var(--lavender)'}}>
+          <div style={{fontSize:'0.78rem',fontWeight:700,color:'var(--navy)',marginBottom:6}}>🔍 Recherche par SIREN ou raison sociale</div>
+          <div style={{display:'flex',gap:6}}>
+            <input id="siren-search" placeholder="SIREN ou nom d'entreprise..." style={{flex:1,border:'1.5px solid var(--lavender)',borderRadius:8,padding:'8px 12px',fontFamily:'inherit',fontSize:'0.85rem'}} onKeyDown={e=>{if(e.key==='Enter'){const q=e.target.value.trim();if(!q)return;fetch(`https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(q)}&page=1&per_page=1`).then(r=>r.json()).then(d=>{const r=d.results?.[0];if(r){setClientForm({...clientForm,nom:r.nom_raison_sociale||r.nom_complet||'',siren:r.siren||'',siret:r.siege?.siret||'',tva_intra:r.siren?`FR${(12+3*(parseInt(r.siren)%97))%97}${r.siren}`:'',adresse:r.siege?.geo_adresse||'',code_postal:r.siege?.code_postal||'',ville:r.siege?.libelle_commune||'',categorie_entreprise:r.categorie_entreprise||'',secteur:r.activite_principale||''});showToast('Entreprise trouvee !')}else showToast('Aucun resultat')}).catch(()=>showToast('Erreur de recherche'));}}} />
+            <button className="btn btn-ghost btn-sm" onClick={()=>{const q=document.getElementById('siren-search')?.value?.trim();if(!q)return;fetch(`https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(q)}&page=1&per_page=1`).then(r=>r.json()).then(d=>{const r=d.results?.[0];if(r){setClientForm({...clientForm,nom:r.nom_raison_sociale||r.nom_complet||'',siren:r.siren||'',siret:r.siege?.siret||'',tva_intra:r.siren?`FR${(12+3*(parseInt(r.siren)%97))%97}${r.siren}`:'',adresse:r.siege?.geo_adresse||'',code_postal:r.siege?.code_postal||'',ville:r.siege?.libelle_commune||'',categorie_entreprise:r.categorie_entreprise||'',secteur:r.activite_principale||''});showToast('Entreprise trouvee !')}else showToast('Aucun resultat')}).catch(()=>showToast('Erreur de recherche'))}}>Rechercher</button>
+          </div>
+          <div style={{fontSize:'0.68rem',color:'var(--muted)',marginTop:4}}>Source : API Entreprise (data.gouv.fr) — pré-remplit les champs automatiquement</div>
+        </div>}
+
+        <div style={{fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--pink)',marginBottom:8}}>Informations entreprise</div>
         <div className="form-grid">
-          <div className="form-field"><label>Nom <span style={{color:'var(--red)'}}>*</span></label><input autoFocus value={clientForm.nom||''} onChange={e=>setClientForm({...clientForm,nom:e.target.value})} /></div>
-          <div className="form-field"><label>Secteur</label><input value={clientForm.secteur||''} onChange={e=>setClientForm({...clientForm,secteur:e.target.value})} placeholder="Ex: E-commerce, Industrie..." /></div>
-          <div className="form-field"><label>Contact</label><input value={clientForm.contact_nom||''} onChange={e=>setClientForm({...clientForm,contact_nom:e.target.value})} placeholder="Nom du contact" /></div>
-          <div className="form-field"><label>Email contact</label><input type="email" value={clientForm.contact_email||''} onChange={e=>setClientForm({...clientForm,contact_email:e.target.value})} /></div>
+          <div className="form-field"><label>Raison sociale <span style={{color:'var(--red)'}}>*</span></label><input autoFocus value={clientForm.nom||''} onChange={e=>setClientForm({...clientForm,nom:e.target.value})} /></div>
+          <div className="form-field"><label>SIREN</label><input value={clientForm.siren||''} onChange={e=>setClientForm({...clientForm,siren:e.target.value})} placeholder="9 chiffres" /></div>
+          <div className="form-field"><label>SIRET</label><input value={clientForm.siret||''} onChange={e=>setClientForm({...clientForm,siret:e.target.value})} placeholder="14 chiffres" /></div>
+          <div className="form-field"><label>TVA intracommunautaire</label><input value={clientForm.tva_intra||''} onChange={e=>setClientForm({...clientForm,tva_intra:e.target.value})} placeholder="FR..." /></div>
+          <div className="form-field"><label>Secteur</label><input value={clientForm.secteur||''} onChange={e=>setClientForm({...clientForm,secteur:e.target.value})} /></div>
+          <div className="form-field"><label>Catégorie</label><input value={clientForm.categorie_entreprise||''} onChange={e=>setClientForm({...clientForm,categorie_entreprise:e.target.value})} placeholder="PME, ETI, GE..." /></div>
+          <div className="form-field"><label>Adresse</label><input value={clientForm.adresse||''} onChange={e=>setClientForm({...clientForm,adresse:e.target.value})} /></div>
+          <div className="form-field"><label>Code postal</label><input value={clientForm.code_postal||''} onChange={e=>setClientForm({...clientForm,code_postal:e.target.value})} /></div>
+          <div className="form-field"><label>Ville</label><input value={clientForm.ville||''} onChange={e=>setClientForm({...clientForm,ville:e.target.value})} /></div>
         </div>
-        <div className="form-field" style={{marginTop:8}}><label>Description</label><textarea value={clientForm.description||''} onChange={e=>setClientForm({...clientForm,description:e.target.value})} style={{minHeight:60}} /></div>
+
+        <div style={{fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--pink)',marginTop:16,marginBottom:8}}>Référent interne</div>
+        <div className="form-grid">
+          <div className="form-field"><label>Référent Hello Pomelo</label><select value={clientForm.referent_id||''} onChange={e=>setClientForm({...clientForm,referent_id:e.target.value})}><option value="">Sélectionner...</option>{collabs.map(c=><option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>)}</select></div>
+        </div>
+
+        <div style={{fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--pink)',marginTop:16,marginBottom:8}}>Contact signature (client)</div>
+        <div className="form-grid">
+          <div className="form-field"><label>Nom</label><input value={clientForm.contact_signature_nom||''} onChange={e=>setClientForm({...clientForm,contact_signature_nom:e.target.value})} /></div>
+          <div className="form-field"><label>Email</label><input type="email" value={clientForm.contact_signature_email||''} onChange={e=>setClientForm({...clientForm,contact_signature_email:e.target.value})} /></div>
+          <div className="form-field"><label>Téléphone</label><input value={clientForm.contact_signature_tel||''} onChange={e=>setClientForm({...clientForm,contact_signature_tel:e.target.value})} /></div>
+        </div>
+
+        <div style={{fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--pink)',marginTop:16,marginBottom:8}}>Contact facturation (client)</div>
+        <div className="form-grid">
+          <div className="form-field"><label>Nom</label><input value={clientForm.contact_facturation_nom||''} onChange={e=>setClientForm({...clientForm,contact_facturation_nom:e.target.value})} /></div>
+          <div className="form-field"><label>Email</label><input type="email" value={clientForm.contact_facturation_email||''} onChange={e=>setClientForm({...clientForm,contact_facturation_email:e.target.value})} /></div>
+          <div className="form-field"><label>Téléphone</label><input value={clientForm.contact_facturation_tel||''} onChange={e=>setClientForm({...clientForm,contact_facturation_tel:e.target.value})} /></div>
+        </div>
+
+        <div className="form-field" style={{marginTop:12}}><label>Description / Notes</label><textarea value={clientForm.description||''} onChange={e=>setClientForm({...clientForm,description:e.target.value})} style={{minHeight:50}} /></div>
         <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:16}}>
           <button className="btn btn-ghost" onClick={()=>setClientModal(null)}>Annuler</button>
           <button className="btn btn-primary" onClick={saveClient}>💾 Enregistrer</button>
