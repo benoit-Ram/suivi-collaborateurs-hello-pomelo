@@ -4,8 +4,7 @@ import { useAuth } from '../../services/AuthContext';
 import { api } from '../../services/api';
 import { PageHeader, Badge, Avatar, Modal, FadeIn, Skeleton, fmtDate } from '../../components/UI';
 
-const STATUT_BADGE = { en_cours:'blue', termine:'green', annule:'pink', en_attente:'orange' };
-const STATUT_LABEL = { en_cours:'En cours', termine:'Terminé', annule:'Annulé', en_attente:'En attente' };
+// Statut is now determined by dates (active = date_fin >= today or no date_fin)
 
 export default function Missions() {
   const { collabs, settings, showToast, loading: ctxLoading } = useData();
@@ -57,7 +56,6 @@ export default function Missions() {
   const [viewMode, setViewMode] = useState('cartes'); // cartes | liste
   const [missionDateDebut, setMissionDateDebut] = useState('');
   const [missionDateFin, setMissionDateFin] = useState('');
-  const [missionStatut, setMissionStatut] = useState('');
 
   useEffect(() => { loadData(); }, []);
 
@@ -72,8 +70,8 @@ export default function Missions() {
 
   const getClientName = (m) => m.clients?.nom || m.client || '—';
 
-  const openCreate = (clientId) => { setForm({ nom:'', client_id:clientId||'', description:'', categorie:'', statut:'en_cours', date_debut:'', date_fin:'', budget_vendu:'', methode_facturation:'regie', responsable_id:'', lien_propale:'' }); setModal('create'); };
-  const openEdit = (m) => { setForm({ nom:m.nom, client_id:m.client_id||'', description:m.description||'', categorie:m.categorie||'', statut:m.statut, date_debut:m.date_debut||'', date_fin:m.date_fin||'', budget_vendu:m.budget_vendu||'', methode_facturation:m.methode_facturation||'regie', responsable_id:m.responsable_id||'', lien_propale:m.lien_propale||'' }); setModal(m); };
+  const openCreate = (clientId) => { setForm({ nom:'', client_id:clientId||'', description:'', categorie:'', date_debut:'', date_fin:'', budget_vendu:'', methode_facturation:'regie', responsable_id:'', lien_propale:'' }); setModal('create'); };
+  const openEdit = (m) => { setForm({ nom:m.nom, client_id:m.client_id||'', description:m.description||'', categorie:m.categorie||'', date_debut:m.date_debut||'', date_fin:m.date_fin||'', budget_vendu:m.budget_vendu||'', methode_facturation:m.methode_facturation||'regie', responsable_id:m.responsable_id||'', lien_propale:m.lien_propale||'' }); setModal(m); };
 
   const saveMission = async () => {
     if (!form.nom || !form.client_id) { showToast('Nom et client sont obligatoires'); return; }
@@ -140,13 +138,14 @@ export default function Missions() {
 
   if (loading || ctxLoading) return <div style={{maxWidth:600,margin:'40px auto'}}><Skeleton lines={5} /></div>;
 
-  const active = missions.filter(m => m.statut === 'en_cours');
-  const filtered = search ? missions.filter(m => (m.nom+getClientName(m)+(m.categorie||'')).toLowerCase().includes(search.toLowerCase())) : missions;
+  const todayStr = new Date().toISOString().split('T')[0];
+  const isMissionActive = (m) => (!m.date_fin || m.date_fin >= todayStr) && (!m.date_debut || m.date_debut <= todayStr);
+  const active = missions.filter(isMissionActive);
 
   // Staffing calculation
   const staffingMap = {};
   collabs.forEach(c => { staffingMap[c.id] = { collab: c, taux: 0, missions: [] }; });
-  missions.filter(m => m.statut === 'en_cours').forEach(m => {
+  active.forEach(m => {
     (m.assignments || []).filter(a => a.statut === 'actif').forEach(a => {
       if (staffingMap[a.collaborateur_id]) {
         staffingMap[a.collaborateur_id].taux += (a.taux_staffing || 0);
@@ -203,7 +202,7 @@ export default function Missions() {
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:16}}>
           {clients.filter(c=>!search||(c.nom+(c.secteur||'')).toLowerCase().includes(search.toLowerCase())).map(c => {
             const cMissions = missions.filter(m => m.client_id === c.id);
-            const activeMissions = cMissions.filter(m => m.statut === 'en_cours');
+            const activeMissions = cMissions.filter(m => isMissionActive(m));
             return (
               <div key={c.id} className="card" style={{padding:20,borderLeft:`4px solid ${activeMissions.length>0?'var(--blue)':'var(--lavender)'}`,cursor:'pointer'}} onClick={()=>setSelectedClient(c.id)}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
@@ -230,10 +229,6 @@ export default function Missions() {
       {tab==='missions' && <FadeIn><div>
         <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
           <input type="text" value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher..." style={{flex:1,maxWidth:250,border:'1.5px solid var(--lavender)',borderRadius:10,padding:'8px 14px',fontFamily:'inherit',fontSize:'0.82rem',outline:'none',background:'var(--offwhite)',color:'var(--navy)'}} />
-          <select value={missionStatut} onChange={e=>setMissionStatut(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 10px',fontFamily:'inherit',fontSize:'0.78rem',background:'var(--offwhite)',color:'var(--navy)'}}>
-            <option value="">Tous statuts</option>
-            {Object.entries(STATUT_LABEL).map(([k,v])=><option key={k} value={k}>{v}</option>)}
-          </select>
           <div style={{display:'flex',alignItems:'center',gap:4}}>
             <input type="date" value={missionDateDebut} onChange={e=>setMissionDateDebut(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'5px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)'}} />
             <span style={{color:'var(--muted)',fontSize:'0.75rem'}}>→</span>
@@ -247,7 +242,6 @@ export default function Missions() {
         {(()=>{
           let list = missions;
           if (search) list = list.filter(m => (m.nom+getClientName(m)+(m.categorie||'')).toLowerCase().includes(search.toLowerCase()));
-          if (missionStatut) list = list.filter(m => m.statut === missionStatut);
           if (missionDateDebut) list = list.filter(m => !m.date_fin || m.date_fin >= missionDateDebut);
           if (missionDateFin) list = list.filter(m => !m.date_debut || m.date_debut <= missionDateFin);
           if (list.length === 0) return <div className="card" style={{textAlign:'center',padding:32,color:'var(--muted)'}}>Aucune mission trouvée</div>;
@@ -261,7 +255,7 @@ export default function Missions() {
                 <td style={{fontWeight:700,color:'var(--navy)',cursor:'pointer'}} onClick={()=>setDetail(m)}>{m.nom}</td>
                 <td>{getClientName(m)}</td>
                 <td style={{fontSize:'0.78rem',color:'var(--muted)'}}>{m.categorie||'—'}</td>
-                <td><Badge type={STATUT_BADGE[m.statut]}>{STATUT_LABEL[m.statut]||m.statut}</Badge></td>
+                <td><Badge type={isMissionActive(m)?'blue':'gray'}>{isMissionActive(m)?'En cours':'Passée'}</Badge></td>
                 <td style={{fontSize:'0.78rem',color:'var(--muted)'}}>{fmtDate(m.date_debut)} → {fmtDate(m.date_fin)}</td>
                 <td><div style={{display:'flex',gap:-4}}>{(m.assignments||[]).slice(0,4).map(a=>a.collaborateurs&&<Avatar key={a.id} prenom={a.collaborateurs.prenom} nom={a.collaborateurs.nom} photoUrl={a.collaborateurs.photo_url} size={24} />)}{(m.assignments||[]).length>4&&<span style={{fontSize:'0.7rem',color:'var(--muted)'}}>+{(m.assignments||[]).length-4}</span>}</div></td>
                 <td style={{fontWeight:600}}>{m.budget_vendu?m.budget_vendu.toLocaleString('fr-FR')+'€':'—'}</td>
@@ -361,7 +355,6 @@ export default function Missions() {
           <div className="form-field"><label>Nom <span style={{color:'var(--red)'}}>*</span></label><input autoFocus value={form.nom||''} onChange={e=>setForm({...form,nom:e.target.value})} /></div>
           <div className="form-field"><label>Client <span style={{color:'var(--red)'}}>*</span></label><select value={form.client_id||''} onChange={e=>setForm({...form,client_id:e.target.value})}><option value="">Sélectionner un client...</option>{clients.map(c=><option key={c.id} value={c.id}>{c.nom}</option>)}</select></div>
           <div className="form-field"><label>Catégorie</label><select value={form.categorie||''} onChange={e=>setForm({...form,categorie:e.target.value})}><option value="">—</option>{missionCategories.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
-          <div className="form-field"><label>Statut</label><select value={form.statut||'en_cours'} onChange={e=>setForm({...form,statut:e.target.value})}>{Object.entries(STATUT_LABEL).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></div>
           <div className="form-field"><label>Date début</label><input type="date" value={form.date_debut||''} onChange={e=>setForm({...form,date_debut:e.target.value})} /></div>
           <div className="form-field"><label>Date fin</label><input type="date" value={form.date_fin||''} onChange={e=>setForm({...form,date_fin:e.target.value})} /></div>
           <div className="form-field"><label>Lien propale signée</label><input type="url" value={form.lien_propale||''} onChange={e=>setForm({...form,lien_propale:e.target.value})} placeholder="https://drive.google.com/..." /></div>
@@ -396,7 +389,7 @@ export default function Missions() {
       <Modal open={!!detail} onClose={()=>setDetail(null)} title={detail?`${detail.nom} — ${getClientName(detail)}`:''}>
         {detail && <>
           <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:16}}>
-            <Badge type={STATUT_BADGE[detail.statut]}>{STATUT_LABEL[detail.statut]}</Badge>
+            <Badge type={isMissionActive(detail)?'blue':'gray'}>{isMissionActive(detail)?'En cours':'Passée'}</Badge>
             {detail.categorie && <Badge type="blue">{detail.categorie}</Badge>}
             {detail.methode_facturation && <Badge type="gray">{detail.methode_facturation==='forfait'?'Forfait':'Régie'}</Badge>}
           </div>
@@ -487,13 +480,13 @@ function MissionCard({ m, collabs, onEdit, onDelete, onAssign, onRemoveAssign, o
   const team = (m.assignments || []).filter(a => a.statut === 'actif');
   const resp = m.responsable_id ? collabs.find(c => c.id === m.responsable_id) : null;
   return (
-    <div className="card" style={{padding:20,borderLeft:`4px solid ${m.statut==='en_cours'?'var(--blue)':'var(--lavender)'}`}}>
+    <div className="card" style={{padding:20,borderLeft:`4px solid ${(!m.date_fin||m.date_fin>=new Date().toISOString().split('T')[0])?'var(--blue)':'var(--lavender)'}`}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
         <div style={{cursor:'pointer'}} onClick={()=>onDetail(m)}>
           <div style={{fontWeight:700,fontSize:'1rem',color:'var(--navy)'}}>{m.nom}</div>
           <div style={{fontSize:'0.82rem',color:'var(--muted)',marginTop:2}}>{m.clients?.nom || m.client || '—'}</div>
         </div>
-        <Badge type={STATUT_BADGE[m.statut]}>{STATUT_LABEL[m.statut]}</Badge>
+        <Badge type={(!m.date_fin||m.date_fin>=new Date().toISOString().split('T')[0])?'blue':'gray'}>{(!m.date_fin||m.date_fin>=new Date().toISOString().split('T')[0])?'En cours':'Passée'}</Badge>
       </div>
       <div style={{display:'flex',gap:16,fontSize:'0.78rem',color:'var(--muted)',marginBottom:12,flexWrap:'wrap'}}>
         <span>📅 {fmtDate(m.date_debut)} → {fmtDate(m.date_fin)}</span>
