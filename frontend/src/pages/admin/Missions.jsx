@@ -154,6 +154,46 @@ export default function Missions() {
     });
   });
 
+  // Financial calculations
+  const now = new Date();
+  const currentMonth = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const caPrevu = active.reduce((s,m) => s + (m.assignments||[]).reduce((s2,a) => s2 + ((a.tjm||0) * (a.jours_par_semaine||a.taux_staffing/100*5) * 4.33), 0), 0); // monthly
+  const budgetTotal = missions.reduce((s,m) => s + (m.budget_vendu||0), 0);
+  const budgetConsomme = missions.reduce((s,m) => {
+    return s + (m.assignments||[]).reduce((s2,a) => {
+      // Estimate consumed: TJM × days per week × weeks since start
+      if (!a.date_debut || !a.tjm) return s2;
+      const start = new Date(a.date_debut);
+      const end = a.date_fin ? new Date(Math.min(new Date(a.date_fin), now)) : now;
+      const weeks = Math.max(0, (end - start) / (7*86400000));
+      return s2 + (a.tjm * (a.jours_par_semaine||a.taux_staffing/100*5) * weeks);
+    }, 0);
+  }, 0);
+  const staffingMoyen = collabs.length ? Math.round(Object.values(staffingMap).reduce((s,v) => s+v.taux, 0) / collabs.length) : 0;
+
+  // Alerts
+  const alerts = [];
+  active.forEach(m => {
+    if (m.date_fin) {
+      const daysLeft = Math.ceil((new Date(m.date_fin) - now) / 86400000);
+      if (daysLeft >= 0 && daysLeft <= 30) alerts.push({ icon:'⏰', text:`${m.nom} termine dans ${daysLeft}j`, type:'warning' });
+    }
+    if (m.budget_vendu) {
+      const consumed = (m.assignments||[]).reduce((s,a) => {
+        if (!a.date_debut || !a.tjm) return s;
+        const start = new Date(a.date_debut);
+        const end = a.date_fin ? new Date(Math.min(new Date(a.date_fin), now)) : now;
+        const weeks = Math.max(0, (end - start) / (7*86400000));
+        return s + (a.tjm * (a.jours_par_semaine||a.taux_staffing/100*5) * weeks);
+      }, 0);
+      if (consumed > m.budget_vendu * 0.9) alerts.push({ icon:'💰', text:`${m.nom} : budget à ${Math.round(consumed/m.budget_vendu*100)}%`, type:'danger' });
+    }
+  });
+  collabs.forEach(c => {
+    const taux = staffingMap[c.id]?.taux || 0;
+    if (taux === 0) alerts.push({ icon:'👤', text:`${c.prenom} ${c.nom} non staffé`, type:'info' });
+  });
+
   return (
     <div>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:12,marginBottom:8}}>
@@ -162,7 +202,24 @@ export default function Missions() {
       </div>
 
       <div className="tabs-scroll" style={{display:'flex',gap:6,marginBottom:24,background:'var(--offwhite)',padding:6,borderRadius:12,overflowX:'auto'}}>
-        {[['clients',`🏢 Clients (${clients.length})`],['missions',`🚀 Missions (${missions.length})`],['timeline','📅 Calendrier'],['staffing','📊 Staffing']].map(([k,l])=>(
+      {/* Stat cards */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:12,marginBottom:20}}>
+        <div className="stat-card pink"><div className="stat-num">{active.length}</div><div className="stat-label">Missions actives</div></div>
+        <div className="stat-card blue"><div className="stat-num">{staffingMoyen}%</div><div className="stat-label">Staffing moyen</div></div>
+        <div className="stat-card sky"><div className="stat-num">{Math.round(caPrevu/1000)}k€</div><div className="stat-label">CA mensuel prévu</div></div>
+        <div className="stat-card green"><div className="stat-num">{clients.length}</div><div className="stat-label">Clients</div></div>
+      </div>
+
+      {/* Alerts */}
+      {alerts.length > 0 && <div className="card" style={{marginBottom:20,padding:'14px 18px',borderLeft:'4px solid var(--orange)'}}>
+        <div style={{fontSize:'0.78rem',fontWeight:700,color:'var(--navy)',marginBottom:8}}>⚠️ Alertes ({alerts.length})</div>
+        {alerts.slice(0,8).map((a,i) => (
+          <div key={i} style={{fontSize:'0.78rem',padding:'4px 0',color:a.type==='danger'?'var(--red)':a.type==='warning'?'var(--orange)':'var(--muted)'}}>{a.icon} {a.text}</div>
+        ))}
+        {alerts.length > 8 && <div style={{fontSize:'0.72rem',color:'var(--muted)'}}>+ {alerts.length-8} autres</div>}
+      </div>}
+
+        {[['clients',`🏢 Clients (${clients.length})`],['missions',`🚀 Missions (${missions.length})`],['timeline','📅 Calendrier'],['staffing','📊 Staffing'],['finance','💰 Finance']].map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)} style={{flex:'1 0 auto',padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',background:tab===k?'var(--pink)':'transparent',color:tab===k?'white':'var(--muted)',border:tab===k?'none':'1.5px solid var(--lavender)',boxShadow:tab===k?'0 4px 14px rgba(255,50,133,0.3)':'none'}}>{l}</button>
         ))}
       </div>
@@ -348,6 +405,70 @@ export default function Missions() {
           ))}</tbody>
         </table>
       </div></div></FadeIn>})()}
+
+      {/* FINANCE */}
+      {tab==='finance' && <FadeIn><div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:16,marginBottom:24}}>
+          <div className="card" style={{textAlign:'center',padding:20}}>
+            <div style={{fontSize:'2rem',fontWeight:700,color:'var(--navy)'}}>{Math.round(budgetTotal/1000)}k€</div>
+            <div style={{fontSize:'0.75rem',fontWeight:700,color:'var(--muted)',textTransform:'uppercase',marginTop:4}}>Budget total vendu</div>
+          </div>
+          <div className="card" style={{textAlign:'center',padding:20}}>
+            <div style={{fontSize:'2rem',fontWeight:700,color:budgetConsomme>budgetTotal*0.9?'var(--red)':'var(--blue)'}}>{Math.round(budgetConsomme/1000)}k€</div>
+            <div style={{fontSize:'0.75rem',fontWeight:700,color:'var(--muted)',textTransform:'uppercase',marginTop:4}}>Budget consommé (est.)</div>
+          </div>
+          <div className="card" style={{textAlign:'center',padding:20}}>
+            <div style={{fontSize:'2rem',fontWeight:700,color:'var(--green)'}}>{Math.round(caPrevu/1000)}k€</div>
+            <div style={{fontSize:'0.75rem',fontWeight:700,color:'var(--muted)',textTransform:'uppercase',marginTop:4}}>CA mensuel prévu</div>
+          </div>
+          <div className="card" style={{textAlign:'center',padding:20}}>
+            <div style={{fontSize:'2rem',fontWeight:700,color:'var(--navy)'}}>{budgetTotal>0?Math.round((budgetTotal-budgetConsomme)/budgetTotal*100):0}%</div>
+            <div style={{fontSize:'0.75rem',fontWeight:700,color:'var(--muted)',textTransform:'uppercase',marginTop:4}}>Budget restant</div>
+          </div>
+        </div>
+        <div className="section-title">Détail par mission</div>
+        <div className="card" style={{overflowX:'auto'}}>
+          <table>
+            <thead><tr><th>Mission</th><th>Client</th><th>Budget vendu</th><th>Consommé (est.)</th><th>Restant</th><th>Progression</th></tr></thead>
+            <tbody>{missions.filter(m=>m.budget_vendu).sort((a,b)=>(b.budget_vendu||0)-(a.budget_vendu||0)).map(m=>{
+              const consumed = (m.assignments||[]).reduce((s,a) => {
+                if (!a.date_debut || !a.tjm) return s;
+                const start = new Date(a.date_debut);
+                const end = a.date_fin ? new Date(Math.min(new Date(a.date_fin), now)) : now;
+                const weeks = Math.max(0, (end - start) / (7*86400000));
+                return s + (a.tjm * (a.jours_par_semaine||a.taux_staffing/100*5) * weeks);
+              }, 0);
+              const pct = m.budget_vendu > 0 ? Math.round(consumed/m.budget_vendu*100) : 0;
+              return <tr key={m.id}>
+                <td style={{fontWeight:700,color:'var(--navy)'}}>{m.nom}</td>
+                <td>{getClientName(m)}</td>
+                <td style={{fontWeight:600}}>{m.budget_vendu.toLocaleString('fr-FR')} €</td>
+                <td>{Math.round(consumed).toLocaleString('fr-FR')} €</td>
+                <td style={{color:pct>90?'var(--red)':'var(--green)',fontWeight:700}}>{Math.round(m.budget_vendu-consumed).toLocaleString('fr-FR')} €</td>
+                <td><div style={{display:'flex',alignItems:'center',gap:8}}><div style={{width:80,height:8,background:'var(--offwhite)',borderRadius:4,overflow:'hidden'}}><div style={{height:'100%',width:`${Math.min(pct,100)}%`,background:pct>90?'var(--red)':pct>70?'var(--orange)':'var(--green)',borderRadius:4}} /></div><span style={{fontSize:'0.78rem',fontWeight:700,color:pct>90?'var(--red)':'var(--navy)'}}>{pct}%</span></div></td>
+              </tr>;
+            })}</tbody>
+          </table>
+        </div>
+        <div className="section-title" style={{marginTop:20}}>CA par client</div>
+        <div className="card" style={{overflowX:'auto'}}>
+          <table>
+            <thead><tr><th>Client</th><th>Missions</th><th>Budget total</th><th>CA mensuel prévu</th></tr></thead>
+            <tbody>{clients.map(c=>{
+              const cMissions = missions.filter(m=>m.client_id===c.id);
+              const cBudget = cMissions.reduce((s,m)=>s+(m.budget_vendu||0),0);
+              const cCA = cMissions.filter(isMissionActive).reduce((s,m)=>s+(m.assignments||[]).reduce((s2,a)=>s2+((a.tjm||0)*(a.jours_par_semaine||a.taux_staffing/100*5)*4.33),0),0);
+              if (cBudget===0&&cCA===0) return null;
+              return <tr key={c.id}>
+                <td style={{fontWeight:700,color:'var(--navy)'}}>{c.nom}</td>
+                <td>{cMissions.length}</td>
+                <td style={{fontWeight:600}}>{cBudget.toLocaleString('fr-FR')} €</td>
+                <td style={{fontWeight:700,color:'var(--blue)'}}>{Math.round(cCA).toLocaleString('fr-FR')} €</td>
+              </tr>;
+            }).filter(Boolean)}</tbody>
+          </table>
+        </div>
+      </div></FadeIn>}
 
       {/* CREATE/EDIT MODAL */}
       <Modal open={!!modal} onClose={()=>setModal(null)} title={modal==='create'?'Nouvelle mission':'Modifier la mission'}>
