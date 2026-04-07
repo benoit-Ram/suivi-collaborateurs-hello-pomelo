@@ -93,12 +93,12 @@ export default function MissionsTab({ collabId }) {
     } catch(e) { alert('Erreur: ' + e.message); }
   };
 
-  // Calculate daily totals
+  // Calculate daily totals (all values in days: 0-1 per assignment)
   const dayTotals = weekDates.map(date => {
     return active.reduce((total, a) => {
       const entry = getEntry(a.id, date);
-      const prevu = (a.taux_staffing || 100) >= 100 ? 7 : Math.round((a.taux_staffing / 100) * 7 * 10) / 10;
-      return total + (entry?.temps_reel != null ? entry.temps_reel : (prevu / active.length || 0));
+      const prevu = (a.taux_staffing || 100) / 100; // ratio 0-1 = jours
+      return total + (entry?.temps_reel != null ? entry.temps_reel : prevu);
     }, 0);
   });
 
@@ -171,7 +171,7 @@ export default function MissionsTab({ collabId }) {
 
                         if (isEditing) {
                           return <td key={date} style={{padding:4,textAlign:'center',background:isToday?'rgba(255,50,133,0.03)':'transparent'}}>
-                            <input type="number" step="0.5" min="0" max="1" value={editValue} onChange={e=>setEditValue(e.target.value)} style={{width:50,textAlign:'center',border:'1.5px solid var(--pink)',borderRadius:6,padding:'4px',fontFamily:'inherit',fontSize:'0.8rem'}} autoFocus />
+                            <input type="number" step="0.1" min="0" max="1" value={editValue} onChange={e=>setEditValue(e.target.value)} style={{width:50,textAlign:'center',border:'1.5px solid var(--pink)',borderRadius:6,padding:'4px',fontFamily:'inherit',fontSize:'0.8rem'}} autoFocus />
                             <input type="text" value={editComment} onChange={e=>setEditComment(e.target.value)} placeholder="Motif..." style={{width:'100%',border:'1px solid var(--lavender)',borderRadius:4,padding:'2px 4px',fontSize:'0.65rem',marginTop:2}} />
                             <div style={{display:'flex',gap:2,marginTop:2,justifyContent:'center'}}>
                               <button onClick={()=>saveModifiedEntry(a.id,date)} style={{fontSize:'0.6rem',background:'var(--green)',color:'white',border:'none',borderRadius:3,padding:'2px 6px',cursor:'pointer'}}>✓</button>
@@ -211,10 +211,10 @@ export default function MissionsTab({ collabId }) {
                     const dailyBooked = active.reduce((s,a) => s + (a.taux_staffing||0)/100, 0);
                     const dispo = Math.max(0, 1 - dailyBooked);
                     return <td key={date} style={{textAlign:'center',padding:8}}>
-                      <div style={{fontWeight:700,fontSize:'0.85rem',color:dispo>0?'var(--green)':'var(--muted)'}}>{Math.round(dispo*7*10)/10}h</div>
+                      <div style={{fontWeight:700,fontSize:'0.85rem',color:dispo>0?'var(--green)':'var(--muted)'}}>{dispo.toFixed(1)}j</div>
                     </td>;
                   })}
-                  <td style={{textAlign:'center',padding:8,fontWeight:700,color:'var(--muted)'}}>{Math.round(Math.max(0,5-active.reduce((s,a)=>s+(a.taux_staffing||0)/100*5,0))*10)/10}j</td>
+                  <td style={{textAlign:'center',padding:8,fontWeight:700,color:'var(--muted)'}}>{Math.max(0,5-active.reduce((s,a)=>s+(a.taux_staffing||0)/100*5,0)).toFixed(1)}j</td>
                 </tr>
               </tbody>
             </table>
