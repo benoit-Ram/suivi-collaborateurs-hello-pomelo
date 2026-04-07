@@ -453,6 +453,8 @@ function CongesTab({ c, absences, solde, onReload, settings }) {
     if (form.date_debut < today) { setError('Impossible de poser des conges dans le passe.'); return; }
     // Block 0-day requests (weekends, holidays)
     if (formDays === 0) { setError('Cette periode ne contient aucun jour ouvre (weekend ou jour ferie).'); return; }
+    // Comment required for "autre" type
+    if (form.type === 'autre' && !form.commentaire?.trim()) { setError('Le commentaire est obligatoire pour une absence de type "Autre".'); return; }
     // Balance check
     if (typeDeducts && newSolde < 0) { setError(`Solde insuffisant (${solde.toFixed(2)}j). Cette absence necessite ${formDays}j.`); return; }
     // Overlap check (handles AM/PM half-days, exclude self if editing)
@@ -733,7 +735,7 @@ function TeamCalendar({ collab, fermetures = [] }) {
                 const isFerie = feries.has(ds);
                 const isFerm = fermetures.some(f=>ds>=f.debut&&ds<=f.fin);
                 const a = abs.find(x=>ds>=x.date_debut&&ds<=x.date_fin);
-                let bg = isWE||isFerie?'#8F8FBC33':isFerm?'#EF444422':'transparent';
+                let bg = isWE||isFerie?'var(--lavender)':isFerm?'#EF444422':'transparent';
                 if(a && !isWE && !isFerie) bg = a.statut==='approuve'?'var(--bg-success)':'var(--bg-warning)';
                 return <td key={d} title={isFerm?fermetures.find(f=>ds>=f.debut&&ds<=f.fin)?.label:isFerie?'Jour ferie':''} style={{padding:2,textAlign:'center',background:bg,borderRadius:2}} />;
               })}
