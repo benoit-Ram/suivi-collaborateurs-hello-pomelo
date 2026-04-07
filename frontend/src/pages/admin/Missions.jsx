@@ -30,8 +30,10 @@ export default function Missions() {
   const [selectedClient, setSelectedClient] = useState(null);
   // Timeline/Staffing filters
   const [filterClient, setFilterClient] = useState('');
-  const [filterEquipe, setFilterEquipe] = useState('');
-  const [staffingPeriod, setStaffingPeriod] = useState('current'); // current, q1, q2, q3, q4, year
+  const [filterEquipes, setFilterEquipes] = useState([]); // multi-select
+  const [showEquipeDropdown, setShowEquipeDropdown] = useState(false);
+  const [staffingDateDebut, setStaffingDateDebut] = useState('');
+  const [staffingDateFin, setStaffingDateFin] = useState('');
 
   useEffect(() => { loadData(); }, []);
 
@@ -233,39 +235,71 @@ export default function Missions() {
             <option value="">Tous les clients</option>
             {clients.map(c=><option key={c.id} value={c.id}>{c.nom}</option>)}
           </select>
-          <select value={filterEquipe} onChange={e=>setFilterEquipe(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 10px',fontFamily:'inherit',fontSize:'0.78rem',background:'var(--offwhite)',color:'var(--navy)'}}>
-            <option value="">Toutes les equipes</option>
-            {[...new Set(collabs.flatMap(c=>(c.equipe||'').split(',').map(s=>s.trim())).filter(Boolean))].map(e=><option key={e} value={e}>{e}</option>)}
-          </select>
         </div>
         <div className="card" style={{padding:0,overflow:'hidden'}}>
-          <TimelineView missions={filterClient ? active.filter(m=>m.client_id===filterClient) : active} collabs={filterEquipe ? collabs.filter(c=>(c.equipe||'').includes(filterEquipe)) : collabs} staffingMap={staffingMap} allMissions={active} />
+          <TimelineView missions={filterClient ? active.filter(m=>m.client_id===filterClient) : active} collabs={filterEquipes.length>0 ? collabs.filter(c=>filterEquipes.some(eq=>(c.equipe||'').includes(eq))) : collabs} staffingMap={staffingMap} allMissions={active} />
         </div>
       </div></FadeIn>}
 
       {/* STAFFING */}
-      {tab==='staffing' && <FadeIn><div>
+      {tab==='staffing' && (()=>{
+        const allEquipes = [...new Set(collabs.flatMap(c=>(c.equipe||'').split(',').map(s=>s.trim())).filter(Boolean))].sort();
+        const toggleEquipe = (eq) => setFilterEquipes(prev => prev.includes(eq) ? prev.filter(e=>e!==eq) : [...prev, eq]);
+        const filteredStaffing = Object.values(staffingMap).filter(({collab:c}) => filterEquipes.length===0 || filterEquipes.some(eq=>(c.equipe||'').includes(eq)));
+        const avg = filteredStaffing.length ? Math.round(filteredStaffing.reduce((s,v)=>s+v.taux,0)/filteredStaffing.length) : 0;
+
+        // Quick date presets
+        const setPreset = (type) => {
+          const now = new Date();
+          const y = now.getFullYear();
+          const m = now.getMonth();
+          if (type==='week') { const mon=new Date(now); mon.setDate(now.getDate()-((now.getDay()+6)%7)); const fri=new Date(mon); fri.setDate(mon.getDate()+4); setStaffingDateDebut(mon.toISOString().split('T')[0]); setStaffingDateFin(fri.toISOString().split('T')[0]); }
+          else if (type==='month') { setStaffingDateDebut(`${y}-${String(m+1).padStart(2,'0')}-01`); setStaffingDateFin(new Date(y,m+1,0).toISOString().split('T')[0]); }
+          else if (type==='q1') { setStaffingDateDebut(`${y}-01-01`); setStaffingDateFin(`${y}-03-31`); }
+          else if (type==='q2') { setStaffingDateDebut(`${y}-04-01`); setStaffingDateFin(`${y}-06-30`); }
+          else if (type==='q3') { setStaffingDateDebut(`${y}-07-01`); setStaffingDateFin(`${y}-09-30`); }
+          else if (type==='q4') { setStaffingDateDebut(`${y}-10-01`); setStaffingDateFin(`${y}-12-31`); }
+          else if (type==='year') { setStaffingDateDebut(`${y}-01-01`); setStaffingDateFin(`${y}-12-31`); }
+          else { setStaffingDateDebut(''); setStaffingDateFin(''); }
+        };
+
+        return <FadeIn><div>
+        <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap',alignItems:'center'}}>
+          {/* Date presets */}
+          <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+            {[['','Tout'],['week','Semaine'],['month','Mois'],['q1','T1'],['q2','T2'],['q3','T3'],['q4','T4'],['year','Année']].map(([k,l])=>(
+              <button key={k} onClick={()=>setPreset(k)} className="btn btn-ghost btn-sm" style={{padding:'4px 10px',fontSize:'0.7rem',background:(!staffingDateDebut&&!k)?'var(--pink)':'transparent',color:(!staffingDateDebut&&!k)?'white':'var(--muted)'}}>{l}</button>
+            ))}
+          </div>
+          <span style={{fontSize:'0.78rem',color:'var(--muted)',fontWeight:600}}>Taux moyen: {avg}%</span>
+        </div>
         <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
-          <select value={staffingPeriod} onChange={e=>setStaffingPeriod(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 10px',fontFamily:'inherit',fontSize:'0.78rem',background:'var(--offwhite)',color:'var(--navy)'}}>
-            <option value="current">Période actuelle</option>
-            <option value="q1">T1 (Jan-Mar)</option>
-            <option value="q2">T2 (Avr-Jun)</option>
-            <option value="q3">T3 (Jul-Sep)</option>
-            <option value="q4">T4 (Oct-Déc)</option>
-            <option value="year">Année complète</option>
-          </select>
-          <select value={filterEquipe} onChange={e=>setFilterEquipe(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 10px',fontFamily:'inherit',fontSize:'0.78rem',background:'var(--offwhite)',color:'var(--navy)'}}>
-            <option value="">Toutes les équipes</option>
-            {[...new Set(collabs.flatMap(c=>(c.equipe||'').split(',').map(s=>s.trim())).filter(Boolean))].map(e=><option key={e} value={e}>{e}</option>)}
-          </select>
-          <span style={{fontSize:'0.78rem',color:'var(--muted)',fontWeight:600}}>
-            {(()=>{const vals=Object.values(staffingMap); const avg=vals.length?Math.round(vals.reduce((s,v)=>s+v.taux,0)/vals.length):0; return `Taux moyen: ${avg}%`;})()}
-          </span>
+          {/* Date picker */}
+          <div style={{display:'flex',alignItems:'center',gap:4}}>
+            <input type="date" value={staffingDateDebut} onChange={e=>setStaffingDateDebut(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'5px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)'}} />
+            <span style={{color:'var(--muted)',fontSize:'0.75rem'}}>→</span>
+            <input type="date" value={staffingDateFin} onChange={e=>setStaffingDateFin(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'5px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)'}} />
+          </div>
+          {/* Multi-select équipes */}
+          <div style={{position:'relative'}}>
+            <button onClick={()=>setShowEquipeDropdown(!showEquipeDropdown)} className="btn btn-ghost btn-sm" style={{fontSize:'0.75rem'}}>
+              🏷️ Équipes {filterEquipes.length>0?`(${filterEquipes.length})`:''} ▾
+            </button>
+            {showEquipeDropdown && <div style={{position:'absolute',top:'100%',left:0,background:'var(--white)',border:'1.5px solid var(--lavender)',borderRadius:10,padding:8,zIndex:100,boxShadow:'0 8px 24px rgba(5,5,109,0.15)',minWidth:200,maxHeight:250,overflowY:'auto'}}>
+              <button onClick={()=>{setFilterEquipes([]);setShowEquipeDropdown(false);}} style={{width:'100%',textAlign:'left',padding:'6px 8px',border:'none',background:'transparent',fontFamily:'inherit',fontSize:'0.78rem',color:'var(--muted)',cursor:'pointer',fontWeight:600}}>✕ Tout décocher</button>
+              {allEquipes.map(eq=>(
+                <label key={eq} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 8px',cursor:'pointer',borderRadius:6,fontSize:'0.78rem',fontWeight:600,color:'var(--navy)',background:filterEquipes.includes(eq)?'var(--offwhite)':'transparent'}}>
+                  <input type="checkbox" checked={filterEquipes.includes(eq)} onChange={()=>toggleEquipe(eq)} style={{accentColor:'var(--pink)'}} />
+                  {eq}
+                </label>
+              ))}
+            </div>}
+          </div>
         </div>
         <div className="card" style={{overflowX:'auto'}}>
         <table>
           <thead><tr><th>Collaborateur</th><th>Poste</th><th>Taux staffing</th><th>Jours/sem.</th><th>Missions</th></tr></thead>
-          <tbody>{Object.values(staffingMap).filter(({collab:c})=>!filterEquipe||(c.equipe||'').includes(filterEquipe)).sort((a,b)=>b.taux-a.taux).map(({collab:c,taux,missions:ms})=>(
+          <tbody>{filteredStaffing.sort((a,b)=>b.taux-a.taux).map(({collab:c,taux,missions:ms})=>(
             <tr key={c.id}>
               <td><div style={{display:'flex',alignItems:'center',gap:8}}><Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={28} /><span style={{fontWeight:700,color:'var(--navy)'}}>{c.prenom} {c.nom}</span></div></td>
               <td style={{fontSize:'0.78rem',color:'var(--muted)'}}>{c.poste||'—'}</td>
@@ -275,7 +309,7 @@ export default function Missions() {
             </tr>
           ))}</tbody>
         </table>
-      </div></div></FadeIn>}
+      </div></div></FadeIn>})()}
 
       {/* CREATE/EDIT MODAL */}
       <Modal open={!!modal} onClose={()=>setModal(null)} title={modal==='create'?'Nouvelle mission':'Modifier la mission'}>
