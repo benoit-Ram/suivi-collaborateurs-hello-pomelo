@@ -1,15 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../../services/api';
-import { Badge, FadeIn, Skeleton, fmtDate, ProgressBar } from '../../../components/UI';
+import { Badge, FadeIn, Skeleton, fmtDate, ProgressBar, Modal } from '../../../components/UI';
 
 const STATUT_LABEL = { en_cours:'En cours', termine:'Terminé', annule:'Annulé', en_attente:'En attente' };
 const STATUT_BADGE = { en_cours:'blue', termine:'green', annule:'pink', en_attente:'orange' };
-const ENTRY_COLORS = { planifie:'#E2E8F0', confirme:'#BBF7D0', modifie:'#FDE68A', en_attente:'#DDD6FE', approuve:'#A7F3D0' };
-const ENTRY_LABELS = { planifie:'Prévisionnel', confirme:'Confirmé', modifie:'Modifié', en_attente:'En attente', approuve:'Approuvé' };
-const DAY_LABELS = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi'];
+const ENTRY_COLORS = { planifie:'#E2E8F0', confirme:'#FDE68A', valide:'#BBF7D0' };
+const ENTRY_LABELS = { planifie:'À valider', confirme:'Confirmé', valide:'Validé', modifie:'Modifié' };
 const DAY_SHORT = ['Lun','Mar','Mer','Jeu','Ven'];
 
-/** Get Monday of a given week offset from current week */
 function getWeekMonday(offset = 0) {
   const now = new Date();
   const monday = new Date(now);
@@ -38,27 +36,34 @@ export default function MissionsTab({ collabId }) {
   const [timeEntries, setTimeEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [weekOffset, setWeekOffset] = useState(0);
-  const [editCell, setEditCell] = useState(null); // {assignmentId, date}
-  const [editValue, setEditValue] = useState('');
-  const [editComment, setEditComment] = useState('');
+  // Validation popup
+  const [validateDate, setValidateDate] = useState(null); // date string to validate
+  const [validateForm, setValidateForm] = useState({}); // { [assignmentId]: { temps_reel, commentaire, confirmed } }
+  const [validateLoading, setValidateLoading] = useState(false);
 
   useEffect(() => {
     if (!collabId) return;
-    Promise.all([
-      api.getAssignments({ collaborateur_id: collabId }),
-      api.getTimeEntries({ collaborateur_id: collabId })
-    ]).then(([a, t]) => {
+    loadData();
+  }, [collabId]);
+
+  async function loadData() {
+    try {
+      const [a, t] = await Promise.all([
+        api.getAssignments({ collaborateur_id: collabId }),
+        api.getTimeEntries({ collaborateur_id: collabId })
+      ]);
       setAssignments(a || []);
       setTimeEntries(t || []);
-      setLoading(false);
-    }).catch(() => setLoading(false));
-  }, [collabId]);
+    } catch(e) { console.error(e); }
+    setLoading(false);
+  }
 
   if (loading) return <Skeleton lines={5} />;
 
   const monday = getWeekMonday(weekOffset);
   const weekDates = getWeekDates(monday);
   const weekLabel = getWeekLabel(monday);
+  const today = new Date().toISOString().split('T')[0];
 
   const active = assignments.filter(a => a.statut === 'actif' && a.missions?.statut === 'en_cours');
   const past = assignments.filter(a => a.statut !== 'actif' || a.missions?.statut !== 'en_cours');
@@ -66,45 +71,70 @@ export default function MissionsTab({ collabId }) {
 
   const getEntry = (assignmentId, date) => timeEntries.find(t => t.assignment_id === assignmentId && t.date === date);
 
-  const confirmEntry = async (assignmentId, date, tempsPrevu) => {
-    const existing = getEntry(assignmentId, date);
-    try {
-      if (existing) {
-        await api.updateTimeEntry(existing.id, { temps_reel: tempsPrevu, statut: 'confirme' });
-      } else {
-        await api.createTimeEntry({ assignment_id: assignmentId, collaborateur_id: collabId, date, temps_prevu: tempsPrevu, temps_reel: tempsPrevu, statut: 'confirme' });
-      }
-      const t = await api.getTimeEntries({ collaborateur_id: collabId });
-      setTimeEntries(t || []);
-    } catch(e) { alert('Erreur: ' + e.message); }
-  };
-
-  const saveModifiedEntry = async (assignmentId, date) => {
-    const existing = getEntry(assignmentId, date);
-    try {
-      if (existing) {
-        await api.updateTimeEntry(existing.id, { temps_reel: parseFloat(editValue) || 0, statut: 'modifie', commentaire: editComment });
-      } else {
-        await api.createTimeEntry({ assignment_id: assignmentId, collaborateur_id: collabId, date, temps_prevu: 1, temps_reel: parseFloat(editValue) || 0, statut: 'modifie', commentaire: editComment });
-      }
-      const t = await api.getTimeEntries({ collaborateur_id: collabId });
-      setTimeEntries(t || []);
-      setEditCell(null);
-    } catch(e) { alert('Erreur: ' + e.message); }
-  };
-
-  // Calculate daily totals (all values in days: 0-1 per assignment)
-  const dayTotals = weekDates.map(date => {
-    return active.reduce((total, a) => {
+  // Open validation popup for a specific date
+  const openValidate = (date) => {
+    if (date > today) return; // Can't validate future days
+    const form = {};
+    active.forEach(a => {
       const entry = getEntry(a.id, date);
-      const prevu = (a.taux_staffing || 100) / 100; // ratio 0-1 = jours
-      return total + (entry?.temps_reel != null ? entry.temps_reel : prevu);
-    }, 0);
-  });
+      const prevu = (a.taux_staffing || 100) / 100;
+      form[a.id] = {
+        temps_reel: entry?.temps_reel != null ? entry.temps_reel : prevu,
+        prevu,
+        commentaire: entry?.commentaire || '',
+        confirmed: true, // default: confirm planned time
+        existing: entry,
+        missionNom: a.missions?.nom || '—',
+        missionClient: a.missions?.clients?.nom || a.missions?.client || '—',
+        role: a.role || '—',
+      };
+    });
+    setValidateForm(form);
+    setValidateDate(date);
+  };
+
+  // Submit validation for a day
+  const submitValidation = async () => {
+    setValidateLoading(true);
+    try {
+      for (const [assignmentId, entry] of Object.entries(validateForm)) {
+        const existing = getEntry(assignmentId, validateDate);
+        const data = {
+          temps_reel: entry.confirmed ? entry.prevu : parseFloat(entry.temps_reel) || 0,
+          statut: 'valide',
+          commentaire: entry.confirmed ? null : (entry.commentaire || null),
+        };
+        if (existing) {
+          await api.updateTimeEntry(existing.id, data);
+        } else {
+          await api.createTimeEntry({
+            assignment_id: assignmentId,
+            collaborateur_id: collabId,
+            date: validateDate,
+            temps_prevu: entry.prevu,
+            ...data,
+          });
+        }
+      }
+      await loadData();
+      setValidateDate(null);
+    } catch(e) { alert('Erreur: ' + e.message); }
+    setValidateLoading(false);
+  };
+
+  // Check if a day is fully validated
+  const isDayValidated = (date) => {
+    return active.every(a => {
+      const entry = getEntry(a.id, date);
+      return entry?.statut === 'valide';
+    });
+  };
+
+  const isPast = (date) => date <= today;
 
   return (
     <div>
-      {/* Taux de staffing global */}
+      {/* Stats */}
       <div style={{display:'flex',gap:12,marginBottom:20}}>
         <div className="card" style={{flex:1,textAlign:'center',padding:16}}>
           <div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginBottom:6}}>Staffing global</div>
@@ -117,119 +147,158 @@ export default function MissionsTab({ collabId }) {
         </div>
       </div>
 
-      {/* Feuille de temps hebdomadaire */}
+      {/* Feuille de temps */}
       <div className="card" style={{marginBottom:20,padding:0,overflow:'hidden'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'14px 18px',borderBottom:'1px solid var(--lavender)'}}>
-          <button className="btn btn-ghost btn-sm" onClick={()=>setWeekOffset(weekOffset-1)}>← Sem. préc.</button>
+          <button className="btn btn-ghost btn-sm" onClick={()=>setWeekOffset(weekOffset-1)}>←</button>
           <div style={{textAlign:'center'}}>
             <div style={{fontWeight:700,color:'var(--navy)',fontSize:'0.95rem'}}>📋 Feuille de temps</div>
             <div style={{fontSize:'0.75rem',color:'var(--muted)',marginTop:2}}>{weekLabel}</div>
           </div>
           <div style={{display:'flex',gap:6}}>
-            {weekOffset !== 0 && <button className="btn btn-ghost btn-sm" onClick={()=>setWeekOffset(0)}>Aujourd'hui</button>}
-            <button className="btn btn-ghost btn-sm" onClick={()=>setWeekOffset(weekOffset+1)}>Sem. suiv. →</button>
+            {weekOffset !== 0 && <button className="btn btn-ghost btn-sm" onClick={()=>setWeekOffset(0)}>Auj.</button>}
+            <button className="btn btn-ghost btn-sm" onClick={()=>setWeekOffset(weekOffset+1)}>→</button>
           </div>
         </div>
 
         {active.length === 0 ? (
-          <div style={{padding:32,textAlign:'center',color:'var(--muted)'}}>Aucune mission active — pas de feuille de temps</div>
+          <div style={{padding:32,textAlign:'center',color:'var(--muted)'}}>Aucune mission active</div>
         ) : (
           <div style={{overflowX:'auto'}}>
             <table style={{width:'100%',fontSize:'0.8rem',borderCollapse:'collapse'}}>
               <thead>
                 <tr style={{background:'var(--offwhite)'}}>
-                  <th style={{textAlign:'left',padding:'10px 14px',fontWeight:700,color:'var(--navy)',minWidth:180}}>Projet</th>
+                  <th style={{textAlign:'left',padding:'10px 14px',fontWeight:700,color:'var(--navy)',minWidth:160}}>Mission</th>
                   {weekDates.map((date, i) => {
-                    const isToday = date === new Date().toISOString().split('T')[0];
-                    return <th key={date} style={{textAlign:'center',padding:'8px 6px',minWidth:80,fontWeight:700,color:isToday?'var(--pink)':'var(--navy)',background:isToday?'rgba(255,50,133,0.05)':'transparent'}}>
+                    const isToday = date === today;
+                    const validated = isDayValidated(date);
+                    return <th key={date} style={{textAlign:'center',padding:'8px 4px',minWidth:70,fontWeight:700,color:isToday?'var(--pink)':'var(--navy)',background:isToday?'rgba(255,50,133,0.05)':'transparent'}}>
                       <div>{DAY_SHORT[i]}</div>
-                      <div style={{fontSize:'0.68rem',fontWeight:600,color:'var(--muted)'}}>{date.split('-')[2]}/{date.split('-')[1]}</div>
+                      <div style={{fontSize:'0.65rem',fontWeight:600,color:'var(--muted)'}}>{date.split('-')[2]}/{date.split('-')[1]}</div>
+                      {validated && <div style={{fontSize:'0.6rem',color:'var(--green)'}}>✓</div>}
                     </th>;
                   })}
-                  <th style={{textAlign:'center',padding:'8px 6px',fontWeight:700,color:'var(--navy)',minWidth:60}}>Total</th>
+                  <th style={{textAlign:'center',padding:'8px 4px',fontWeight:700,minWidth:50}}>Total</th>
                 </tr>
               </thead>
               <tbody>
                 {active.map(a => {
                   const weekTotal = weekDates.reduce((s, date) => {
                     const entry = getEntry(a.id, date);
-                    return s + (entry?.temps_reel ?? 0);
+                    return s + (entry?.temps_reel != null ? entry.temps_reel : 0);
                   }, 0);
                   return (
                     <tr key={a.id} style={{borderBottom:'1px solid var(--lavender)'}}>
                       <td style={{padding:'10px 14px'}}>
                         <div style={{fontWeight:700,color:'var(--navy)',fontSize:'0.85rem'}}>{a.missions?.nom || '—'}</div>
-                        <div style={{fontSize:'0.7rem',color:'var(--muted)'}}>{a.missions?.clients?.nom || a.missions?.client} · {a.role || '—'} · {a.taux_staffing}%</div>
+                        <div style={{fontSize:'0.68rem',color:'var(--muted)'}}>{a.missions?.clients?.nom || a.missions?.client || '—'} · {a.role || '—'}</div>
                       </td>
                       {weekDates.map((date, i) => {
                         const entry = getEntry(a.id, date);
-                        const isToday = date === new Date().toISOString().split('T')[0];
-                        const isEditing = editCell?.assignmentId === a.id && editCell?.date === date;
+                        const isToday = date === today;
                         const status = entry?.statut || 'planifie';
                         const prevu = (a.taux_staffing || 100) / 100;
-                        const heures = entry?.temps_reel ?? null;
+                        const isValidated = status === 'valide';
+                        const value = entry?.temps_reel != null ? entry.temps_reel : prevu;
 
-                        if (isEditing) {
-                          return <td key={date} style={{padding:4,textAlign:'center',background:isToday?'rgba(255,50,133,0.03)':'transparent'}}>
-                            <input type="number" step="0.1" min="0" max="1" value={editValue} onChange={e=>setEditValue(e.target.value)} style={{width:50,textAlign:'center',border:'1.5px solid var(--pink)',borderRadius:6,padding:'4px',fontFamily:'inherit',fontSize:'0.8rem'}} autoFocus />
-                            <input type="text" value={editComment} onChange={e=>setEditComment(e.target.value)} placeholder="Motif..." style={{width:'100%',border:'1px solid var(--lavender)',borderRadius:4,padding:'2px 4px',fontSize:'0.65rem',marginTop:2}} />
-                            <div style={{display:'flex',gap:2,marginTop:2,justifyContent:'center'}}>
-                              <button onClick={()=>saveModifiedEntry(a.id,date)} style={{fontSize:'0.6rem',background:'var(--green)',color:'white',border:'none',borderRadius:3,padding:'2px 6px',cursor:'pointer'}}>✓</button>
-                              <button onClick={()=>setEditCell(null)} style={{fontSize:'0.6rem',background:'var(--lavender)',color:'var(--navy)',border:'none',borderRadius:3,padding:'2px 6px',cursor:'pointer'}}>✕</button>
-                            </div>
-                          </td>;
-                        }
-
-                        return <td key={date} style={{padding:4,textAlign:'center',background:isToday?'rgba(255,50,133,0.03)':'transparent'}}>
+                        return <td key={date} style={{padding:3,textAlign:'center',background:isToday?'rgba(255,50,133,0.03)':'transparent'}}>
                           <div style={{
-                            padding:'6px 4px',borderRadius:8,
-                            background:ENTRY_COLORS[status]||'#F1F5F9',
-                            cursor:status==='planifie'||status==='confirme'?'pointer':'default',
-                            transition:'all 0.15s',
-                            minHeight:36,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'
-                          }}
-                          onClick={()=>{
-                            if (status === 'planifie') confirmEntry(a.id, date, prevu);
-                            else if (status === 'confirme' || status === 'modifie') { setEditCell({assignmentId:a.id,date}); setEditValue(String(heures != null ? heures : prevu)); setEditComment(entry?.commentaire || ''); }
-                          }}
-                          title={status==='planifie'?'Cliquer pour confirmer':status==='confirme'?'Cliquer pour modifier':''}
-                          >
-                            <div style={{fontWeight:700,fontSize:'0.85rem',color:'var(--navy)'}}>{heures !== null ? `${heures}j` : `${prevu}j`}</div>
-                            <div style={{fontSize:'0.55rem',fontWeight:600,color:'var(--muted)',marginTop:1}}>{ENTRY_LABELS[status]||status}</div>
+                            padding:'6px 2px',borderRadius:8,
+                            background: isValidated ? ENTRY_COLORS.valide : isPast(date) ? ENTRY_COLORS.planifie : '#F8F8FC',
+                            minHeight:36,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
+                            opacity: !isPast(date) ? 0.5 : 1,
+                          }}>
+                            <div style={{fontWeight:700,fontSize:'0.85rem',color:isValidated?'var(--green)':'var(--navy)'}}>{value}j</div>
+                            <div style={{fontSize:'0.5rem',fontWeight:600,color:isValidated?'var(--green)':'var(--muted)'}}>
+                              {isValidated ? '✓ Validé' : isPast(date) ? 'À valider' : 'Futur'}
+                            </div>
                           </div>
-                          {entry?.commentaire && <div style={{fontSize:'0.55rem',color:'var(--muted)',marginTop:1,fontStyle:'italic'}} title={entry.commentaire}>💬</div>}
+                          {entry?.commentaire && <div style={{fontSize:'0.5rem',color:'var(--muted)',marginTop:1}} title={entry.commentaire}>💬</div>}
                         </td>;
                       })}
                       <td style={{padding:8,textAlign:'center',fontWeight:700,color:'var(--navy)'}}>{weekTotal > 0 ? `${weekTotal}j` : '—'}</td>
                     </tr>
                   );
                 })}
-                {/* Disponibilité row */}
-                <tr style={{background:'var(--offwhite)'}}>
-                  <td style={{padding:'10px 14px',fontWeight:700,color:'var(--muted)',fontSize:'0.82rem'}}>Disponibilité</td>
-                  {weekDates.map((date, i) => {
-                    const dailyBooked = active.reduce((s,a) => s + (a.taux_staffing||0)/100, 0);
-                    const dispo = Math.max(0, 1 - dailyBooked);
-                    return <td key={date} style={{textAlign:'center',padding:8}}>
-                      <div style={{fontWeight:700,fontSize:'0.85rem',color:dispo>0?'var(--green)':'var(--muted)'}}>{dispo.toFixed(1)}j</div>
-                    </td>;
-                  })}
-                  <td style={{textAlign:'center',padding:8,fontWeight:700,color:'var(--muted)'}}>{Math.max(0,5-active.reduce((s,a)=>s+(a.taux_staffing||0)/100*5,0)).toFixed(1)}j</td>
-                </tr>
               </tbody>
             </table>
           </div>
         )}
 
+        {/* Day validation buttons */}
+        {active.length > 0 && (
+          <div style={{padding:'12px 18px',borderTop:'1px solid var(--lavender)',display:'flex',gap:4,flexWrap:'wrap',justifyContent:'center'}}>
+            {weekDates.map((date, i) => {
+              const validated = isDayValidated(date);
+              const past = isPast(date);
+              return <button key={date} disabled={!past || validated} onClick={()=>openValidate(date)}
+                className={`btn btn-sm ${validated ? '' : past ? 'btn-primary' : 'btn-ghost'}`}
+                style={{padding:'6px 12px',fontSize:'0.72rem',opacity:!past?0.4:1}}>
+                {validated ? `✓ ${DAY_SHORT[i]}` : `${DAY_SHORT[i]} ${date.split('-')[2]}/${date.split('-')[1]}`}
+              </button>;
+            })}
+          </div>
+        )}
+
         {/* Légende */}
-        <div style={{display:'flex',gap:12,padding:'10px 18px',borderTop:'1px solid var(--lavender)',flexWrap:'wrap',fontSize:'0.68rem',color:'var(--muted)'}}>
-          {Object.entries(ENTRY_LABELS).map(([k,v])=>(
-            <span key={k} style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:3,background:ENTRY_COLORS[k]}} />{v}</span>
-          ))}
+        <div style={{display:'flex',gap:12,padding:'8px 18px',borderTop:'1px solid var(--lavender)',fontSize:'0.65rem',color:'var(--muted)'}}>
+          <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:3,background:ENTRY_COLORS.planifie}} />À valider</span>
+          <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:3,background:ENTRY_COLORS.valide}} />Validé</span>
         </div>
       </div>
 
-      {/* Missions actives — cartes */}
+      {/* VALIDATION POPUP */}
+      <Modal open={!!validateDate} onClose={()=>setValidateDate(null)} title={`Valider le ${validateDate ? validateDate.split('-')[2]+'/'+validateDate.split('-')[1]+'/'+validateDate.split('-')[0] : ''}`}>
+        <p style={{fontSize:'0.85rem',color:'var(--muted)',marginBottom:16}}>Pour chaque mission, confirmez le temps prévu ou indiquez le temps réel.</p>
+        {Object.entries(validateForm).map(([assignmentId, entry]) => (
+          <div key={assignmentId} style={{padding:'14px 16px',border:'1.5px solid var(--lavender)',borderRadius:12,marginBottom:10,background:entry.confirmed?'var(--offwhite)':'white'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+              <div>
+                <div style={{fontWeight:700,color:'var(--navy)',fontSize:'0.9rem'}}>{entry.missionNom}</div>
+                <div style={{fontSize:'0.75rem',color:'var(--muted)'}}>{entry.missionClient} · {entry.role}</div>
+              </div>
+              <div style={{fontWeight:700,color:'var(--blue)',fontSize:'1rem'}}>{entry.prevu}j prévu</div>
+            </div>
+            <div style={{display:'flex',gap:8,marginBottom:entry.confirmed?0:10}}>
+              <button onClick={()=>setValidateForm({...validateForm,[assignmentId]:{...entry,confirmed:true}})}
+                style={{flex:1,padding:'10px',borderRadius:10,border:`2px solid ${entry.confirmed?'var(--green)':'var(--lavender)'}`,background:entry.confirmed?'var(--bg-success)':'white',cursor:'pointer',fontFamily:'inherit',fontWeight:700,fontSize:'0.82rem',color:entry.confirmed?'var(--green)':'var(--muted)',transition:'all 0.15s'}}>
+                ✓ Temps prévu confirmé ({entry.prevu}j)
+              </button>
+              <button onClick={()=>setValidateForm({...validateForm,[assignmentId]:{...entry,confirmed:false,temps_reel:entry.temps_reel}})}
+                style={{flex:1,padding:'10px',borderRadius:10,border:`2px solid ${!entry.confirmed?'var(--orange)':'var(--lavender)'}`,background:!entry.confirmed?'var(--bg-warning)':'white',cursor:'pointer',fontFamily:'inherit',fontWeight:700,fontSize:'0.82rem',color:!entry.confirmed?'var(--orange)':'var(--muted)',transition:'all 0.15s'}}>
+                ✏️ Temps différent
+              </button>
+            </div>
+            {!entry.confirmed && (
+              <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                <div className="form-field" style={{flex:1,margin:0}}>
+                  <label style={{fontSize:'0.7rem'}}>Temps réel (jours)</label>
+                  <input type="number" step="0.1" min="0" max="1" value={entry.temps_reel}
+                    onChange={e=>setValidateForm({...validateForm,[assignmentId]:{...entry,temps_reel:e.target.value}})}
+                    style={{padding:'6px 10px',fontSize:'0.85rem'}} />
+                </div>
+                <div className="form-field" style={{flex:2,margin:0}}>
+                  <label style={{fontSize:'0.7rem'}}>Motif <span style={{color:'var(--red)'}}>*</span></label>
+                  <input value={entry.commentaire}
+                    onChange={e=>setValidateForm({...validateForm,[assignmentId]:{...entry,commentaire:e.target.value}})}
+                    placeholder="Pourquoi le temps est différent ?" style={{padding:'6px 10px',fontSize:'0.85rem'}} />
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+        <div style={{background:'var(--offwhite)',borderRadius:10,padding:'10px 14px',marginBottom:16,fontSize:'0.82rem',color:'var(--navy)',fontWeight:600}}>
+          ⚠️ Une fois validé, ce jour ne sera plus modifiable.
+        </div>
+        <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
+          <button className="btn btn-ghost" onClick={()=>setValidateDate(null)}>Annuler</button>
+          <button className="btn btn-primary" onClick={submitValidation} disabled={validateLoading || Object.values(validateForm).some(e=>!e.confirmed && !e.commentaire?.trim())}>
+            {validateLoading ? '⏳...' : '✓ Valider cette journée'}
+          </button>
+        </div>
+      </Modal>
+
+      {/* Missions actives */}
       {active.length > 0 && <>
         <div className="section-title">Mes missions ({active.length})</div>
         {active.map(a => (
@@ -248,6 +317,8 @@ export default function MissionsTab({ collabId }) {
           </div>
         ))}
       </>}
+
+      {active.length === 0 && <div className="card" style={{textAlign:'center',padding:32,color:'var(--muted)'}}>🚀 Aucune mission en cours</div>}
 
       {/* Historique */}
       {past.length > 0 && <>
