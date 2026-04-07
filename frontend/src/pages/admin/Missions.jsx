@@ -144,7 +144,9 @@ export default function Missions() {
   if (loading || ctxLoading) return <div style={{maxWidth:600,margin:'40px auto'}}><Skeleton lines={5} /></div>;
 
   const todayStr = new Date().toISOString().split('T')[0];
-  const isMissionActive = (m) => (!m.date_fin || m.date_fin >= todayStr) && (!m.date_debut || m.date_debut <= todayStr);
+  const periodStart = missionDateDebut || todayStr;
+  const periodEnd = missionDateFin || todayStr;
+  const isMissionActive = (m) => (!m.date_fin || m.date_fin >= periodStart) && (!m.date_debut || m.date_debut <= periodEnd);
   const active = missions.filter(isMissionActive);
 
   // Staffing calculation
@@ -206,7 +208,27 @@ export default function Missions() {
         <button className="btn btn-primary btn-sm" onClick={openCreate}>+ Nouvelle mission</button>
       </div>
 
-      {/* Stat cards */}
+      {/* Global date filter + stat cards */}
+      <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
+        <div style={{display:'flex',alignItems:'center',gap:4}}>
+          <span style={{fontSize:'0.78rem',fontWeight:700,color:'var(--muted)'}}>Période :</span>
+          <input type="date" value={missionDateDebut} onChange={e=>setMissionDateDebut(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'5px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)'}} />
+          <span style={{color:'var(--muted)',fontSize:'0.75rem'}}>→</span>
+          <input type="date" value={missionDateFin} onChange={e=>setMissionDateFin(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'5px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)'}} />
+        </div>
+        <div style={{display:'flex',gap:3}}>
+          {[['','Tout'],['month','Ce mois'],['q','Ce trimestre'],['year','Cette année']].map(([k,l])=>(
+            <button key={k} onClick={()=>{
+              const y=now.getFullYear(),m=now.getMonth();
+              if (!k) { setMissionDateDebut(''); setMissionDateFin(''); }
+              else if (k==='month') { setMissionDateDebut(`${y}-${String(m+1).padStart(2,'0')}-01`); setMissionDateFin(new Date(y,m+1,0).toISOString().split('T')[0]); }
+              else if (k==='q') { const qs=Math.floor(m/3)*3; setMissionDateDebut(`${y}-${String(qs+1).padStart(2,'0')}-01`); setMissionDateFin(new Date(y,qs+3,0).toISOString().split('T')[0]); }
+              else if (k==='year') { setMissionDateDebut(`${y}-01-01`); setMissionDateFin(`${y}-12-31`); }
+            }} className="btn btn-ghost btn-sm" style={{padding:'3px 8px',fontSize:'0.68rem',background:(!missionDateDebut&&!k)?'var(--pink)':'transparent',color:(!missionDateDebut&&!k)?'white':'var(--muted)'}}>{l}</button>
+          ))}
+        </div>
+      </div>
+
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:12,marginBottom:20}}>
         <div className="stat-card pink"><div className="stat-num">{active.length}</div><div className="stat-label">Missions actives</div></div>
         <div className="stat-card blue"><div className="stat-num">{staffingMoyen}%</div><div className="stat-label">Staffing moyen</div></div>
@@ -422,48 +444,7 @@ export default function Missions() {
             <div style={{fontSize:'0.75rem',fontWeight:700,color:'var(--muted)',textTransform:'uppercase',marginTop:4}}>Budget restant</div>
           </div>
         </div>
-        <div className="section-title">Détail par mission</div>
-        <div className="card" style={{overflowX:'auto'}}>
-          <table>
-            <thead><tr><th>Mission</th><th>Client</th><th>Budget vendu</th><th>Consommé (est.)</th><th>Restant</th><th>Progression</th></tr></thead>
-            <tbody>{missions.filter(m=>m.budget_vendu).sort((a,b)=>(b.budget_vendu||0)-(a.budget_vendu||0)).map(m=>{
-              const consumed = (m.assignments||[]).reduce((s,a) => {
-                if (!a.date_debut || !a.tjm) return s;
-                const start = new Date(a.date_debut);
-                const end = a.date_fin ? new Date(Math.min(new Date(a.date_fin), now)) : now;
-                const weeks = Math.max(0, (end - start) / (7*86400000));
-                return s + (a.tjm * (a.jours_par_semaine||a.taux_staffing/100*5) * weeks);
-              }, 0);
-              const pct = m.budget_vendu > 0 ? Math.round(consumed/m.budget_vendu*100) : 0;
-              return <tr key={m.id}>
-                <td style={{fontWeight:700,color:'var(--navy)'}}>{m.nom}</td>
-                <td>{getClientName(m)}</td>
-                <td style={{fontWeight:600}}>{m.budget_vendu.toLocaleString('fr-FR')} €</td>
-                <td>{Math.round(consumed).toLocaleString('fr-FR')} €</td>
-                <td style={{color:pct>90?'var(--red)':'var(--green)',fontWeight:700}}>{Math.round(m.budget_vendu-consumed).toLocaleString('fr-FR')} €</td>
-                <td><div style={{display:'flex',alignItems:'center',gap:8}}><div style={{width:80,height:8,background:'var(--offwhite)',borderRadius:4,overflow:'hidden'}}><div style={{height:'100%',width:`${Math.min(pct,100)}%`,background:pct>90?'var(--red)':pct>70?'var(--orange)':'var(--green)',borderRadius:4}} /></div><span style={{fontSize:'0.78rem',fontWeight:700,color:pct>90?'var(--red)':'var(--navy)'}}>{pct}%</span></div></td>
-              </tr>;
-            })}</tbody>
-          </table>
-        </div>
-        <div className="section-title" style={{marginTop:20}}>CA par client</div>
-        <div className="card" style={{overflowX:'auto'}}>
-          <table>
-            <thead><tr><th>Client</th><th>Missions</th><th>Budget total</th><th>CA mensuel prévu</th></tr></thead>
-            <tbody>{clients.map(c=>{
-              const cMissions = missions.filter(m=>m.client_id===c.id);
-              const cBudget = cMissions.reduce((s,m)=>s+(m.budget_vendu||0),0);
-              const cCA = cMissions.filter(isMissionActive).reduce((s,m)=>s+(m.assignments||[]).reduce((s2,a)=>s2+((a.tjm||0)*(a.jours_par_semaine||a.taux_staffing/100*5)*4.33),0),0);
-              if (cBudget===0&&cCA===0) return null;
-              return <tr key={c.id}>
-                <td style={{fontWeight:700,color:'var(--navy)'}}>{c.nom}</td>
-                <td>{cMissions.length}</td>
-                <td style={{fontWeight:600}}>{cBudget.toLocaleString('fr-FR')} €</td>
-                <td style={{fontWeight:700,color:'var(--blue)'}}>{Math.round(cCA).toLocaleString('fr-FR')} €</td>
-              </tr>;
-            }).filter(Boolean)}</tbody>
-          </table>
-        </div>
+        <FinanceByClient clients={clients} missions={missions} isMissionActive={isMissionActive} getClientName={getClientName} periodStart={periodStart} periodEnd={periodEnd} />
       </div></FadeIn>}
 
       {/* CREATE/EDIT MODAL */}
@@ -790,6 +771,60 @@ function TimelineView({ missions, collabs, staffingMap, allMissions }) {
           </div>}
         </div>;
       })()}
+    </div>
+  );
+}
+
+/** Finance par client — utilise la période globale */
+function FinanceByClient({ clients, missions, isMissionActive, getClientName, periodStart, periodEnd }) {
+  const activeMissions = missions.filter(isMissionActive);
+
+  const clientData = clients.map(c => {
+    const cMissions = activeMissions.filter(m => m.client_id === c.id);
+    const budget = cMissions.reduce((s,m) => s+(m.budget_vendu||0), 0);
+    const caMonth = cMissions.reduce((s,m) => s + (m.assignments||[]).reduce((s2,a) => {
+      if (!a.tjm) return s2;
+      return s2 + (a.tjm * (a.jours_par_semaine || a.taux_staffing/100*5) * 4.33);
+    }, 0), 0);
+    const nbCollabs = new Set(cMissions.flatMap(m => (m.assignments||[]).filter(a=>a.statut==='actif').map(a=>a.collaborateur_id))).size;
+    return { client: c, missions: cMissions, budget, caMonth, nbCollabs };
+  }).filter(d => d.missions.length > 0).sort((a,b) => b.caMonth - a.caMonth);
+
+  const totalCA = clientData.reduce((s,d) => s+d.caMonth, 0);
+
+  const [expandedClient, setExpandedClient] = useState(null);
+
+  return (
+    <div>
+      <div className="section-title">CA par client</div>
+      <div style={{fontSize:'0.82rem',color:'var(--muted)',marginBottom:12}}>CA mensuel estimé total : <strong style={{color:'var(--navy)',fontSize:'1rem'}}>{Math.round(totalCA).toLocaleString('fr-FR')} €</strong> · {activeMissions.length} missions sur la période</div>
+      <div className="card" style={{overflowX:'auto'}}>
+        <table>
+          <thead><tr><th>Client</th><th>Missions</th><th>Collabs</th><th>Budget total</th><th>CA mensuel est.</th><th></th></tr></thead>
+          <tbody>{clientData.map(d => (
+            <React.Fragment key={d.client.id}>
+              <tr style={{cursor:'pointer',background:expandedClient===d.client.id?'var(--offwhite)':'transparent'}} onClick={()=>setExpandedClient(expandedClient===d.client.id?null:d.client.id)}>
+                <td style={{fontWeight:700,color:'var(--navy)'}}>{d.client.nom}</td>
+                <td>{d.missions.length}</td>
+                <td>{d.nbCollabs}</td>
+                <td style={{fontWeight:600}}>{d.budget ? d.budget.toLocaleString('fr-FR')+' €' : '—'}</td>
+                <td style={{fontWeight:700,color:'var(--blue)'}}>{Math.round(d.caMonth).toLocaleString('fr-FR')} €</td>
+                <td style={{color:'var(--muted)'}}>{expandedClient===d.client.id ? '▲' : '▼'}</td>
+              </tr>
+              {expandedClient===d.client.id && d.missions.map(m => (
+                <tr key={m.id} style={{background:'var(--offwhite)',fontSize:'0.82rem'}}>
+                  <td style={{paddingLeft:32,color:'var(--muted)'}}>{m.nom}</td>
+                  <td>{(m.assignments||[]).filter(a=>a.statut==='actif').length}</td>
+                  <td></td>
+                  <td style={{color:'var(--muted)'}}>{m.budget_vendu ? m.budget_vendu.toLocaleString('fr-FR')+' €' : '—'}</td>
+                  <td style={{color:'var(--muted)'}}>{Math.round((m.assignments||[]).reduce((s,a)=>s+((a.tjm||0)*(a.jours_par_semaine||a.taux_staffing/100*5)*4.33),0)).toLocaleString('fr-FR')} €</td>
+                  <td></td>
+                </tr>
+              ))}
+            </React.Fragment>
+          ))}</tbody>
+        </table>
+      </div>
     </div>
   );
 }
