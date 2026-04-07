@@ -1,15 +1,12 @@
-import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, ForbiddenException, SetMetadata } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuthService } from './auth.service';
 
 export const IS_PUBLIC_KEY = 'isPublic';
-export const Public = () => (target: any, propertyKey?: string, descriptor?: any) => {
-  if (descriptor) {
-    Reflect.defineMetadata(IS_PUBLIC_KEY, true, descriptor.value);
-  } else {
-    Reflect.defineMetadata(IS_PUBLIC_KEY, true, target);
-  }
-};
+export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
+
+export const ROLES_KEY = 'roles';
+export const Roles = (...roles: string[]) => SetMetadata(ROLES_KEY, roles);
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -38,6 +35,22 @@ export class AuthGuard implements CanActivate {
 
     // Attach user info to request
     request.user = decoded;
+
+    // Check role-based access
+    const requiredRoles = this.reflector.getAllAndOverride<string[]>(ROLES_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (requiredRoles && requiredRoles.length > 0) {
+      const userRoles: string[] = [];
+      if (decoded.isAdmin) userRoles.push('admin');
+      if (decoded.isSuperAdmin) userRoles.push('super_admin');
+      userRoles.push('collab'); // everyone is at least a collab
+
+      const hasRole = requiredRoles.some(r => userRoles.includes(r));
+      if (!hasRole) throw new ForbiddenException('Accès réservé aux administrateurs');
+    }
+
     return true;
   }
 }

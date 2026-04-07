@@ -25,9 +25,9 @@ function computeNotifications(data, collabId) {
   (data.absences || []).forEach(a => {
     if (a.approved_at && a.approved_at > lastSeen) {
       if (a.statut === 'approuve') {
-        notifs.push({ id: 'abs-a-'+a.id, icon: '✅', text: `Conge approuve${a.approved_by ? ' par '+a.approved_by : ''}`, date: a.approved_at, tab: 'conges', isNew: true });
+        notifs.push({ id: 'abs-a-'+a.id, icon: '✅', text: `Congé approuvé${a.approved_by ? ' par '+a.approved_by : ''}`, date: a.approved_at, tab: 'conges', isNew: true });
       } else if (a.statut === 'refuse') {
-        notifs.push({ id: 'abs-r-'+a.id, icon: '❌', text: `Conge refuse${a.motif_refus ? ' : '+a.motif_refus.substring(0,50) : ''}`, date: a.approved_at, tab: 'conges', isNew: true });
+        notifs.push({ id: 'abs-r-'+a.id, icon: '❌', text: `Congé refusé${a.motif_refus ? ' : '+a.motif_refus.substring(0,50) : ''}`, date: a.approved_at, tab: 'conges', isNew: true });
       }
     }
   });
@@ -40,7 +40,7 @@ function computeNotifications(data, collabId) {
     const cd = currentPoint.collab_data || {};
     const hasCollab = Object.keys(cd).some(k => cd[k] && String(cd[k]).trim());
     if (!hasCollab) {
-      notifs.push({ id: 'point-'+cm, icon: '📋', text: `Entretien RH de ${moisLabel(cm)} a remplir`, date: now.toISOString(), tab: 'points', isNew: false });
+      notifs.push({ id: 'point-'+cm, icon: '📋', text: `Entretien RH de ${moisLabel(cm)} à remplir`, date: now.toISOString(), tab: 'points', isNew: false });
     }
   }
 
@@ -49,19 +49,19 @@ function computeNotifications(data, collabId) {
     (o.historique || []).forEach((h, idx) => {
       if (h.date && h.date + 'T23:59:59' > lastSeen && h.auteur) {
         const change = (h.changes||[]).map(c => c.champ).join(', ');
-        notifs.push({ id: 'obj-'+o.id+'-'+idx, icon: '🎯', text: `Objectif "${o.titre}" modifie par ${h.auteur} (${change})`, date: h.date+'T12:00:00', tab: 'objectifs', isNew: true });
+        notifs.push({ id: 'obj-'+o.id+'-'+idx, icon: '🎯', text: `Objectif "${o.titre}" modifié par ${h.auteur} (${change})`, date: h.date+'T12:00:00', tab: 'objectifs', isNew: true });
       }
     });
   });
 
   // Solde faible
   if (typeof data.solde === 'number' && data.solde < 3 && data.solde >= 0) {
-    notifs.push({ id: 'solde-low', icon: '⚠️', text: `Solde de conges faible : ${data.solde.toFixed(1)}j restants`, date: now.toISOString(), tab: 'conges', isNew: false });
+    notifs.push({ id: 'solde-low', icon: '⚠️', text: `Solde de congés faible : ${data.solde.toFixed(1)}j restants`, date: now.toISOString(), tab: 'conges', isNew: false });
   }
 
   // Congés équipe en attente (manager)
   if ((data.teamPendingAbs || []).length > 0) {
-    notifs.push({ id: 'team-pending', icon: '🔔', text: `${data.teamPendingAbs.length} demande${data.teamPendingAbs.length>1?'s':''} de conges en attente dans votre equipe`, date: now.toISOString(), tab: 'management', isNew: false });
+    notifs.push({ id: 'team-pending', icon: '🔔', text: `${data.teamPendingAbs.length} demande${data.teamPendingAbs.length>1?'s':''} de congés en attente dans votre équipe`, date: now.toISOString(), tab: 'management', isNew: false });
   }
 
   return notifs.sort((a,b) => new Date(b.date) - new Date(a.date));
@@ -141,7 +141,7 @@ export default function CollabLayout() {
               </button>
             )}
             {/* Guide PDF */}
-            <button onClick={generateGuideCollab} title="Guide utilisateur"
+            <button onClick={generateGuideCollab} title="Guide utilisateur" aria-label="Guide utilisateur"
               style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', width: 32, height: 32, borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', flexShrink: 0, transition: 'all 0.15s' }}
               onMouseOver={e => e.currentTarget.style.background = 'rgba(255,50,133,0.3)'}
               onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>
@@ -149,7 +149,7 @@ export default function CollabLayout() {
             </button>
             {/* Notification bell */}
             <div ref={panelRef} style={{ position: 'relative' }}>
-              <button onClick={() => setShowPanel(!showPanel)}
+              <button onClick={() => setShowPanel(!showPanel)} aria-label="Notifications"
                 style={{ position: 'relative', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', width: 32, height: 32, borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.95rem', flexShrink: 0, transition: 'all 0.15s' }}
                 onMouseOver={e => e.currentTarget.style.background = 'rgba(255,50,133,0.3)'}
                 onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>
@@ -203,7 +203,7 @@ export default function CollabLayout() {
             )}
             <span className="hide-mobile" style={{ color: 'white', fontSize: '0.82rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 150 }}>{displayUser.name}</span>
             {!impersonatedCollab && (
-              <button onClick={() => { logout(); navigate('/'); }}
+              <button onClick={() => { logout(); navigate('/'); }} aria-label="Déconnexion" title="Déconnexion"
                 style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '5px 10px', borderRadius: 8, fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0 }}
                 onMouseOver={e => e.currentTarget.style.background = 'rgba(255,50,133,0.3)'}
                 onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>

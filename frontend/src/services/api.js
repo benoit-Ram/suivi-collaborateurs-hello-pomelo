@@ -22,10 +22,12 @@ async function request(path, options = {}) {
   });
 
   if (res.status === 401) {
-    // Token expired or invalid — clear session (no hard reload to avoid loops)
+    // Token expired or invalid — clear session and redirect via React Router
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem('hp_auth_session');
-    throw new Error('Session expirée');
+    // Dispatch event so AuthContext can handle the redirect
+    window.dispatchEvent(new Event('auth-expired'));
+    throw new Error('Session expirée, reconnectez-vous');
   }
 
   if (!res.ok) {

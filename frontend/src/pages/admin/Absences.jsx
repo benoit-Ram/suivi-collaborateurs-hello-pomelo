@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useData } from '../../services/DataContext';
 import { api } from '../../services/api';
 import { useAuth } from '../../services/AuthContext';
-import { PageHeader, Badge, Avatar, Modal, FadeIn, Skeleton, fmtDate, countWorkDays, absenceDays, getFeriesSet, ABS_TYPES, ABS_STATUTS, getAbsenceTypes, absenceDeductsSolde } from '../../components/UI';
+import { PageHeader, Badge, Avatar, Modal, FadeIn, Skeleton, fmtDate, countWorkDays, absenceDays, getFeriesSet, calculateSolde, ABS_TYPES, ABS_STATUTS, getAbsenceTypes, absenceDeductsSolde } from '../../components/UI';
 
 const ABS_BADGE = { en_attente:'orange', approuve:'green', refuse:'pink' };
 
@@ -226,22 +226,16 @@ export default function Absences() {
         <table>
           <thead><tr><th>Collaborateur</th><th>Solde initial</th><th>Acquisition/mois</th><th>Acquis</th><th>Pris</th><th>Solde</th><th></th></tr></thead>
           <tbody>{collabs.filter(c => !soldeSearch || (c.prenom+' '+c.nom).toLowerCase().includes(soldeSearch.toLowerCase())).map(c => {
-            const pris = absences.filter(a => a.collaborateur_id===c.id && a.statut==='approuve' && absenceDeductsSolde(a.type,settings)).reduce((s,a)=>s+absenceDays(a),0);
-            const soldeInit = c.solde_conges||0;
-            const acq = c.acquisition_conges||2.08;
-            let moisAcq = 0;
-            if (c.date_entree) { const e=new Date(c.date_entree); const n=new Date(); moisAcq=Math.max(0,(n.getFullYear()-e.getFullYear())*12+(n.getMonth()-e.getMonth())); }
-            const acquis = Math.round(moisAcq*acq*100)/100;
-            const solde = Math.round((soldeInit+acquis-pris)*100)/100;
-            const color = solde<=0?'var(--red)':solde<=5?'var(--orange)':'var(--green)';
+            const s = calculateSolde(c, absences.filter(a=>a.collaborateur_id===c.id), settings);
+            const color = s.solde<=0?'var(--red)':s.solde<=5?'var(--orange)':'var(--green)';
             return <tr key={c.id}>
               <td style={{fontWeight:700,cursor:'pointer',color:'var(--blue)'}} onClick={()=>navigate(`/admin/collaborateurs/${c.id}`)}>{c.prenom} {c.nom}</td>
-              <td>{soldeInit}j</td>
-              <td>{acq}j/mois</td>
-              <td>{acquis}j</td>
-              <td>{pris}j</td>
-              <td style={{fontWeight:700,color}}>{solde}j</td>
-              <td><button className="btn btn-ghost btn-sm" aria-label="Modifier le solde" onClick={()=>{setSoldeModal(c.id);setSoldeForm({solde:soldeInit,acq});}}>✏️</button></td>
+              <td>{s.soldeInit}j</td>
+              <td>{s.acq}j/mois</td>
+              <td>{s.acquis}j</td>
+              <td>{s.pris}j</td>
+              <td style={{fontWeight:700,color}}>{s.solde}j</td>
+              <td><button className="btn btn-ghost btn-sm" aria-label="Modifier le solde" onClick={()=>{setSoldeModal(c.id);setSoldeForm({solde:s.soldeInit,acq:s.acq});}}>✏️</button></td>
             </tr>;
           })}</tbody>
         </table>

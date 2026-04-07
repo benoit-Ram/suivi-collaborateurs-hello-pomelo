@@ -54,9 +54,11 @@ export function DataProvider({ children }) {
 
   useEffect(() => { reload(); }, [reload]);
 
+  const toastTimerRef = React.useRef(null);
   const showToast = useCallback((msg) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast(msg);
-    setTimeout(() => setToast(''), 2500);
+    toastTimerRef.current = setTimeout(() => setToast(''), 2500);
   }, []);
 
   const getCollab = useCallback((id) => collabs.find(c => c.id === id), [collabs]);
