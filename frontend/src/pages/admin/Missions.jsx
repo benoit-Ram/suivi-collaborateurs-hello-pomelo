@@ -99,7 +99,7 @@ export default function Missions() {
       </div>
 
       <div className="tabs-scroll" style={{display:'flex',gap:6,marginBottom:24,background:'var(--offwhite)',padding:6,borderRadius:12,overflowX:'auto'}}>
-        {[['active',`🚀 En cours (${active.length})`],['all','📋 Toutes'],['staffing','📊 Staffing']].map(([k,l])=>(
+        {[['active',`🚀 En cours (${active.length})`],['all','📋 Toutes'],['timeline','📅 Calendrier'],['staffing','📊 Staffing']].map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)} style={{flex:'1 0 auto',padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',background:tab===k?'var(--pink)':'transparent',color:tab===k?'white':'var(--muted)',border:tab===k?'none':'1.5px solid var(--lavender)',boxShadow:tab===k?'0 4px 14px rgba(255,50,133,0.3)':'none'}}>{l}</button>
         ))}
       </div>
@@ -131,6 +131,11 @@ export default function Missions() {
             ))}</tbody>
           </table>
         </div>
+      </div></FadeIn>}
+
+      {/* TIMELINE / CALENDRIER GLOBAL */}
+      {tab==='timeline' && <FadeIn><div className="card" style={{padding:0,overflow:'hidden'}}>
+        <TimelineView missions={active} collabs={collabs} staffingMap={staffingMap} />
       </div></FadeIn>}
 
       {/* STAFFING */}
@@ -240,6 +245,117 @@ function MissionCard({ m, collabs, onEdit, onDelete, onAssign, onRemoveAssign, o
         <button className="btn btn-ghost btn-sm" onClick={()=>onAssign()}>+ Affecter</button>
         <button className="btn btn-ghost btn-sm" onClick={()=>onEdit(m)}>✏️</button>
         <button className="btn btn-danger btn-sm" style={{padding:'5px 8px'}} onClick={()=>onDelete(m.id)}>🗑️</button>
+      </div>
+    </div>
+  );
+}
+
+/** Vue timeline Gantt — collabs en lignes × semaines en colonnes, barres de staffing */
+function TimelineView({ missions, collabs, staffingMap }) {
+  const [weekOffset, setWeekOffset] = useState(0);
+  const WEEKS = 16; // show 16 weeks
+
+  // Calculate start Monday
+  const now = new Date();
+  const startMonday = new Date(now);
+  startMonday.setDate(now.getDate() - ((now.getDay() + 6) % 7) + (weekOffset * WEEKS));
+  startMonday.setHours(0,0,0,0);
+
+  const weeks = Array.from({length:WEEKS},(_,i) => {
+    const mon = new Date(startMonday); mon.setDate(startMonday.getDate() + i * 7);
+    const weekNum = Math.ceil(((mon - new Date(mon.getFullYear(),0,1)) / 86400000 + 1) / 7);
+    return { date: mon, label: `S${weekNum}`, month: mon.toLocaleDateString('fr-FR',{month:'short'}), year: mon.getFullYear(), start: mon.toISOString().split('T')[0], end: new Date(mon.getTime()+4*86400000).toISOString().split('T')[0] };
+  });
+
+  // Group weeks by month
+  const months = [];
+  let lastMonth = '';
+  weeks.forEach((w,i) => {
+    const key = w.month + ' ' + w.year;
+    if (key !== lastMonth) { months.push({label:key,start:i,span:1}); lastMonth = key; }
+    else months[months.length-1].span++;
+  });
+
+  // Get assigned collabs
+  const assignedCollabs = collabs.filter(c => staffingMap[c.id]?.missions?.length > 0).sort((a,b) => (staffingMap[b.id]?.taux||0) - (staffingMap[a.id]?.taux||0));
+  const todayStr = now.toISOString().split('T')[0];
+
+  return (
+    <div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 18px',borderBottom:'1px solid var(--lavender)'}}>
+        <button className="btn btn-ghost btn-sm" onClick={()=>setWeekOffset(weekOffset-1)}>← {WEEKS} sem.</button>
+        <div style={{fontWeight:700,color:'var(--navy)'}}>📅 Calendrier global</div>
+        <div style={{display:'flex',gap:6}}>
+          {weekOffset !== 0 && <button className="btn btn-ghost btn-sm" onClick={()=>setWeekOffset(0)}>Aujourd'hui</button>}
+          <button className="btn btn-ghost btn-sm" onClick={()=>setWeekOffset(weekOffset+1)}>{WEEKS} sem. →</button>
+        </div>
+      </div>
+      <div style={{overflowX:'auto'}}>
+        <table style={{fontSize:'0.7rem',width:'100%',borderCollapse:'collapse'}}>
+          <thead>
+            <tr>{/* Month headers */}
+              <th style={{minWidth:180,position:'sticky',left:0,background:'var(--white)',zIndex:2}} />
+              {months.map((m,i)=><th key={i} colSpan={m.span} style={{textAlign:'center',padding:'6px 2px',fontWeight:700,color:'var(--navy)',textTransform:'capitalize',borderBottom:'1px solid var(--lavender)'}}>{m.label}</th>)}
+            </tr>
+            <tr>{/* Week headers */}
+              <th style={{textAlign:'left',padding:'6px 14px',fontWeight:700,color:'var(--navy)',minWidth:180,position:'sticky',left:0,background:'var(--white)',zIndex:2}}>Collaborateur</th>
+              {weeks.map((w,i)=>{
+                const isCurrent = todayStr >= w.start && todayStr <= w.end;
+                return <th key={i} style={{textAlign:'center',padding:'4px 2px',minWidth:45,fontWeight:isCurrent?800:600,color:isCurrent?'var(--pink)':'var(--muted)',background:isCurrent?'rgba(255,50,133,0.05)':'transparent'}}>{w.label}</th>;
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {assignedCollabs.map(c => {
+              const myMissions = staffingMap[c.id]?.missions || [];
+              return <tr key={c.id} style={{borderBottom:'1px solid var(--lavender)'}}>
+                <td style={{padding:'8px 14px',position:'sticky',left:0,background:'var(--white)',zIndex:1}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={24} />
+                    <div>
+                      <div style={{fontWeight:700,color:'var(--navy)',fontSize:'0.75rem'}}>{c.prenom} {c.nom[0]}.</div>
+                      <div style={{fontSize:'0.6rem',color:'var(--muted)'}}>{c.poste}</div>
+                    </div>
+                  </div>
+                </td>
+                {weeks.map((w,wi) => {
+                  const isCurrent = todayStr >= w.start && todayStr <= w.end;
+                  // Find missions active this week
+                  const weekMissions = missions.filter(m => {
+                    if (!m.date_debut || !m.date_fin) return false;
+                    return (m.assignments||[]).some(a => a.collaborateur_id === c.id && a.statut === 'actif') && m.date_debut <= w.end && m.date_fin >= w.start;
+                  });
+                  return <td key={wi} style={{padding:1,background:isCurrent?'rgba(255,50,133,0.03)':'transparent',position:'relative'}}>
+                    {weekMissions.length > 0 ? (
+                      <div style={{display:'flex',flexDirection:'column',gap:1}}>
+                        {weekMissions.map(m => {
+                          const a = (m.assignments||[]).find(x=>x.collaborateur_id===c.id);
+                          const taux = a?.taux_staffing || 0;
+                          const colors = ['#3B82F6','#8B5CF6','#EC4899','#F59E0B','#10B981','#6366F1'];
+                          const colorIdx = missions.indexOf(m) % colors.length;
+                          return <div key={m.id} title={`${m.nom} — ${m.client} (${taux}%)`} style={{
+                            background:colors[colorIdx],color:'white',borderRadius:3,
+                            padding:'2px 3px',fontSize:'0.55rem',fontWeight:700,
+                            whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',
+                            opacity:0.85
+                          }}>{taux}%</div>;
+                        })}
+                      </div>
+                    ) : (
+                      <div style={{height:20}} />
+                    )}
+                  </td>;
+                })}
+              </tr>;
+            })}
+            {/* Non staffés */}
+            {collabs.filter(c => !staffingMap[c.id]?.missions?.length).length > 0 && (
+              <tr><td colSpan={WEEKS+1} style={{padding:'8px 14px',fontSize:'0.75rem',color:'var(--muted)',fontStyle:'italic'}}>
+                + {collabs.filter(c => !staffingMap[c.id]?.missions?.length).length} collaborateurs non staffés
+              </td></tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
