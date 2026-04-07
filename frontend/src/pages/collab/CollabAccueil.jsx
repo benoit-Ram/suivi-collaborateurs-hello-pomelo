@@ -520,13 +520,13 @@ function CongesTab({ c, absences, solde, onReload, settings }) {
       {/* Calendrier personnel */}
       <div className="card" style={{marginBottom:24}}>
         <div className="section-title" style={{marginTop:0}}>📅 Mon calendrier</div>
-        <LeaveCalendar absences={absences} />
+        <LeaveCalendar absences={absences} fermetures={settings?.periodes_fermeture||[]} />
       </div>
 
       {/* Calendrier équipe */}
       <div className="card" style={{marginBottom:24}}>
-        <div className="section-title" style={{marginTop:0}}>👥 Calendrier d'équipe</div>
-        <TeamCalendar collab={c} />
+        <div className="section-title" style={{marginTop:0}}>👥 Calendrier d'equipe</div>
+        <TeamCalendar collab={c} fermetures={settings?.periodes_fermeture||[]} />
       </div>
 
       {/* En attente + annulation demandée */}
@@ -612,7 +612,7 @@ function CongesTab({ c, absences, solde, onReload, settings }) {
 }
 
 /** Calendrier mensuel des congés personnels avec code couleur par statut */
-function LeaveCalendar({ absences }) {
+function LeaveCalendar({ absences, fermetures = [] }) {
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth());
 
@@ -637,14 +637,16 @@ function LeaveCalendar({ absences }) {
       else {
         const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
         const isFerie = feriesSet.has(ds);
+        const isFerm = fermetures.some(f=>ds>=f.debut&&ds<=f.fin);
         const isWE = col>=5;
         const isToday = ds===today;
         const abs = absences.find(a => ds>=a.date_debut && ds<=a.date_fin && a.statut!=='annule');
         let bg='transparent',color='var(--navy)';
         if(isWE||isFerie) { bg='#8F8FBC33'; color='#8F8FBC'; }
+        if(isFerm) { bg='#EF444422'; color='#EF4444'; }
         if(abs) { bg=abs.statut==='approuve'?'var(--bg-success)':abs.statut==='en_attente'?'var(--bg-warning)':'var(--bg-danger)'; color=abs.statut==='approuve'?'var(--text-success)':abs.statut==='en_attente'?'var(--text-warning)':'var(--text-danger)'; }
         if(isToday) { bg='var(--pink)'; color='white'; }
-        cells.push(<td key={col} title={isFerie?'Jour ferie':''} style={{padding:2,textAlign:'center'}}><div style={{width:28,height:28,lineHeight:'28px',margin:'0 auto',borderRadius:8,background:bg,color,fontWeight:isToday||abs?700:500,fontSize:'0.78rem'}}>{dayNum}</div></td>);
+        cells.push(<td key={col} title={isFerm?fermetures.find(f=>ds>=f.debut&&ds<=f.fin)?.label:isFerie?'Jour ferie':''} style={{padding:2,textAlign:'center'}}><div style={{width:28,height:28,lineHeight:'28px',margin:'0 auto',borderRadius:8,background:bg,color,fontWeight:isToday||abs?700:500,fontSize:'0.78rem'}}>{dayNum}</div></td>);
         dayNum++;
       }
     }
@@ -673,7 +675,7 @@ function LeaveCalendar({ absences }) {
 }
 
 /** Calendrier d'équipe — vue mensuelle des absences de tous les collègues des mêmes équipes */
-function TeamCalendar({ collab }) {
+function TeamCalendar({ collab, fermetures = [] }) {
   const [teammates, setTeammates] = useState([]);
   const [teamAbs, setTeamAbs] = useState([]);
   const [year, setYear] = useState(new Date().getFullYear());
@@ -729,10 +731,11 @@ function TeamCalendar({ collab }) {
                 const dow = new Date(year,month,d+1).getDay();
                 const isWE = dow===0||dow===6;
                 const isFerie = feries.has(ds);
+                const isFerm = fermetures.some(f=>ds>=f.debut&&ds<=f.fin);
                 const a = abs.find(x=>ds>=x.date_debut&&ds<=x.date_fin);
-                let bg = isWE||isFerie?'#8F8FBC33':'transparent';
+                let bg = isWE||isFerie?'#8F8FBC33':isFerm?'#EF444422':'transparent';
                 if(a && !isWE && !isFerie) bg = a.statut==='approuve'?'var(--bg-success)':'var(--bg-warning)';
-                return <td key={d} title={isFerie?'Jour ferie':''} style={{padding:2,textAlign:'center',background:bg,borderRadius:2}} />;
+                return <td key={d} title={isFerm?fermetures.find(f=>ds>=f.debut&&ds<=f.fin)?.label:isFerie?'Jour ferie':''} style={{padding:2,textAlign:'center',background:bg,borderRadius:2}} />;
               })}
             </tr>;
           })}</tbody>

@@ -157,6 +157,18 @@ export default function Settings() {
         <div style={{display:'flex',justifyContent:'flex-end',marginTop:8}}><button className="btn btn-primary btn-sm" onClick={addFermeture}>+ Ajouter</button></div>
       </div>
 
+      {/* Report de congés */}
+      <div className="section-title">Report de conges</div>
+      <div className="card" style={{marginBottom:24}}>
+        <p style={{color:'var(--muted)',fontSize:'0.82rem',marginBottom:12}}>Nombre maximum de jours reportables d'une annee sur l'autre (droit francais : 12 jours max).</p>
+        <div className="form-grid">
+          <div className="form-field">
+            <label>Max jours reportables</label>
+            <input type="number" min="0" value={settings.max_report_conges ?? 12} onChange={async(e)=>{try{await api.upsertSetting('max_report_conges',parseInt(e.target.value)||0);await reload();showToast('Report mis a jour');}catch(err){showToast('Erreur: '+err.message);}}} />
+          </div>
+        </div>
+      </div>
+
       {/* Gestion des administrateurs — super admin uniquement */}
       {isSuperAdmin && (
         <>
