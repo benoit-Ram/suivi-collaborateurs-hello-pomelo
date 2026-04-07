@@ -7,6 +7,7 @@ import ObjCard from './components/ObjCard';
 import PointCard from './components/PointCard';
 import CongesTab from './components/CongesTab';
 import ManagementTab from './components/ManagementTab';
+import MissionsTab from './components/MissionsTab';
 
 // ── MAIN COMPONENT ──
 
@@ -106,7 +107,7 @@ export default function CollabAccueil() {
   const pendingCount = teamPendingAbs.length;
   const isManager = myTeam.length > 0;
 
-  const tabs = [['accueil','🏠 Accueil'],['objectifs', isManager ? '🎯 Mes objectifs' : '🎯 Objectifs'],['points', isManager ? '📋 Mes entretiens RH' : '📋 Entretien RH'],['conges', isManager ? '🏖️ Mes congés' : '🏖️ Congés']];
+  const tabs = [['objectifs', isManager ? '🎯 Mes objectifs' : '🎯 Objectifs'],['missions','🚀 Missions β'],['points', isManager ? '📋 Mes entretiens RH' : '📋 Entretien RH'],['conges', isManager ? '🏖️ Mes congés' : '🏖️ Congés']];
   if (isManager) tabs.splice(3, 0, ['management', pendingCount > 0 ? `👔 Management (${pendingCount})` : '👔 Management']);
 
   return (
@@ -209,6 +210,7 @@ export default function CollabAccueil() {
       </div></FadeIn>}
 
       {/* CONGÉS */}
+      {tab==='missions' && <FadeIn><MissionsTab collabId={c.id} isResponsable={false} /></FadeIn>}
       {tab==='conges' && <FadeIn><CongesTab c={c} absences={absences} solde={solde} settings={settings} onReload={() => loadAbsences(c.id)} api={api} /></FadeIn>}
 
       {/* MANAGEMENT */}

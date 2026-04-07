@@ -39,6 +39,7 @@ export default function Sidebar() {
     { to: '/admin/collaborateurs', icon: '👥', label: 'Collaborateurs' },
     { to: '/admin/organigramme', icon: '🗂️', label: 'Organigramme' },
     { to: '/admin/objectifs', icon: '🎯', label: 'Objectifs' },
+    { to: '/admin/missions', icon: '🚀', label: 'Missions' },
     { to: '/admin/absences', icon: '🏖️', label: 'Congés', badge: pendingAbs },
     { to: '/admin/settings', icon: '⚙️', label: 'Paramètres' },
   ];
