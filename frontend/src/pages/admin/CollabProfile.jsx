@@ -72,7 +72,7 @@ export default function CollabProfile() {
 
   const voirComme = () => window.open(`/collab?impersonate=${id}`, '_blank');
 
-  const tabs = [['objectifs','🎯 Objectifs'],['points','📋 Entretien RH'],['onboarding','📁 Onboarding']];
+  const tabs = [['objectifs','🎯 Objectifs'],['missions','🚀 Missions'],['points','📋 Entretien RH'],['onboarding','📁 Onboarding']];
 
   return (
     <div>
@@ -135,6 +135,8 @@ export default function CollabProfile() {
           </div>
         </Modal>
       </div></FadeIn>}
+
+      {tab === 'missions' && <FadeIn><CollabMissionsTab collabId={c.id} collabName={`${c.prenom} ${c.nom}`} navigate={navigate} /></FadeIn>}
 
       {tab === 'points' && <FadeIn><div>{points.length===0?<EmptyState icon="📋" text="Aucun point" />:points.map(p=><PointCard key={p.id} p={p} onSave={async(pid,md)=>{try{await api.updatePointSuivi(pid,{manager_data:md});await reload();showToast('Point enregistré !')}catch(e){showToast('Erreur: '+e.message)}}} />)}</div></FadeIn>}
 
@@ -317,6 +319,87 @@ function OnboardingTab({ collab, onSave }) {
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <button className="btn btn-primary" onClick={save}>💾 Enregistrer</button>
       </div>
+    </div>
+  );
+}
+
+/** Missions affectées à un collaborateur — vue admin */
+function CollabMissionsTab({ collabId, collabName, navigate }) {
+  const [assignments, setAssignments] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    api.getAssignments({ collaborateur_id: collabId }).then(data => {
+      setAssignments(data || []);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, [collabId]);
+
+  if (loading) return <div style={{padding:20,color:'var(--muted)'}}>Chargement...</div>;
+
+  const active = assignments.filter(a => a.statut === 'actif');
+  const past = assignments.filter(a => a.statut !== 'actif');
+  const totalStaffing = active.reduce((s, a) => s + (a.taux_staffing || 0), 0);
+
+  return (
+    <div>
+      {/* Stats */}
+      <div style={{display:'flex',gap:12,marginBottom:20}}>
+        <div className="card" style={{flex:1,textAlign:'center',padding:14}}>
+          <div style={{fontSize:'1.5rem',fontWeight:700,color:totalStaffing>100?'var(--red)':totalStaffing>=80?'var(--orange)':'var(--green)'}}>{totalStaffing}%</div>
+          <div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Staffing total</div>
+        </div>
+        <div className="card" style={{flex:1,textAlign:'center',padding:14}}>
+          <div style={{fontSize:'1.5rem',fontWeight:700,color:'var(--blue)'}}>{active.length}</div>
+          <div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Missions actives</div>
+        </div>
+        <div className="card" style={{flex:1,textAlign:'center',padding:14}}>
+          <div style={{fontSize:'1.5rem',fontWeight:700,color:'var(--navy)'}}>{(totalStaffing/100*5).toFixed(1)}j</div>
+          <div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Jours/sem.</div>
+        </div>
+      </div>
+
+      {/* Active missions */}
+      {active.length === 0 ? (
+        <EmptyState icon="🚀" text={`${collabName} n'est affecte a aucune mission`} />
+      ) : <>
+        <div className="section-title">Missions en cours ({active.length})</div>
+        {active.map(a => (
+          <div key={a.id} className="card" style={{marginBottom:10,padding:16,borderLeft:'4px solid var(--blue)',cursor:'pointer'}} onClick={()=>navigate('/admin/missions')}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+              <div>
+                <div style={{fontWeight:700,color:'var(--navy)',fontSize:'0.95rem'}}>{a.missions?.nom || '—'}</div>
+                <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>{a.missions?.client || '—'}</div>
+              </div>
+              <div style={{textAlign:'right'}}>
+                <div style={{fontWeight:700,color:'var(--blue)',fontSize:'1.1rem'}}>{a.taux_staffing}%</div>
+                <div style={{fontSize:'0.68rem',color:'var(--muted)'}}>{(a.jours_par_semaine || (a.taux_staffing/100*5)).toFixed(1)}j/sem</div>
+              </div>
+            </div>
+            <div style={{display:'flex',gap:12,fontSize:'0.75rem',color:'var(--muted)',marginTop:8,flexWrap:'wrap'}}>
+              {a.role && <span>👤 {a.role}</span>}
+              <span>📅 {fmtDate(a.date_debut)} → {fmtDate(a.date_fin)}</span>
+              {a.tjm && <span>💰 {a.tjm} €/j</span>}
+            </div>
+          </div>
+        ))}
+      </>}
+
+      {/* Past missions */}
+      {past.length > 0 && <>
+        <div className="section-title" style={{marginTop:20}}>Missions passées ({past.length})</div>
+        {past.map(a => (
+          <div key={a.id} className="card" style={{marginBottom:8,padding:14,opacity:0.7}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <div>
+                <div style={{fontWeight:700,color:'var(--navy)',fontSize:'0.88rem'}}>{a.missions?.nom || '—'}</div>
+                <div style={{fontSize:'0.75rem',color:'var(--muted)'}}>{a.missions?.client || '—'} · {a.role || '—'} · {a.taux_staffing}%</div>
+              </div>
+              <Badge type="gray">Terminé</Badge>
+            </div>
+          </div>
+        ))}
+      </>}
     </div>
   );
 }
