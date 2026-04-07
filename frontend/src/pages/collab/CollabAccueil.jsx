@@ -2,45 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import { useAuth } from '../../services/AuthContext';
 import { Avatar, Badge, ProgressBar, EmptyState, FadeIn, Modal, Skeleton, fmtDate, moisLabel, countWorkDays, absenceDays, getFeriesSet, calculateSolde, STATUS_LABELS, STATUS_COLORS, ABS_TYPES, ABS_STATUTS, getAbsenceTypes, absenceDeductsSolde, isEntretienLocked, getEntretienStatus, ENTRETIEN_STATUS_BADGE } from '../../components/UI';
-
-// ── UTILS ──
-
-/** Récupère les objectifs d'équipe depuis les settings pour les équipes données */
-function getTeamObjectives(equipes, settings) {
-  const teamObjs = [];
-  (equipes||[]).forEach(eq => {
-    (settings['team_objectifs_'+eq]||[]).forEach(o => {
-      teamObjs.push({...(typeof o==='string'?{titre:o,progression:0,dateDebut:'',dateFin:''}:o), equipe:eq});
-    });
-  });
-  return teamObjs;
-}
-
-/** Récupère les questions manager depuis les settings ou les questions par défaut */
-function getManagerQuestions(settings) {
-  if ((settings?.questions_manager||[]).length > 0) {
-    return {
-      keys: settings.questions_manager.map((_,i) => 'q'+i),
-      labels: settings.questions_manager.map(q => q.label||q),
-      questions: settings.questions_manager.map((q,i) => ({key:'q'+i, label:q.label||q, type:q.type||'texte'})),
-    };
-  }
-  const defaults = ['Retours sur les missions','Taux de staffing','Qualités','Axe d\'amélioration'];
-  return {
-    keys: ['retoursMissions','tauxStaffing','qualites','axeAmelioration'],
-    labels: defaults,
-    questions: defaults.map((l,i) => ({key:['retoursMissions','tauxStaffing','qualites','axeAmelioration'][i], label:l, type:'texte'})),
-  };
-}
-
-/** Récupère les questions collab depuis les settings ou les questions par défaut */
-function getCollabQuestions(settings) {
-  const DEFAULT_Q = ['Comment t\'es-tu senti(e) au travail ?','Réussites du mois','Objectifs M-1 atteints ?','Suggestions process','Objectifs mois suivant','Autres sujets','Axe d\'amélioration'];
-  if ((settings?.questions_collab||[]).length > 0) {
-    return settings.questions_collab.map((q,i) => ({key:'cq'+i, label:q.label||q, type:q.type||'texte'}));
-  }
-  return DEFAULT_Q.map((q,i) => ({key:'cq'+i, label:q, type:'texte'}));
-}
+import { getTeamObjectives, getManagerQuestions, getCollabQuestions } from './utils/questions';
+import ObjCard from './components/ObjCard';
+import LeaveCalendar from './components/LeaveCalendar';
+import TeamCalendar from './components/TeamCalendar';
 
 // ── MAIN COMPONENT ──
 
@@ -247,43 +212,6 @@ export default function CollabAccueil() {
 
       {/* MANAGEMENT */}
       {tab==='management' && <FadeIn><ManagementTab manager={c} team={myTeam} collabs={collabs} settings={settings} teamPendingAbs={teamPendingAbs} onAbsenceUpdate={()=>loadTeamPendingAbs(c.id)} /></FadeIn>}
-    </div>
-  );
-}
-
-function ObjCard({ o, i }) {
-  const pct = o.statut==='atteint'?100:(o.progression||0);
-  const colors = { 'en-cours':'linear-gradient(90deg,var(--pink),var(--blue))', 'atteint':'var(--green)', 'non-atteint':'var(--orange)', 'en-attente':'var(--lavender)' };
-  const hist = o.historique || [];
-  return (
-    <div className="card" style={{marginBottom:10,padding:16,borderLeft:`4px solid ${o.statut==='atteint'?'var(--green)':'var(--pink)'}`,opacity:o.statut==='atteint'?0.85:1}}>
-      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
-        <span style={{background:o.statut==='atteint'?'var(--green)':'var(--pink)',color:'white',borderRadius:'50%',width:24,height:24,display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'0.75rem',fontWeight:800}}>{o.statut==='atteint'?'✓':i+1}</span>
-        <span style={{flex:1,fontWeight:700,color:'var(--navy)'}}>{o.titre}</span>
-        <Badge type={STATUS_COLORS[o.statut]}>{STATUS_LABELS[o.statut]}</Badge>
-        {o.recurrence && <Badge type="blue">🔄</Badge>}
-      </div>
-      {o.description && <div style={{fontSize:'0.82rem',color:'var(--muted)',marginBottom:8}}>{o.description}</div>}
-      <div style={{marginBottom:6}}><div style={{display:'flex',justifyContent:'space-between',fontSize:'0.7rem',fontWeight:700,color:'var(--muted)',marginBottom:4}}><span>Progression</span><span>{pct}%</span></div><ProgressBar value={pct} color={colors[o.statut]} /></div>
-      <div style={{fontSize:'0.72rem',color:'var(--muted)'}}>📅 {fmtDate(o.date_debut)} → {fmtDate(o.date_fin)}</div>
-      {hist.length > 0 && (
-        <details style={{marginTop:8}}>
-          <summary style={{fontSize:'0.72rem',color:'var(--muted)',cursor:'pointer',fontWeight:700}}>📜 Historique ({hist.length})</summary>
-          <div style={{marginTop:6,paddingLeft:8,borderLeft:'2px solid var(--lavender)'}}>
-            {hist.map((h,idx)=>(
-              <div key={idx} style={{marginBottom:6,fontSize:'0.75rem'}}>
-                <div style={{fontWeight:700,color:'var(--navy)'}}>{fmtDate(h.date)} — {h.auteur || 'Inconnu'}</div>
-                {(h.changes||[]).map((ch,j)=>(
-                  <div key={j} style={{color:'var(--muted)',marginLeft:8}}>
-                    {ch.champ === 'Création' ? <span>✨ Création : <strong>{ch.apres}</strong></span>
-                      : <span>{ch.champ} : <span style={{textDecoration:'line-through',opacity:0.6}}>{ch.avant}</span> → <strong>{ch.apres}</strong></span>}
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        </details>
-      )}
     </div>
   );
 }
@@ -607,139 +535,6 @@ function CongesTab({ c, absences, solde, onReload, settings }) {
   );
 }
 
-/** Calendrier mensuel des congés personnels avec code couleur par statut */
-function LeaveCalendar({ absences, fermetures = [] }) {
-  const [year, setYear] = useState(new Date().getFullYear());
-  const [month, setMonth] = useState(new Date().getMonth());
-
-  const feriesSet = getFeriesSet(year);
-
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month+1, 0);
-  const startDow = (firstDay.getDay()+6)%7;
-  const today = new Date().toISOString().split('T')[0];
-  const monthLabel = firstDay.toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
-
-  const prev = () => { if(month===0){setMonth(11);setYear(year-1)}else setMonth(month-1) };
-  const next = () => { if(month===11){setMonth(0);setYear(year+1)}else setMonth(month+1) };
-
-  const rows = [];
-  let dayNum = 1;
-  for (let row=0; row<6; row++) {
-    if (dayNum > lastDay.getDate()) break;
-    const cells = [];
-    for (let col=0; col<7; col++) {
-      if ((row===0 && col<startDow) || dayNum>lastDay.getDate()) { cells.push(<td key={col} />); }
-      else {
-        const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
-        const isFerie = feriesSet.has(ds);
-        const isFerm = fermetures.some(f=>ds>=f.debut&&ds<=f.fin);
-        const isWE = col>=5;
-        const isToday = ds===today;
-        const abs = absences.find(a => ds>=a.date_debut && ds<=a.date_fin && a.statut!=='annule');
-        let bg='transparent',color='var(--navy)';
-        if(isWE||isFerie) { bg='#8F8FBC33'; color='#8F8FBC'; }
-        if(isFerm) { bg='#EF444422'; color='#EF4444'; }
-        if(abs) { bg=abs.statut==='approuve'?'var(--bg-success)':abs.statut==='en_attente'?'var(--bg-warning)':'var(--bg-danger)'; color=abs.statut==='approuve'?'var(--text-success)':abs.statut==='en_attente'?'var(--text-warning)':'var(--text-danger)'; }
-        if(isToday) { bg='var(--pink)'; color='white'; }
-        cells.push(<td key={col} title={isFerm?fermetures.find(f=>ds>=f.debut&&ds<=f.fin)?.label:isFerie?'Jour ferie':''} style={{padding:2,textAlign:'center'}}><div style={{width:28,height:28,lineHeight:'28px',margin:'0 auto',borderRadius:8,background:bg,color,fontWeight:isToday||abs?700:500,fontSize:'0.78rem'}}>{dayNum}</div></td>);
-        dayNum++;
-      }
-    }
-    rows.push(<tr key={row}>{cells}</tr>);
-  }
-
-  return (
-    <div>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-        <button className="btn btn-ghost btn-sm" onClick={prev}>←</button>
-        <span style={{fontWeight:700,color:'var(--navy)',fontSize:'0.95rem',textTransform:'capitalize'}}>{monthLabel}</span>
-        <button className="btn btn-ghost btn-sm" onClick={next}>→</button>
-      </div>
-      <table style={{width:'100%',borderCollapse:'collapse',fontSize:'0.78rem'}}>
-        <thead><tr>{['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'].map(d=><th key={d} style={{padding:'6px 4px',textAlign:'center',color:'var(--muted)',fontSize:'0.68rem',fontWeight:700}}>{d}</th>)}</tr></thead>
-        <tbody>{rows}</tbody>
-      </table>
-      <div style={{display:'flex',gap:12,flexWrap:'wrap',marginTop:12,fontSize:'0.7rem',fontWeight:600,color:'var(--muted)'}}>
-        <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'var(--bg-success)'}} /> Approuvé</div>
-        <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'var(--bg-warning)'}} /> En attente</div>
-        <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'var(--bg-info)'}} /> Férié</div>
-        <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'var(--pink)'}} /> Aujourd'hui</div>
-      </div>
-    </div>
-  );
-}
-
-/** Calendrier d'équipe — vue mensuelle des absences de tous les collègues des mêmes équipes */
-function TeamCalendar({ collab, fermetures = [] }) {
-  const [teammates, setTeammates] = useState([]);
-  const [teamAbs, setTeamAbs] = useState([]);
-  const [year, setYear] = useState(new Date().getFullYear());
-  const [month, setMonth] = useState(new Date().getMonth());
-
-  useEffect(() => {
-    const equipes = (collab.equipe||'').split(',').map(s=>s.trim()).filter(Boolean);
-    if (!equipes.length) return;
-    (async () => {
-      try {
-        const [all, abs] = await Promise.all([api.getCollaborateurs(), api.getAbsences()]);
-        const mates = (all||[]).filter(c => c.equipe && equipes.some(e => c.equipe.includes(e)));
-        mates.sort((a,b) => a.id===collab.id ? -1 : b.id===collab.id ? 1 : 0);
-        setTeammates(mates);
-        const ids = mates.map(m=>m.id);
-        setTeamAbs((abs||[]).filter(a => ids.includes(a.collaborateur_id) && (a.statut==='approuve'||a.statut==='en_attente')));
-      } catch(e) {
-        console.error('Erreur chargement calendrier équipe:', e);
-      }
-    })();
-  }, [collab.id]);
-
-  if (!teammates.length) return <p style={{color:'var(--muted)',fontSize:'0.85rem'}}>Aucun collègue dans vos équipes.</p>;
-
-  const prev = () => { if(month===0){setMonth(11);setYear(year-1)}else setMonth(month-1) };
-  const next = () => { if(month===11){setMonth(0);setYear(year+1)}else setMonth(month+1) };
-  const daysInMonth = new Date(year, month+1, 0).getDate();
-  const monthLabel = new Date(year, month, 1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
-  const feries = getFeriesSet(year);
-
-  return (
-    <div>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-        <button className="btn btn-ghost btn-sm" onClick={prev}>←</button>
-        <span style={{fontWeight:700,color:'var(--navy)',fontSize:'0.95rem',textTransform:'capitalize'}}>{monthLabel}</span>
-        <button className="btn btn-ghost btn-sm" onClick={next}>→</button>
-      </div>
-      <div style={{overflowX:'auto'}}>
-        <table style={{fontSize:'0.72rem',width:'100%'}}>
-          <thead><tr><th style={{textAlign:'left',padding:'4px 8px'}}>Collegue</th>
-            {Array.from({length:daysInMonth},(_,i)=>{
-              const dow=new Date(year,month,i+1).getDay();
-              const ds=`${year}-${String(month+1).padStart(2,'0')}-${String(i+1).padStart(2,'0')}`;
-              const isOff=dow===0||dow===6||feries.has(ds);
-              return <th key={i} style={{padding:'2px 4px',textAlign:'center',color:isOff?'#8F8FBC':'var(--muted)',fontWeight:isOff?400:700}}>{i+1}</th>;
-            })}
-          </tr></thead>
-          <tbody>{teammates.map(c => {
-            const abs = teamAbs.filter(a=>a.collaborateur_id===c.id);
-            return <tr key={c.id}><td style={{padding:'4px 8px',fontWeight:c.id===collab.id?800:600,whiteSpace:'nowrap',color:c.id===collab.id?'var(--pink)':'var(--navy)'}}>{c.prenom}{c.id===collab.id?' (moi)':''}</td>
-              {Array.from({length:daysInMonth},(_,d)=>{
-                const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(d+1).padStart(2,'0')}`;
-                const dow = new Date(year,month,d+1).getDay();
-                const isWE = dow===0||dow===6;
-                const isFerie = feries.has(ds);
-                const isFerm = fermetures.some(f=>ds>=f.debut&&ds<=f.fin);
-                const a = abs.find(x=>ds>=x.date_debut&&ds<=x.date_fin);
-                let bg = isWE||isFerie?'var(--lavender)':isFerm?'#EF444422':'transparent';
-                if(a && !isWE && !isFerie) bg = a.statut==='approuve'?'var(--bg-success)':'var(--bg-warning)';
-                return <td key={d} title={isFerm?fermetures.find(f=>ds>=f.debut&&ds<=f.fin)?.label:isFerie?'Jour ferie':''} style={{padding:2,textAlign:'center',background:bg,borderRadius:2}} />;
-              })}
-            </tr>;
-          })}</tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
 
 /** Calendrier d'équipe pour le manager — basé sur les managés directs */
 function ManagerTeamCalendar({ team, teamPendingAbs = [] }) {
