@@ -24,6 +24,10 @@ export default function Absences() {
   const [soldeModal, setSoldeModal] = useState(null);
   const [soldeForm, setSoldeForm] = useState({ solde: 0, acq: 2.08 });
   const [soldeLoading, setSoldeLoading] = useState(false);
+  // Create absence for collab
+  const [createModal, setCreateModal] = useState(false);
+  const [createForm, setCreateForm] = useState({ collaborateur_id:'', type:'conge', date_debut:'', date_fin:'', demi_journee:'', commentaire:'', statut:'approuve' });
+  const [createLoading, setCreateLoading] = useState(false);
   // Action loading
   const [approving, setApproving] = useState(null);
   // Calendar filters
@@ -54,6 +58,20 @@ export default function Absences() {
     try { await api.updateCollaborateur(soldeModal, { solde_conges: parseFloat(soldeForm.solde), acquisition_conges: parseFloat(soldeForm.acq) }); await reload(); showToast('Solde mis à jour ✓'); setSoldeModal(null); } catch(e) { showToast('Erreur: '+e.message); }
     setSoldeLoading(false);
   };
+  const submitCreate = async () => {
+    if (!createForm.collaborateur_id || !createForm.date_debut || !createForm.date_fin) { showToast('Remplissez tous les champs obligatoires.'); return; }
+    setCreateLoading(true);
+    try {
+      await api.createAbsence({ ...createForm, demi_journee: createForm.demi_journee||null, commentaire: createForm.commentaire||null, approved_by: authUser?.name||'Admin', approved_at: new Date().toISOString() });
+      await reload(); showToast('Absence créée ✓'); setCreateModal(false);
+      setCreateForm({ collaborateur_id:'', type:'conge', date_debut:'', date_fin:'', demi_journee:'', commentaire:'', statut:'approuve' });
+    } catch(e) { showToast('Erreur: '+e.message); }
+    setCreateLoading(false);
+  };
+  const deleteAbsence = async (id) => {
+    if (!confirm('Supprimer definitivement cette absence ?')) return;
+    try { await api.deleteAbsence(id); await reload(); showToast('Absence supprimée'); } catch(e) { showToast('Erreur: '+e.message); }
+  };
 
   const getName = (id) => { const c = collabs.find(x=>x.id===id); return c ? `${c.prenom} ${c.nom}` : '—'; };
 
@@ -64,7 +82,10 @@ export default function Absences() {
 
   return (
     <div>
-      <PageHeader title="Congés & Absences" subtitle="Gestion des demandes et suivi des soldes" />
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:12,marginBottom:8}}>
+        <PageHeader title="Congés & Absences" subtitle="Gestion des demandes et suivi des soldes" />
+        <button className="btn btn-primary btn-sm" onClick={()=>setCreateModal(true)}>+ Creer une absence</button>
+      </div>
 
       <div style={{display:'flex',gap:6,marginBottom:24,background:'var(--offwhite)',padding:6,borderRadius:12,maxWidth:560,flexWrap:'wrap'}}>
         {[['pending',`⏳ En attente (${pending.length})`],['history','📋 Historique'],['calendar','📅 Calendrier'],['soldes','💰 Soldes']].map(([k,l])=>(
@@ -111,9 +132,9 @@ export default function Absences() {
             const BOM = '\uFEFF';
             const rows = filteredHist.map(a => {
               const c = collabs.find(x=>x.id===a.collaborateur_id);
-              return [c?c.nom:'',c?c.prenom:'',absTypes[a.type]||a.type,a.date_debut,a.date_fin,absenceDays(a),ABS_STATUTS[a.statut]||a.statut,a.commentaire||'',a.motif_refus||'',a.approved_by||'',a.approved_at?fmtDate(a.approved_at.split('T')[0]):''].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';');
+              return [c?c.nom:'',c?c.prenom:'',c?.equipe||'',absTypes[a.type]||a.type,a.date_debut,a.date_fin,absenceDays(a),a.demi_journee||'',ABS_STATUTS[a.statut]||a.statut,a.commentaire||'',a.motif_refus||'',a.approved_by||'',a.approved_at?fmtDate(a.approved_at.split('T')[0]):''].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';');
             });
-            const csv = BOM + ['Nom;Prenom;Type;Du;Au;Jours;Statut;Commentaire;Motif refus;Traite par;Date traitement',...rows].join('\n');
+            const csv = BOM + ['Nom;Prenom;Equipe;Type;Du;Au;Jours;Demi-journee;Statut;Commentaire;Motif refus;Traite par;Date traitement',...rows].join('\n');
             const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a'); a.href=url; a.download=`absences_export_${new Date().toISOString().split('T')[0]}.csv`; a.click();
@@ -122,8 +143,8 @@ export default function Absences() {
         </div>
         <div className="card" style={{overflowX:'auto'}}>
           <table>
-            <thead><tr><th>Collaborateur</th><th>Type</th><th>Du</th><th>Au</th><th>Jours</th><th>Statut</th><th>Traite par</th><th>Motif</th></tr></thead>
-            <tbody>{filteredHist.length===0 ? <tr><td colSpan={8} style={{textAlign:'center',color:'var(--muted)',padding:32}}>Aucun historique</td></tr> : filteredHist.map(a=>(
+            <thead><tr><th>Collaborateur</th><th>Type</th><th>Du</th><th>Au</th><th>Jours</th><th>Statut</th><th>Traite par</th><th>Motif</th><th></th></tr></thead>
+            <tbody>{filteredHist.length===0 ? <tr><td colSpan={9} style={{textAlign:'center',color:'var(--muted)',padding:32}}>Aucun historique</td></tr> : filteredHist.map(a=>(
               <tr key={a.id}>
                 <td style={{fontWeight:700,cursor:'pointer',color:'var(--blue)'}} onClick={()=>navigate(`/admin/collaborateurs/${collabs.find(x=>x.id===a.collaborateur_id)?.id}`)}>{getName(a.collaborateur_id)}</td>
                 <td>{absTypes[a.type]||a.type}</td>
@@ -133,6 +154,7 @@ export default function Absences() {
                 <td><Badge type={ABS_BADGE[a.statut]}>{ABS_STATUTS[a.statut]}</Badge></td>
                 <td style={{fontSize:'0.75rem',color:'var(--muted)'}}>{a.approved_by ? `${a.approved_by}${a.approved_at ? ' — '+fmtDate(a.approved_at.split('T')[0]) : ''}` : '—'}</td>
                 <td style={{fontSize:'0.78rem',color:'var(--text-danger)'}}>{a.motif_refus||'—'}</td>
+                <td><button className="btn btn-danger btn-sm" style={{padding:'2px 6px',fontSize:'0.65rem'}} onClick={()=>deleteAbsence(a.id)}>🗑️</button></td>
               </tr>
             ))}</tbody>
           </table>
@@ -253,6 +275,47 @@ export default function Absences() {
         <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:16}}>
           <button className="btn btn-ghost" onClick={()=>setSoldeModal(null)}>Annuler</button>
           <button className="btn btn-primary" onClick={submitSolde} disabled={soldeLoading}>{soldeLoading ? '⏳ En cours...' : '💾 Enregistrer'}</button>
+        </div>
+      </Modal>
+
+      {/* CREATE ABSENCE MODAL */}
+      <Modal open={createModal} onClose={()=>setCreateModal(false)} title="Creer une absence">
+        <div className="form-grid">
+          <div className="form-field">
+            <label>Collaborateur <span style={{color:'var(--red)'}}>*</span></label>
+            <select value={createForm.collaborateur_id} onChange={e=>setCreateForm({...createForm,collaborateur_id:e.target.value})}>
+              <option value="">Selectionner...</option>
+              {collabs.map(c=><option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>)}
+            </select>
+          </div>
+          <div className="form-field">
+            <label>Type</label>
+            <select value={createForm.type} onChange={e=>setCreateForm({...createForm,type:e.target.value})}>
+              {Object.entries(absTypes).map(([k,v])=><option key={k} value={k}>{v}</option>)}
+            </select>
+          </div>
+          <div className="form-field"><label>Du <span style={{color:'var(--red)'}}>*</span></label><input type="date" value={createForm.date_debut} onChange={e=>setCreateForm({...createForm,date_debut:e.target.value,date_fin:createForm.date_fin||e.target.value})} /></div>
+          <div className="form-field"><label>Au <span style={{color:'var(--red)'}}>*</span></label><input type="date" value={createForm.date_fin} onChange={e=>setCreateForm({...createForm,date_fin:e.target.value})} disabled={!!createForm.demi_journee} /></div>
+          <div className="form-field">
+            <label>Duree</label>
+            <select value={createForm.demi_journee} onChange={e=>setCreateForm({...createForm,demi_journee:e.target.value,date_fin:e.target.value?createForm.date_debut:createForm.date_fin})}>
+              <option value="">Journee(s) complete(s)</option>
+              <option value="AM">Demi-journee matin</option>
+              <option value="PM">Demi-journee apres-midi</option>
+            </select>
+          </div>
+          <div className="form-field">
+            <label>Statut</label>
+            <select value={createForm.statut} onChange={e=>setCreateForm({...createForm,statut:e.target.value})}>
+              <option value="approuve">Approuve</option>
+              <option value="en_attente">En attente</option>
+            </select>
+          </div>
+          <div className="form-field"><label>Commentaire</label><input type="text" value={createForm.commentaire} onChange={e=>setCreateForm({...createForm,commentaire:e.target.value})} placeholder="Optionnel..." /></div>
+        </div>
+        <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:16}}>
+          <button className="btn btn-ghost" onClick={()=>setCreateModal(false)}>Annuler</button>
+          <button className="btn btn-primary" onClick={submitCreate} disabled={createLoading}>{createLoading ? '⏳...' : '💾 Creer'}</button>
         </div>
       </Modal>
     </div>

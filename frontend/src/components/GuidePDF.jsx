@@ -1,12 +1,12 @@
 // GuidePDF.jsx — Generates printable HTML guides for Admin and Collaborateur roles
 // Opens a styled window.open() document ready for Print > Save as PDF
 
+import { APP_VERSION, BUILD_DATE } from '../version';
+
 const PINK = '#FF3285';
 const NAVY = '#05056D';
 const MUTED = '#6B6B9A';
 const FONT = "'Quicksand', 'Segoe UI', sans-serif";
-const APP_VERSION = 'v2.4';
-const COMMIT = 'cee021b';
 
 function timestamp() {
   return new Date().toLocaleString('fr-FR', {
@@ -111,7 +111,7 @@ function openGuide(title, buildContent) {
     <style>${baseStyles()}</style></head><body>${buildContent()}
     <div class="footer">
       <span>Hello Pomelo — ${title}</span>
-      <span>${APP_VERSION} (${COMMIT})</span>
+      <span>v${APP_VERSION}</span>
       <span>Genere le ${ts}</span>
     </div></body></html>`;
   w.document.write(html);
@@ -134,7 +134,7 @@ export function generateGuideAdmin() {
       <h1>Guide Administrateur</h1>
       <div class="sub">Hello Pomelo — Suivi Collaborateurs</div>
       <div class="badge">Version complete</div>
-      <div class="version">${APP_VERSION} · ${COMMIT} · ${timestamp()}</div>
+      <div class="version">v${APP_VERSION} · Build ${BUILD_DATE} · Genere le ${timestamp()}</div>
     </div>`;
 
     // ── Sommaire ──
@@ -551,7 +551,7 @@ export function generateGuideCollab() {
       <h1>Guide Collaborateur</h1>
       <div class="sub">Hello Pomelo — Mon espace personnel</div>
       <div class="badge">Espace collaborateur</div>
-      <div class="version">${APP_VERSION} · ${COMMIT} · ${timestamp()}</div>
+      <div class="version">v${APP_VERSION} · Build ${BUILD_DATE} · Genere le ${timestamp()}</div>
     </div>`;
 
     // ── Sommaire ──
