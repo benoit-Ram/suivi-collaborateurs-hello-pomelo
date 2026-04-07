@@ -5,7 +5,8 @@ import { SupabaseService } from '../../config/supabase.service';
 
 const GOOGLE_CLIENT_ID = '583500042273-qg3a9puk3prhl3hbqfr2jbbtljcgorco.apps.googleusercontent.com';
 const SUPER_ADMIN_EMAIL = 'benoit@hello-pomelo.com';
-const JWT_SECRET = process.env.JWT_SECRET || 'hp-suivi-collab-secret-change-me-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) throw new Error('JWT_SECRET environment variable is required. Set it in backend/.env');
 const JWT_EXPIRY = '24h';
 
 @Injectable()

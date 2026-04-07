@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import { useAuth } from '../../services/AuthContext';
-import { Avatar, Badge, ProgressBar, EmptyState, FadeIn, Modal, Skeleton, fmtDate, moisLabel, countWorkDays, absenceDays, getFeriesSet, STATUS_LABELS, STATUS_COLORS, ABS_TYPES, ABS_STATUTS, getAbsenceTypes, absenceDeductsSolde, isEntretienLocked, getEntretienStatus, ENTRETIEN_STATUS_BADGE } from '../../components/UI';
+import { Avatar, Badge, ProgressBar, EmptyState, FadeIn, Modal, Skeleton, fmtDate, moisLabel, countWorkDays, absenceDays, getFeriesSet, calculateSolde, STATUS_LABELS, STATUS_COLORS, ABS_TYPES, ABS_STATUTS, getAbsenceTypes, absenceDeductsSolde, isEntretienLocked, getEntretienStatus, ENTRETIEN_STATUS_BADGE } from '../../components/UI';
 
 // ── UTILS ──
 
@@ -134,14 +134,8 @@ export default function CollabAccueil() {
   const manager = c.manager_id ? collabs.find(x=>x.id===c.manager_id) : null;
   const managerName = manager ? `${manager.prenom} ${manager.nom}` : '—';
   const myTeam = collabs.filter(m => m.manager_id === c.id);
-  // Calcul solde réel
-  const soldeInit = c.solde_conges||0;
-  const acq = c.acquisition_conges||2.08;
-  let moisAcq = 0;
-  if (c.date_entree) { const e2=new Date(c.date_entree); const n2=new Date(); moisAcq=Math.max(0,(n2.getFullYear()-e2.getFullYear())*12+(n2.getMonth()-e2.getMonth())); }
-  const acquis = Math.round(moisAcq*acq*100)/100;
-  const pris = absences.filter(a=>a.statut==='approuve'&&absenceDeductsSolde(a.type,settings)).reduce((s,a)=>s+absenceDays(a),0);
-  const solde = Math.round((soldeInit+acquis-pris)*100)/100;
+  // Calcul solde réel (utilise la fonction partagée)
+  const { solde } = calculateSolde(c, absences, settings);
 
   const pendingCount = teamPendingAbs.length;
   const isManager = myTeam.length > 0;
