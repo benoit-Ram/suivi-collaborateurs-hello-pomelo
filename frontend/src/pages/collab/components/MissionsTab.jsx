@@ -48,11 +48,17 @@ export default function MissionsTab({ collabId }) {
 
   async function loadData() {
     try {
-      const [a, t] = await Promise.all([
+      const [a, t, m] = await Promise.all([
         api.getAssignments({ collaborateur_id: collabId }),
-        api.getTimeEntries({ collaborateur_id: collabId })
+        api.getTimeEntries({ collaborateur_id: collabId }),
+        api.getMissions()
       ]);
-      setAssignments(a || []);
+      // Enrich assignments with full mission data (including team)
+      const enriched = (a||[]).map(assign => {
+        const fullMission = (m||[]).find(mi => mi.id === assign.mission_id);
+        return fullMission ? { ...assign, missions: fullMission } : assign;
+      });
+      setAssignments(enriched);
       setTimeEntries(t || []);
     } catch(e) { console.error(e); }
     setLoading(false);
@@ -314,6 +320,19 @@ export default function MissionsTab({ collabId }) {
               </div>
             </div>
             <div style={{fontSize:'0.75rem',color:'var(--muted)',marginTop:6}}>📅 {fmtDate(a.date_debut)} → {fmtDate(a.date_fin)}</div>
+            {/* Team members on same mission */}
+            {a.missions?.assignments?.filter(x=>x.collaborateur_id!==collabId&&x.statut==='actif').length > 0 && (
+              <div style={{marginTop:8,paddingTop:8,borderTop:'1px dashed var(--lavender)'}}>
+                <div style={{fontSize:'0.68rem',fontWeight:700,color:'var(--muted)',marginBottom:4}}>👥 Équipe mission</div>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                  {a.missions.assignments.filter(x=>x.collaborateur_id!==collabId&&x.statut==='actif').map(x => (
+                    <span key={x.id} style={{fontSize:'0.7rem',color:'var(--navy)',background:'var(--offwhite)',padding:'3px 8px',borderRadius:6,fontWeight:600}}>
+                      {x.collaborateurs ? `${x.collaborateurs.prenom} ${x.collaborateurs.nom[0]}.` : '—'} · {x.role||'—'}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </>}
