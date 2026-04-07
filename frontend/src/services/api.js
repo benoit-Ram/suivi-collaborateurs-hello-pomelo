@@ -1,11 +1,33 @@
 const API = '/api';
+const TOKEN_KEY = 'hp_auth_token';
+
+function getToken() {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setToken(token) {
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+  else localStorage.removeItem(TOKEN_KEY);
+}
 
 async function request(path, options = {}) {
+  const token = getToken();
+  const headers = { 'Content-Type': 'application/json', ...options.headers };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
   const res = await fetch(`${API}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options.headers },
     ...options,
+    headers,
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
+
+  if (res.status === 401) {
+    // Token expired or invalid — clear session (no hard reload to avoid loops)
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem('hp_auth_session');
+    throw new Error('Session expirée');
+  }
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: res.statusText }));
     throw new Error(err.message || 'Erreur API');
@@ -14,6 +36,9 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  // Auth
+  login: (credential) => request('/auth/login', { method: 'POST', body: { credential } }),
+
   // Collaborateurs
   getCollaborateurs: () => request('/collaborateurs'),
   getCollaborateur: (id) => request(`/collaborateurs/${id}`),
@@ -41,4 +66,5 @@ export const api = {
   // Settings
   getSettings: () => request('/settings'),
   updateSetting: (id, data) => request(`/settings/${id}`, { method: 'PUT', body: data }),
+  upsertSetting: (key, value) => request('/settings/upsert', { method: 'POST', body: { key, value } }),
 };

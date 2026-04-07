@@ -6,10 +6,12 @@ export class SupabaseService {
   private client: SupabaseClient;
 
   constructor() {
-    this.client = createClient(
-      process.env.SUPABASE_URL || '',
-      process.env.SUPABASE_KEY || '',
-    );
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_KEY;
+    if (!url || !key) {
+      throw new Error('SUPABASE_URL et SUPABASE_KEY sont requis. Vérifiez vos variables d\'environnement.');
+    }
+    this.client = createClient(url, key);
   }
 
   get db(): SupabaseClient {

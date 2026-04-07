@@ -6,7 +6,7 @@ export default function AdminLayout() {
   return (
     <div style={{ display: 'flex' }}>
       <Sidebar />
-      <main className="admin-main">
+      <main style={{ marginLeft: 'var(--sidebar-w)', flex: 1, minHeight: '100vh', padding: 'clamp(16px, 3vw, 32px)' }}>
         <Outlet />
       </main>
     </div>

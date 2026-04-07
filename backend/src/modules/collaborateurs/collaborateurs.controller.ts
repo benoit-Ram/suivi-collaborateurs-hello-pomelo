@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Req } from '@nestjs/common';
 import { CollaborateursService } from './collaborateurs.service';
 
 @Controller('collaborateurs')
@@ -15,7 +15,9 @@ export class CollaborateursController {
   create(@Body() dto: any) { return this.service.create(dto); }
 
   @Put(':id')
-  update(@Param('id') id: string, @Body() dto: any) { return this.service.update(id, dto); }
+  update(@Param('id') id: string, @Body() dto: any, @Req() req: any) {
+    return this.service.update(id, dto, req.user);
+  }
 
   @Delete(':id')
   delete(@Param('id') id: string) { return this.service.delete(id); }

@@ -112,3 +112,34 @@ CREATE TABLE IF NOT EXISTS activity_log (
   created_at timestamptz DEFAULT now()
 );
 ```
+
+## Migration v6 — Rôles Admin
+
+```sql
+-- Colonne admin sur les collaborateurs
+ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS is_admin boolean DEFAULT false;
+
+-- Super admin
+UPDATE collaborateurs SET is_admin = true WHERE email = 'benoit@hello-pomelo.com';
+```
+
+## Migration v7 — Audit trail absences
+
+```sql
+-- Qui a approuvé/refusé et quand
+ALTER TABLE absences ADD COLUMN IF NOT EXISTS approved_by text;
+ALTER TABLE absences ADD COLUMN IF NOT EXISTS approved_at timestamptz;
+```
+
+## Migration v8 — Annulation congés + compteurs RTT + cycle
+
+```sql
+-- Commentaire d'annulation de congé
+ALTER TABLE absences ADD COLUMN IF NOT EXISTS commentaire_annulation text;
+
+-- Compteur RTT séparé (jours)
+ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS solde_rtt numeric DEFAULT 0;
+
+-- Cycle de congés (date de début du cycle, optionnel)
+ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS cycle_conges_debut date;
+```
