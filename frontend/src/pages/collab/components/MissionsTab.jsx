@@ -159,7 +159,7 @@ export default function MissionsTab({ collabId }) {
                     <tr key={a.id} style={{borderBottom:'1px solid var(--lavender)'}}>
                       <td style={{padding:'10px 14px'}}>
                         <div style={{fontWeight:700,color:'var(--navy)',fontSize:'0.85rem'}}>{a.missions?.nom || '—'}</div>
-                        <div style={{fontSize:'0.7rem',color:'var(--muted)'}}>{a.missions?.client} · {a.role || '—'} · {a.taux_staffing}%</div>
+                        <div style={{fontSize:'0.7rem',color:'var(--muted)'}}>{a.missions?.clients?.nom || a.missions?.client} · {a.role || '—'} · {a.taux_staffing}%</div>
                       </td>
                       {weekDates.map((date, i) => {
                         const entry = getEntry(a.id, date);
@@ -237,7 +237,7 @@ export default function MissionsTab({ collabId }) {
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
               <div>
                 <div style={{fontWeight:700,color:'var(--navy)',fontSize:'0.95rem'}}>{a.missions?.nom || '—'}</div>
-                <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>{a.missions?.client || '—'} · {a.role || 'Non défini'}</div>
+                <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>{a.missions?.clients?.nom || a.missions?.client || '—'} · {a.role || 'Non défini'}</div>
               </div>
               <div style={{textAlign:'right'}}>
                 <Badge type={STATUT_BADGE[a.missions?.statut]||'gray'}>{STATUT_LABEL[a.missions?.statut]||'—'}</Badge>
@@ -257,7 +257,7 @@ export default function MissionsTab({ collabId }) {
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
               <div>
                 <div style={{fontWeight:700,color:'var(--navy)',fontSize:'0.88rem'}}>{a.missions?.nom || '—'}</div>
-                <div style={{fontSize:'0.75rem',color:'var(--muted)'}}>{a.missions?.client || '—'} · {a.role || '—'} · {a.taux_staffing}%</div>
+                <div style={{fontSize:'0.75rem',color:'var(--muted)'}}>{a.missions?.clients?.nom || a.missions?.client || '—'} · {a.role || '—'} · {a.taux_staffing}%</div>
               </div>
               <Badge type={STATUT_BADGE[a.missions?.statut]||'gray'}>{STATUT_LABEL[a.missions?.statut]||'—'}</Badge>
             </div>

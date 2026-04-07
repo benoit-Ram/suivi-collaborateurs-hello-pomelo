@@ -6,7 +6,7 @@ export class AssignmentsService {
   constructor(private supabase: SupabaseService) {}
 
   async findAll(filters?: Record<string, string>) {
-    let query = this.supabase.db.from('assignments').select('*, missions:mission_id(id, nom, client, statut), collaborateurs:collaborateur_id(id, prenom, nom, photo_url, poste)').order('created_at', { ascending: false });
+    let query = this.supabase.db.from('assignments').select('*, missions:mission_id(id, nom, statut, clients:client_id(id, nom)), collaborateurs:collaborateur_id(id, prenom, nom, photo_url, poste)').order('created_at', { ascending: false });
     if (filters) {
       Object.entries(filters).forEach(([key, val]) => { if (val) query = query.eq(key, val); });
     }

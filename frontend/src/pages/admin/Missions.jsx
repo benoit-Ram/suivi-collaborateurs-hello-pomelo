@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useData } from '../../services/DataContext';
 import { useAuth } from '../../services/AuthContext';
 import { api } from '../../services/api';
@@ -21,7 +21,7 @@ export default function Missions() {
   const [formLoading, setFormLoading] = useState(false);
   // Assignment modal
   const [assignModal, setAssignModal] = useState(null);
-  const [assignForm, setAssignForm] = useState({ collaborateur_id:'', role:'', taux_staffing:100, jours_par_semaine:5, date_debut:'', date_fin:'' });
+  const [assignForm, setAssignForm] = useState({ collaborateur_id:'', role:'', taux_staffing:100, jours_par_semaine:5, tjm:'', date_debut:'', date_fin:'' });
   // Detail modal
   const [detail, setDetail] = useState(null);
   // Client modal + detail
@@ -32,6 +32,15 @@ export default function Missions() {
   const [filterClient, setFilterClient] = useState('');
   const [filterEquipes, setFilterEquipes] = useState([]); // multi-select
   const [showEquipeDropdown, setShowEquipeDropdown] = useState(false);
+  const equipeDropdownRef = useRef(null);
+
+  // Close equipe dropdown on outside click
+  useEffect(() => {
+    if (!showEquipeDropdown) return;
+    const handler = (e) => { if (equipeDropdownRef.current && !equipeDropdownRef.current.contains(e.target)) setShowEquipeDropdown(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showEquipeDropdown]);
   const [staffingDateDebut, setStaffingDateDebut] = useState('');
   const [staffingDateFin, setStaffingDateFin] = useState('');
 
@@ -93,7 +102,7 @@ export default function Missions() {
 
   const deleteMission = async (id) => {
     if (!confirm('Supprimer cette mission et toutes ses affectations ?')) return;
-    try { await api.deleteMission(id); loadMissions(); showToast('Mission supprimée'); } catch(e) { showToast('Erreur: ' + e.message); }
+    try { await api.deleteMission(id); loadData(); showToast('Mission supprimée'); } catch(e) { showToast('Erreur: ' + e.message); }
   };
 
   const saveAssignment = async () => {
@@ -101,21 +110,21 @@ export default function Missions() {
     try {
       const jps = parseFloat(assignForm.jours_par_semaine) || 5;
       const taux = Math.round(jps / 5 * 100);
-      await api.createAssignment({ ...assignForm, mission_id: assignModal, taux_staffing: taux, jours_par_semaine: jps });
+      await api.createAssignment({ ...assignForm, mission_id: assignModal, taux_staffing: taux, jours_par_semaine: jps, tjm: assignForm.tjm ? parseFloat(assignForm.tjm) : null });
       setAssignModal(null);
-      loadMissions();
+      loadData();
       showToast('Collaborateur affecté ✓');
     } catch(e) { showToast('Erreur: ' + e.message); }
   };
 
   const removeAssignment = async (id) => {
-    try { await api.deleteAssignment(id); loadMissions(); showToast('Affectation retirée'); } catch(e) { showToast('Erreur: ' + e.message); }
+    try { await api.deleteAssignment(id); loadData(); showToast('Affectation retirée'); } catch(e) { showToast('Erreur: ' + e.message); }
   };
 
   if (loading || ctxLoading) return <div style={{maxWidth:600,margin:'40px auto'}}><Skeleton lines={5} /></div>;
 
   const active = missions.filter(m => m.statut === 'en_cours');
-  const filtered = search ? missions.filter(m => (m.nom+m.client+(m.categorie||'')).toLowerCase().includes(search.toLowerCase())) : missions;
+  const filtered = search ? missions.filter(m => (m.nom+getClientName(m)+(m.categorie||'')).toLowerCase().includes(search.toLowerCase())) : missions;
 
   // Staffing calculation
   const staffingMap = {};
@@ -124,7 +133,7 @@ export default function Missions() {
     (m.assignments || []).filter(a => a.statut === 'actif').forEach(a => {
       if (staffingMap[a.collaborateur_id]) {
         staffingMap[a.collaborateur_id].taux += (a.taux_staffing || 0);
-        staffingMap[a.collaborateur_id].missions.push({ nom: m.nom, client: m.client, taux: a.taux_staffing, role: a.role });
+        staffingMap[a.collaborateur_id].missions.push({ nom: m.nom, client: getClientName(m), taux: a.taux_staffing, role: a.role });
       }
     });
   });
@@ -166,7 +175,7 @@ export default function Missions() {
             </div>
             <div className="section-title">Missions ({cMissions.length})</div>
             {cMissions.length === 0 ? <div className="card" style={{textAlign:'center',padding:24,color:'var(--muted)'}}>Aucune mission pour ce client</div> :
-            cMissions.map(m => <MissionCard key={m.id} m={m} collabs={collabs} onEdit={openEdit} onDelete={(id)=>{deleteMission(id);}} onAssign={()=>{setAssignModal(m.id);setAssignForm({collaborateur_id:'',role:'',taux_staffing:100,jours_par_semaine:5,date_debut:m.date_debut||'',date_fin:m.date_fin||''});}} onRemoveAssign={removeAssignment} onDetail={setDetail} />)}
+            cMissions.map(m => <MissionCard key={m.id} m={m} collabs={collabs} onEdit={openEdit} onDelete={(id)=>{deleteMission(id);}} onAssign={()=>{setAssignModal(m.id);setAssignForm({collaborateur_id:'',role:'',taux_staffing:100,jours_par_semaine:5,tjm:'',date_debut:m.date_debut||'',date_fin:m.date_fin||''});}} onRemoveAssign={removeAssignment} onDetail={setDetail} />)}
           </div>;
         })() : <>
         <div style={{display:'flex',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:8}}>
@@ -203,7 +212,7 @@ export default function Missions() {
       {tab==='active' && <FadeIn><div>
         {active.length === 0 ? <div className="card" style={{textAlign:'center',padding:32,color:'var(--muted)'}}>Aucune mission en cours</div> :
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(320px,1fr))',gap:16}}>
-          {active.map(m => <MissionCard key={m.id} m={m} collabs={collabs} onEdit={openEdit} onDelete={deleteMission} onAssign={()=>{setAssignModal(m.id);setAssignForm({collaborateur_id:'',role:'',taux_staffing:100,date_debut:m.date_debut||'',date_fin:m.date_fin||''});}} onRemoveAssign={removeAssignment} onDetail={setDetail} />)}
+          {active.map(m => <MissionCard key={m.id} m={m} collabs={collabs} onEdit={openEdit} onDelete={deleteMission} onAssign={()=>{setAssignModal(m.id);setAssignForm({collaborateur_id:'',role:'',taux_staffing:100,jours_par_semaine:5,tjm:'',date_debut:m.date_debut||'',date_fin:m.date_fin||''});}} onRemoveAssign={removeAssignment} onDetail={setDetail} />)}
         </div>}
       </div></FadeIn>}
 
@@ -281,7 +290,7 @@ export default function Missions() {
             <input type="date" value={staffingDateFin} onChange={e=>setStaffingDateFin(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'5px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)'}} />
           </div>
           {/* Multi-select équipes */}
-          <div style={{position:'relative'}}>
+          <div ref={equipeDropdownRef} style={{position:'relative'}}>
             <button onClick={()=>setShowEquipeDropdown(!showEquipeDropdown)} className="btn btn-ghost btn-sm" style={{fontSize:'0.75rem'}}>
               🏷️ Équipes {filterEquipes.length>0?`(${filterEquipes.length})`:''} ▾
             </button>
@@ -340,6 +349,7 @@ export default function Missions() {
           <div className="form-field"><label>Jours / semaine</label><input type="number" step="0.1" min="0.1" max="5" value={assignForm.jours_par_semaine} onChange={e=>{const jps=parseFloat(e.target.value)||0; setAssignForm({...assignForm,jours_par_semaine:jps,taux_staffing:Math.round(jps/5*100)});}} /><div style={{fontSize:'0.7rem',color:'var(--muted)',marginTop:2}}>= {Math.round((parseFloat(assignForm.jours_par_semaine)||0)/5*100)}% du temps</div></div>
           <div className="form-field"><label>Du</label><input type="date" value={assignForm.date_debut} onChange={e=>setAssignForm({...assignForm,date_debut:e.target.value})} /></div>
           <div className="form-field"><label>Au</label><input type="date" value={assignForm.date_fin} onChange={e=>setAssignForm({...assignForm,date_fin:e.target.value})} /></div>
+          <div className="form-field"><label>TJM (€/jour)</label><input type="number" value={assignForm.tjm} onChange={e=>setAssignForm({...assignForm,tjm:e.target.value})} placeholder="Optionnel" /></div>
         </div>
         <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:16}}>
           <button className="btn btn-ghost" onClick={()=>setAssignModal(null)}>Annuler</button>
@@ -348,7 +358,7 @@ export default function Missions() {
       </Modal>
 
       {/* DETAIL MODAL */}
-      <Modal open={!!detail} onClose={()=>setDetail(null)} title={detail?`${detail.nom} — ${detail.client}`:''}>
+      <Modal open={!!detail} onClose={()=>setDetail(null)} title={detail?`${detail.nom} — ${getClientName(detail)}`:''}>
         {detail && <>
           <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:16}}>
             <Badge type={STATUT_BADGE[detail.statut]}>{STATUT_LABEL[detail.statut]}</Badge>
@@ -399,7 +409,7 @@ function MissionCard({ m, collabs, onEdit, onDelete, onAssign, onRemoveAssign, o
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
         <div style={{cursor:'pointer'}} onClick={()=>onDetail(m)}>
           <div style={{fontWeight:700,fontSize:'1rem',color:'var(--navy)'}}>{m.nom}</div>
-          <div style={{fontSize:'0.82rem',color:'var(--muted)',marginTop:2}}>{m.client}</div>
+          <div style={{fontSize:'0.82rem',color:'var(--muted)',marginTop:2}}>{m.clients?.nom || m.client || '—'}</div>
         </div>
         <Badge type={STATUT_BADGE[m.statut]}>{STATUT_LABEL[m.statut]}</Badge>
       </div>
@@ -507,7 +517,7 @@ function TimelineView({ missions, collabs, staffingMap, allMissions }) {
                           const taux = a?.taux_staffing || 0;
                           const colors = ['#3B82F6','#8B5CF6','#EC4899','#F59E0B','#10B981','#6366F1'];
                           const colorIdx = missions.indexOf(m) % colors.length;
-                          return <div key={m.id} title={`${m.nom} — ${m.client} (${taux}%)`} style={{
+                          return <div key={m.id} title={`${m.nom} — ${m.clients?.nom||m.client||''} (${taux}%)`} style={{
                             background:colors[colorIdx],color:'white',borderRadius:3,
                             padding:'2px 3px',fontSize:'0.55rem',fontWeight:700,
                             whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',

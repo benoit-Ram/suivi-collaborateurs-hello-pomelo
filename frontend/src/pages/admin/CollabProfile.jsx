@@ -369,7 +369,7 @@ function CollabMissionsTab({ collabId, collabName, navigate }) {
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
               <div>
                 <div style={{fontWeight:700,color:'var(--navy)',fontSize:'0.95rem'}}>{a.missions?.nom || '—'}</div>
-                <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>{a.missions?.client || '—'}</div>
+                <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>{a.missions?.clients?.nom || a.missions?.client || '—'}</div>
               </div>
               <div style={{textAlign:'right'}}>
                 <div style={{fontWeight:700,color:'var(--blue)',fontSize:'1.1rem'}}>{a.taux_staffing}%</div>
@@ -393,7 +393,7 @@ function CollabMissionsTab({ collabId, collabName, navigate }) {
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
               <div>
                 <div style={{fontWeight:700,color:'var(--navy)',fontSize:'0.88rem'}}>{a.missions?.nom || '—'}</div>
-                <div style={{fontSize:'0.75rem',color:'var(--muted)'}}>{a.missions?.client || '—'} · {a.role || '—'} · {a.taux_staffing}%</div>
+                <div style={{fontSize:'0.75rem',color:'var(--muted)'}}>{a.missions?.clients?.nom || a.missions?.client || '—'} · {a.role || '—'} · {a.taux_staffing}%</div>
               </div>
               <Badge type="gray">Terminé</Badge>
             </div>

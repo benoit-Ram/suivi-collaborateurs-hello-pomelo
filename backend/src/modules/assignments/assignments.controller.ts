@@ -13,6 +13,7 @@ export class AssignmentsController {
   @Post()
   create(@Body() dto: any) { return this.service.create(dto); }
 
+  @Roles('admin')
   @Put(':id')
   update(@Param('id') id: string, @Body() dto: any) { return this.service.update(id, dto); }
 
