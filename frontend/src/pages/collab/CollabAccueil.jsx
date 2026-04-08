@@ -107,7 +107,7 @@ export default function CollabAccueil() {
   const pendingCount = teamPendingAbs.length;
   const isManager = myTeam.length > 0;
 
-  const tabs = [['objectifs', isManager ? '🎯 Mes objectifs' : '🎯 Objectifs'],['missions','🚀 Missions β'],['points', isManager ? '📋 Mes entretiens RH' : '📋 Entretien RH'],['conges', isManager ? '🏖️ Mes congés' : '🏖️ Congés']];
+  const tabs = [['objectifs', isManager ? '🎯 Mes objectifs' : '🎯 Objectifs'],['missions','🚀 Missions'],['points', isManager ? '📋 Mes entretiens RH' : '📋 Entretien RH'],['conges', isManager ? '🏖️ Mes congés' : '🏖️ Congés']];
   if (isManager) tabs.splice(3, 0, ['management', pendingCount > 0 ? `👔 Management (${pendingCount})` : '👔 Management']);
 
   return (
@@ -151,6 +151,7 @@ export default function CollabAccueil() {
         {tabs.map(([k,l]) => (
           <button key={k} onClick={()=>{setTab(k); if(k==='conges') loadAbsences(selectedId);}} style={{position:'relative',flex:'1 0 auto',padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',background:tab===k?'var(--pink)':'transparent',color:tab===k?'white':'var(--muted)',border:tab===k?'none':'1.5px solid var(--lavender)',boxShadow:tab===k?'0 4px 14px rgba(255,50,133,0.3)':'none'}}>
             {l}
+            {k==='missions' && <span style={{marginLeft:4,padding:'1px 5px',borderRadius:4,fontSize:'0.55rem',fontWeight:800,background:'#FDE68A',color:'#92400E',verticalAlign:'middle'}}>bêta</span>}
             {k==='management' && pendingCount > 0 && <span style={{position:'absolute',top:-4,right:-4,background:'var(--orange)',color:'white',borderRadius:'50%',width:20,height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'0.65rem',fontWeight:800,boxShadow:'0 2px 6px rgba(249,115,22,0.4)'}}>{pendingCount}</span>}
           </button>
         ))}
