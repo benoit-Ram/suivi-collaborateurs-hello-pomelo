@@ -5,13 +5,15 @@ import { SupabaseService } from '../../config/supabase.service';
 export class AssignmentsService {
   constructor(private supabase: SupabaseService) {}
 
+  private static readonly ALLOWED_FILTERS = ['mission_id', 'collaborateur_id', 'statut'];
+
   async findAll(filters?: Record<string, string>) {
     let query = this.supabase.db.from('assignments').select('*, missions:mission_id(id, nom, statut, clients:client_id(id, nom)), collaborateurs:collaborateur_id(id, prenom, nom, photo_url, poste)').order('created_at', { ascending: false });
     if (filters) {
-      Object.entries(filters).forEach(([key, val]) => { if (val) query = query.eq(key, val); });
+      Object.entries(filters).forEach(([key, val]) => { if (val && AssignmentsService.ALLOWED_FILTERS.includes(key)) query = query.eq(key, val); });
     }
     const { data, error } = await query;
-    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+    if (error) throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     return data;
   }
 

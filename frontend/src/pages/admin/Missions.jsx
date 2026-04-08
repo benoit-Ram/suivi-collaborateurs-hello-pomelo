@@ -50,8 +50,7 @@ export default function Missions() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [showEquipeDropdown]);
-  const [staffingDateDebut, setStaffingDateDebut] = useState('');
-  const [staffingDateFin, setStaffingDateFin] = useState('');
+  const [filterBureau, setFilterBureau] = useState('');
   // Missions view
   const [viewMode, setViewMode] = useState('cartes'); // cartes | liste
   const [missionDateDebut, setMissionDateDebut] = useState('');
@@ -77,7 +76,8 @@ export default function Missions() {
     if (!form.nom || !form.client_id) { showToast('Nom et client sont obligatoires'); return; }
     setFormLoading(true);
     try {
-      const row = { ...form, budget_vendu: form.budget_vendu ? parseFloat(form.budget_vendu) : null, responsable_id: form.responsable_id || null, lien_propale: form.lien_propale || null };
+      const clientObj = clients.find(c => c.id === form.client_id);
+      const row = { ...form, client: clientObj?.nom || '', budget_vendu: form.budget_vendu ? parseFloat(form.budget_vendu) : null, responsable_id: form.responsable_id || null, lien_propale: form.lien_propale || null };
       if (modal === 'create') {
         await api.createMission(row);
         showToast('Mission créée ✓');
@@ -229,13 +229,6 @@ export default function Missions() {
         </div>
       </div>
 
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:12,marginBottom:20}}>
-        <div className="stat-card pink"><div className="stat-num">{active.length}</div><div className="stat-label">Missions actives</div></div>
-        <div className="stat-card blue"><div className="stat-num">{staffingMoyen}%</div><div className="stat-label">Staffing moyen</div></div>
-        <div className="stat-card sky"><div className="stat-num">{Math.round(caPrevu/1000)}k€</div><div className="stat-label">CA mensuel prévu</div></div>
-        <div className="stat-card green"><div className="stat-num">{clients.length}</div><div className="stat-label">Clients</div></div>
-      </div>
-
       <div className="tabs-scroll" style={{display:'flex',gap:6,marginBottom:24,background:'var(--offwhite)',padding:6,borderRadius:12,overflowX:'auto'}}>
         {[['clients',`🏢 Clients (${clients.length})`],['missions',`🚀 Missions (${missions.length})`],['timeline','📅 Calendrier'],['staffing','📊 Staffing'],['finance','💰 Finance']].map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)} style={{flex:'1 0 auto',padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',background:tab===k?'var(--pink)':'transparent',color:tab===k?'white':'var(--muted)',border:tab===k?'none':'1.5px solid var(--lavender)',boxShadow:tab===k?'0 4px 14px rgba(255,50,133,0.3)':'none'}}>{l}</button>
@@ -342,17 +335,43 @@ export default function Missions() {
       </div></FadeIn>}
 
       {/* TIMELINE / CALENDRIER GLOBAL */}
-      {tab==='timeline' && <FadeIn><div>
-        <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap'}}>
+      {tab==='timeline' && (()=>{
+        const allEquipes = [...new Set(collabs.flatMap(c=>(c.equipe||'').split(',').map(s=>s.trim())).filter(Boolean))].sort();
+        const allBureaux = [...new Set(collabs.map(c=>c.bureau).filter(Boolean))].sort();
+        const toggleEquipe = (eq) => setFilterEquipes(prev => prev.includes(eq) ? prev.filter(e=>e!==eq) : [...prev, eq]);
+        let filteredCollabs = collabs;
+        if (filterEquipes.length > 0) filteredCollabs = filteredCollabs.filter(c => filterEquipes.some(eq=>(c.equipe||'').includes(eq)));
+        if (filterBureau) filteredCollabs = filteredCollabs.filter(c => c.bureau === filterBureau);
+        return <FadeIn><div>
+        <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
           <select value={filterClient} onChange={e=>setFilterClient(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 10px',fontFamily:'inherit',fontSize:'0.78rem',background:'var(--offwhite)',color:'var(--navy)'}}>
             <option value="">Tous les clients</option>
             {clients.map(c=><option key={c.id} value={c.id}>{c.nom}</option>)}
           </select>
+          <select value={filterBureau} onChange={e=>setFilterBureau(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 10px',fontFamily:'inherit',fontSize:'0.78rem',background:'var(--offwhite)',color:'var(--navy)'}}>
+            <option value="">Tous les bureaux</option>
+            {allBureaux.map(b=><option key={b} value={b}>{b}</option>)}
+          </select>
+          <div ref={equipeDropdownRef} style={{position:'relative'}}>
+            <button onClick={()=>setShowEquipeDropdown(!showEquipeDropdown)} className="btn btn-ghost btn-sm" style={{fontSize:'0.75rem'}}>
+              Equipes {filterEquipes.length>0?`(${filterEquipes.length})`:''} ▾
+            </button>
+            {showEquipeDropdown && <div style={{position:'absolute',top:'100%',left:0,background:'var(--white)',border:'1.5px solid var(--lavender)',borderRadius:10,padding:8,zIndex:100,boxShadow:'0 8px 24px rgba(5,5,109,0.15)',minWidth:200,maxHeight:250,overflowY:'auto'}}>
+              <button onClick={()=>{setFilterEquipes([]);setShowEquipeDropdown(false);}} style={{width:'100%',textAlign:'left',padding:'6px 8px',border:'none',background:'transparent',fontFamily:'inherit',fontSize:'0.78rem',color:'var(--muted)',cursor:'pointer',fontWeight:600}}>Tout decocher</button>
+              {allEquipes.map(eq=>(
+                <label key={eq} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 8px',cursor:'pointer',borderRadius:6,fontSize:'0.78rem',fontWeight:600,color:'var(--navy)',background:filterEquipes.includes(eq)?'var(--offwhite)':'transparent'}}>
+                  <input type="checkbox" checked={filterEquipes.includes(eq)} onChange={()=>toggleEquipe(eq)} style={{accentColor:'var(--pink)'}} />
+                  {eq}
+                </label>
+              ))}
+            </div>}
+          </div>
+          {(filterClient || filterBureau || filterEquipes.length > 0) && <button className="btn btn-ghost btn-sm" style={{fontSize:'0.72rem',color:'var(--muted)'}} onClick={()=>{setFilterClient('');setFilterBureau('');setFilterEquipes([]);}}>Reinitialiser</button>}
         </div>
         <div className="card" style={{padding:0,overflow:'hidden'}}>
-          <TimelineView missions={filterClient ? active.filter(m=>m.client_id===filterClient) : active} collabs={filterEquipes.length>0 ? collabs.filter(c=>filterEquipes.some(eq=>(c.equipe||'').includes(eq))) : collabs} staffingMap={staffingMap} allMissions={active} />
+          <TimelineView missions={filterClient ? active.filter(m=>m.client_id===filterClient) : active} collabs={filteredCollabs} staffingMap={staffingMap} allMissions={active} />
         </div>
-      </div></FadeIn>}
+      </div></FadeIn>})()}
 
       {/* STAFFING */}
       {tab==='staffing' && (()=>{
@@ -361,38 +380,9 @@ export default function Missions() {
         const filteredStaffing = Object.values(staffingMap).filter(({collab:c}) => filterEquipes.length===0 || filterEquipes.some(eq=>(c.equipe||'').includes(eq)));
         const avg = filteredStaffing.length ? Math.round(filteredStaffing.reduce((s,v)=>s+v.taux,0)/filteredStaffing.length) : 0;
 
-        // Quick date presets
-        const setPreset = (type) => {
-          const now = new Date();
-          const y = now.getFullYear();
-          const m = now.getMonth();
-          if (type==='week') { const mon=new Date(now); mon.setDate(now.getDate()-((now.getDay()+6)%7)); const fri=new Date(mon); fri.setDate(mon.getDate()+4); setStaffingDateDebut(mon.toISOString().split('T')[0]); setStaffingDateFin(fri.toISOString().split('T')[0]); }
-          else if (type==='month') { setStaffingDateDebut(`${y}-${String(m+1).padStart(2,'0')}-01`); setStaffingDateFin(new Date(y,m+1,0).toISOString().split('T')[0]); }
-          else if (type==='q1') { setStaffingDateDebut(`${y}-01-01`); setStaffingDateFin(`${y}-03-31`); }
-          else if (type==='q2') { setStaffingDateDebut(`${y}-04-01`); setStaffingDateFin(`${y}-06-30`); }
-          else if (type==='q3') { setStaffingDateDebut(`${y}-07-01`); setStaffingDateFin(`${y}-09-30`); }
-          else if (type==='q4') { setStaffingDateDebut(`${y}-10-01`); setStaffingDateFin(`${y}-12-31`); }
-          else if (type==='year') { setStaffingDateDebut(`${y}-01-01`); setStaffingDateFin(`${y}-12-31`); }
-          else { setStaffingDateDebut(''); setStaffingDateFin(''); }
-        };
-
         return <FadeIn><div>
-        <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap',alignItems:'center'}}>
-          {/* Date presets */}
-          <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-            {[['','Tout'],['week','Semaine'],['month','Mois'],['q1','T1'],['q2','T2'],['q3','T3'],['q4','T4'],['year','Année']].map(([k,l])=>(
-              <button key={k} onClick={()=>setPreset(k)} className="btn btn-ghost btn-sm" style={{padding:'4px 10px',fontSize:'0.7rem',background:(!staffingDateDebut&&!k)?'var(--pink)':'transparent',color:(!staffingDateDebut&&!k)?'white':'var(--muted)'}}>{l}</button>
-            ))}
-          </div>
-          <span style={{fontSize:'0.78rem',color:'var(--muted)',fontWeight:600}}>Taux moyen: {avg}%</span>
-        </div>
         <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
-          {/* Date picker */}
-          <div style={{display:'flex',alignItems:'center',gap:4}}>
-            <input type="date" value={staffingDateDebut} onChange={e=>setStaffingDateDebut(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'5px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)'}} />
-            <span style={{color:'var(--muted)',fontSize:'0.75rem'}}>→</span>
-            <input type="date" value={staffingDateFin} onChange={e=>setStaffingDateFin(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'5px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)'}} />
-          </div>
+          <span style={{fontSize:'0.78rem',color:'var(--muted)',fontWeight:600}}>Taux moyen: {avg}%</span>
           {/* Multi-select équipes */}
           <div ref={equipeDropdownRef} style={{position:'relative'}}>
             <button onClick={()=>setShowEquipeDropdown(!showEquipeDropdown)} className="btn btn-ghost btn-sm" style={{fontSize:'0.75rem'}}>
@@ -629,148 +619,152 @@ function MissionCard({ m, collabs, onEdit, onDelete, onAssign, onRemoveAssign, o
   );
 }
 
-/** Vue timeline Gantt — collabs en lignes × semaines en colonnes, barres de staffing */
+/** Vue timeline Gantt — collabs en lignes × semaines/mois en colonnes, barres de staffing */
 function TimelineView({ missions, collabs, staffingMap, allMissions }) {
-  const [weekOffset, setWeekOffset] = useState(0);
+  const [offset, setOffset] = useState(0);
   const [selectedCollab, setSelectedCollab] = useState(null);
-  const WEEKS = 16; // show 16 weeks
+  const [viewUnit, setViewUnit] = useState('week'); // 'week' | 'month'
+  const WEEKS = 16;
+  const MONTHS_COUNT = 6;
+  const MISSION_COLORS = ['#3B82F6','#8B5CF6','#EC4899','#F59E0B','#10B981','#6366F1'];
 
-  // Calculate start Monday
   const now = new Date();
-  const startMonday = new Date(now);
-  startMonday.setDate(now.getDate() - ((now.getDay() + 6) % 7) + (weekOffset * WEEKS));
-  startMonday.setHours(0,0,0,0);
-
-  const weeks = Array.from({length:WEEKS},(_,i) => {
-    const mon = new Date(startMonday); mon.setDate(startMonday.getDate() + i * 7);
-    const weekNum = Math.ceil(((mon - new Date(mon.getFullYear(),0,1)) / 86400000 + 1) / 7);
-    return { date: mon, label: `S${weekNum}`, month: mon.toLocaleDateString('fr-FR',{month:'short'}), year: mon.getFullYear(), start: mon.toISOString().split('T')[0], end: new Date(mon.getTime()+4*86400000).toISOString().split('T')[0] };
-  });
-
-  // Group weeks by month
-  const months = [];
-  let lastMonth = '';
-  weeks.forEach((w,i) => {
-    const key = w.month + ' ' + w.year;
-    if (key !== lastMonth) { months.push({label:key,start:i,span:1}); lastMonth = key; }
-    else months[months.length-1].span++;
-  });
-
-  // Get assigned collabs
-  const assignedCollabs = collabs.filter(c => staffingMap[c.id]?.missions?.length > 0).sort((a,b) => (staffingMap[b.id]?.taux||0) - (staffingMap[a.id]?.taux||0));
   const todayStr = now.toISOString().split('T')[0];
+
+  // Build columns based on viewUnit
+  const columns = viewUnit === 'week'
+    ? Array.from({length:WEEKS},(_,i) => {
+        const startMonday = new Date(now);
+        startMonday.setDate(now.getDate() - ((now.getDay()+6)%7) + (offset*WEEKS) + i*7);
+        startMonday.setHours(0,0,0,0);
+        const weekNum = Math.ceil(((startMonday - new Date(startMonday.getFullYear(),0,1)) / 86400000 + 1) / 7);
+        const end = new Date(startMonday.getTime()+4*86400000);
+        return { label:`S${weekNum}`, start:startMonday.toISOString().split('T')[0], end:end.toISOString().split('T')[0], month:startMonday.toLocaleDateString('fr-FR',{month:'short'}), year:startMonday.getFullYear(), isCurrent: todayStr >= startMonday.toISOString().split('T')[0] && todayStr <= end.toISOString().split('T')[0] };
+      })
+    : Array.from({length:MONTHS_COUNT},(_,i) => {
+        const d = new Date(now.getFullYear(), now.getMonth() + offset*MONTHS_COUNT + i, 1);
+        const endD = new Date(d.getFullYear(), d.getMonth()+1, 0);
+        return { label:d.toLocaleDateString('fr-FR',{month:'short',year:'numeric'}), start:d.toISOString().split('T')[0], end:endD.toISOString().split('T')[0], isCurrent: d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear() };
+      });
+
+  // Group week columns by month for header row
+  const monthHeaders = [];
+  if (viewUnit === 'week') {
+    let lastKey = '';
+    columns.forEach((col,i) => {
+      const key = col.month + ' ' + col.year;
+      if (key !== lastKey) { monthHeaders.push({label:key,start:i,span:1}); lastKey = key; }
+      else monthHeaders[monthHeaders.length-1].span++;
+    });
+  }
+
+  const assignedCollabs = collabs.filter(c => staffingMap[c.id]?.missions?.length > 0).sort((a,b) => (staffingMap[b.id]?.taux||0) - (staffingMap[a.id]?.taux||0));
+  const nonStaffedCount = collabs.filter(c => !staffingMap[c.id]?.missions?.length).length;
+  const navLabel = viewUnit === 'week' ? `${WEEKS} sem.` : `${MONTHS_COUNT} mois`;
+  const colCount = columns.length + 1;
+
+  // Get assignments for a collab across all missions
+  const getCollabAssignments = (collabId) => (allMissions||missions).flatMap(m => (m.assignments||[]).filter(a => a.collaborateur_id === collabId && a.statut === 'actif').map(a => ({...a, mission: m})));
 
   return (
     <div>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 18px',borderBottom:'1px solid var(--lavender)'}}>
-        <button className="btn btn-ghost btn-sm" onClick={()=>setWeekOffset(weekOffset-1)}>← {WEEKS} sem.</button>
-        <div style={{fontWeight:700,color:'var(--navy)'}}>📅 Calendrier global</div>
+        <button className="btn btn-ghost btn-sm" onClick={()=>setOffset(offset-1)}>← {navLabel}</button>
+        <div style={{display:'flex',alignItems:'center',gap:12}}>
+          <span style={{fontWeight:700,color:'var(--navy)'}}>📅 Calendrier</span>
+          <div style={{display:'flex',gap:2,background:'var(--offwhite)',borderRadius:8,padding:2}}>
+            <button onClick={()=>{setViewUnit('week');setOffset(0);}} className="btn btn-sm" style={{padding:'3px 10px',fontSize:'0.68rem',fontWeight:700,background:viewUnit==='week'?'var(--pink)':'transparent',color:viewUnit==='week'?'white':'var(--muted)',border:'none',borderRadius:6}}> Semaine</button>
+            <button onClick={()=>{setViewUnit('month');setOffset(0);}} className="btn btn-sm" style={{padding:'3px 10px',fontSize:'0.68rem',fontWeight:700,background:viewUnit==='month'?'var(--pink)':'transparent',color:viewUnit==='month'?'white':'var(--muted)',border:'none',borderRadius:6}}>Mois</button>
+          </div>
+        </div>
         <div style={{display:'flex',gap:6}}>
-          {weekOffset !== 0 && <button className="btn btn-ghost btn-sm" onClick={()=>setWeekOffset(0)}>Aujourd'hui</button>}
-          <button className="btn btn-ghost btn-sm" onClick={()=>setWeekOffset(weekOffset+1)}>{WEEKS} sem. →</button>
+          {offset !== 0 && <button className="btn btn-ghost btn-sm" onClick={()=>setOffset(0)}>Aujourd'hui</button>}
+          <button className="btn btn-ghost btn-sm" onClick={()=>setOffset(offset+1)}>{navLabel} →</button>
         </div>
       </div>
       <div style={{overflowX:'auto'}}>
         <table style={{fontSize:'0.7rem',width:'100%',borderCollapse:'collapse'}}>
           <thead>
-            <tr>{/* Month headers */}
+            {viewUnit === 'week' && <tr>
               <th style={{minWidth:180,position:'sticky',left:0,background:'var(--white)',zIndex:2}} />
-              {months.map((m,i)=><th key={i} colSpan={m.span} style={{textAlign:'center',padding:'6px 2px',fontWeight:700,color:'var(--navy)',textTransform:'capitalize',borderBottom:'1px solid var(--lavender)'}}>{m.label}</th>)}
-            </tr>
-            <tr>{/* Week headers */}
+              {monthHeaders.map((m,i)=><th key={i} colSpan={m.span} style={{textAlign:'center',padding:'6px 2px',fontWeight:700,color:'var(--navy)',textTransform:'capitalize',borderBottom:'1px solid var(--lavender)'}}>{m.label}</th>)}
+            </tr>}
+            <tr>
               <th style={{textAlign:'left',padding:'6px 14px',fontWeight:700,color:'var(--navy)',minWidth:180,position:'sticky',left:0,background:'var(--white)',zIndex:2}}>Collaborateur</th>
-              {weeks.map((w,i)=>{
-                const isCurrent = todayStr >= w.start && todayStr <= w.end;
-                return <th key={i} style={{textAlign:'center',padding:'4px 2px',minWidth:45,fontWeight:isCurrent?800:600,color:isCurrent?'var(--pink)':'var(--muted)',background:isCurrent?'rgba(255,50,133,0.05)':'transparent'}}>{w.label}</th>;
-              })}
+              {columns.map((col,i)=>(
+                <th key={i} style={{textAlign:'center',padding:'4px 2px',minWidth:viewUnit==='week'?45:80,fontWeight:col.isCurrent?800:600,color:col.isCurrent?'var(--pink)':'var(--muted)',background:col.isCurrent?'rgba(255,50,133,0.05)':'transparent',textTransform:'capitalize'}}>{col.label}</th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {assignedCollabs.map(c => {
-              const myMissions = staffingMap[c.id]?.missions || [];
-              return <tr key={c.id} style={{borderBottom:'1px solid var(--lavender)',background:selectedCollab===c.id?'rgba(255,50,133,0.04)':'transparent',cursor:'pointer'}} onClick={()=>setSelectedCollab(selectedCollab===c.id?null:c.id)}>
-                <td style={{padding:'8px 14px',position:'sticky',left:0,background:selectedCollab===c.id?'rgba(255,50,133,0.06)':'var(--white)',zIndex:1}}>
-                  <div style={{display:'flex',alignItems:'center',gap:8}}>
-                    <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={24} />
-                    <div>
-                      <div style={{fontWeight:700,color:selectedCollab===c.id?'var(--pink)':'var(--navy)',fontSize:'0.75rem'}}>{c.prenom} {c.nom[0]}.</div>
-                      <div style={{fontSize:'0.6rem',color:'var(--muted)'}}>{c.poste}</div>
-                    </div>
-                  </div>
-                </td>
-                {weeks.map((w,wi) => {
-                  const isCurrent = todayStr >= w.start && todayStr <= w.end;
-                  // Find missions active this week
-                  const weekMissions = (allMissions||missions).filter(m => {
-                    if (!m.date_debut || !m.date_fin) return false;
-                    return (m.assignments||[]).some(a => a.collaborateur_id === c.id && a.statut === 'actif') && m.date_debut <= w.end && m.date_fin >= w.start;
-                  });
-                  return <td key={wi} style={{padding:1,background:isCurrent?'rgba(255,50,133,0.03)':'transparent',position:'relative'}}>
-                    {weekMissions.length > 0 ? (
-                      <div style={{display:'flex',flexDirection:'column',gap:1}}>
-                        {weekMissions.map(m => {
-                          const a = (m.assignments||[]).find(x=>x.collaborateur_id===c.id);
-                          const taux = a?.taux_staffing || 0;
-                          const colors = ['#3B82F6','#8B5CF6','#EC4899','#F59E0B','#10B981','#6366F1'];
-                          const colorIdx = missions.indexOf(m) % colors.length;
-                          return <div key={m.id} title={`${m.nom} — ${m.clients?.nom||m.client||''} (${taux}%)`} style={{
-                            background:colors[colorIdx],color:'white',borderRadius:3,
-                            padding:'2px 3px',fontSize:'0.55rem',fontWeight:700,
-                            whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',
-                            opacity:0.85
-                          }}>{taux}%</div>;
-                        })}
+              const isSelected = selectedCollab === c.id;
+              const myAssignments = isSelected ? getCollabAssignments(c.id) : [];
+              return <React.Fragment key={c.id}>
+                <tr style={{borderBottom:isSelected?'none':'1px solid var(--lavender)',background:isSelected?'rgba(255,50,133,0.04)':'transparent',cursor:'pointer'}} onClick={()=>setSelectedCollab(isSelected?null:c.id)}>
+                  <td style={{padding:'8px 14px',position:'sticky',left:0,background:isSelected?'rgba(255,50,133,0.06)':'var(--white)',zIndex:1}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={24} />
+                      <div>
+                        <div style={{fontWeight:700,color:isSelected?'var(--pink)':'var(--navy)',fontSize:'0.75rem'}}>{c.prenom} {c.nom[0]}.</div>
+                        <div style={{fontSize:'0.6rem',color:'var(--muted)'}}>{c.poste}</div>
                       </div>
-                    ) : (
-                      <div style={{height:20}} />
-                    )}
-                  </td>;
+                      {isSelected && <span style={{fontSize:'0.55rem',color:'var(--pink)',fontWeight:700}}>▼</span>}
+                    </div>
+                  </td>
+                  {columns.map((col,ci) => {
+                    const colMissions = (allMissions||missions).filter(m => {
+                      if (!m.date_debut || !m.date_fin) return false;
+                      return (m.assignments||[]).some(a => a.collaborateur_id === c.id && a.statut === 'actif') && m.date_debut <= col.end && m.date_fin >= col.start;
+                    });
+                    return <td key={ci} style={{padding:1,background:col.isCurrent?'rgba(255,50,133,0.03)':'transparent'}}>
+                      {colMissions.length > 0 ? (
+                        <div style={{display:'flex',flexDirection:'column',gap:1}}>
+                          {colMissions.map(m => {
+                            const a = (m.assignments||[]).find(x=>x.collaborateur_id===c.id);
+                            const taux = a?.taux_staffing || 0;
+                            const colorIdx = missions.indexOf(m) % MISSION_COLORS.length;
+                            return <div key={m.id} title={`${m.nom} — ${m.clients?.nom||m.client||''} (${taux}%)`} style={{background:MISSION_COLORS[colorIdx],color:'white',borderRadius:3,padding:'2px 3px',fontSize:'0.55rem',fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',opacity:0.85}}>{taux}%</div>;
+                          })}
+                        </div>
+                      ) : <div style={{height:20}} />}
+                    </td>;
+                  })}
+                </tr>
+                {/* Sous-lignes inline : détail missions du collab */}
+                {isSelected && myAssignments.map(a => {
+                  const colorIdx = missions.indexOf(a.mission) % MISSION_COLORS.length;
+                  const mColor = MISSION_COLORS[colorIdx >= 0 ? colorIdx : 0];
+                  return <tr key={a.id} style={{background:'rgba(255,50,133,0.02)',borderBottom:'1px solid var(--lavender)'}}>
+                    <td style={{padding:'4px 14px 4px 46px',position:'sticky',left:0,background:'rgba(255,50,133,0.03)',zIndex:1}}>
+                      <div style={{display:'flex',alignItems:'center',gap:6}}>
+                        <div style={{width:8,height:8,borderRadius:2,background:mColor,flexShrink:0}} />
+                        <div style={{fontSize:'0.68rem'}}>
+                          <span style={{fontWeight:700,color:'var(--navy)'}}>{a.mission.nom}</span>
+                          <span style={{color:'var(--muted)'}}> · {a.mission.clients?.nom || '—'} · {a.role||'—'} · </span>
+                          <span style={{fontWeight:700,color:mColor}}>{a.taux_staffing}%</span>
+                          <span style={{color:'var(--muted)'}}> · {fmtDate(a.date_debut)} → {fmtDate(a.date_fin)}</span>
+                        </div>
+                      </div>
+                    </td>
+                    {columns.map((col,ci) => {
+                      const isActive = a.mission.date_debut && a.mission.date_fin && a.mission.date_debut <= col.end && a.mission.date_fin >= col.start;
+                      return <td key={ci} style={{padding:1,background:col.isCurrent?'rgba(255,50,133,0.03)':'transparent'}}>
+                        {isActive ? <div style={{background:mColor,opacity:0.3,borderRadius:2,height:10,margin:'0 1px'}} /> : <div style={{height:10}} />}
+                      </td>;
+                    })}
+                  </tr>;
                 })}
-              </tr>;
+              </React.Fragment>;
             })}
-            {/* Non staffés */}
-            {collabs.filter(c => !staffingMap[c.id]?.missions?.length).length > 0 && (
-              <tr><td colSpan={WEEKS+1} style={{padding:'8px 14px',fontSize:'0.75rem',color:'var(--muted)',fontStyle:'italic'}}>
-                + {collabs.filter(c => !staffingMap[c.id]?.missions?.length).length} collaborateurs non staffés
+            {nonStaffedCount > 0 && (
+              <tr><td colSpan={colCount} style={{padding:'8px 14px',fontSize:'0.75rem',color:'var(--muted)',fontStyle:'italic'}}>
+                + {nonStaffedCount} collaborateurs non staffés
               </td></tr>
             )}
           </tbody>
         </table>
       </div>
-      {/* Detail panel when a collab is selected */}
-      {selectedCollab && (()=>{
-        const c = collabs.find(x=>x.id===selectedCollab);
-        if (!c) return null;
-        const myAssignments = (allMissions||missions).flatMap(m => (m.assignments||[]).filter(a => a.collaborateur_id === selectedCollab && a.statut === 'actif').map(a => ({...a, mission: m})));
-        const totalTaux = myAssignments.reduce((s,a) => s + (a.taux_staffing||0), 0);
-        return <div style={{padding:'16px 18px',borderTop:'2px solid var(--pink)',background:'rgba(255,50,133,0.02)'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-            <div style={{display:'flex',alignItems:'center',gap:10}}>
-              <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={36} />
-              <div>
-                <div style={{fontWeight:700,color:'var(--navy)',fontSize:'1rem'}}>{c.prenom} {c.nom}</div>
-                <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>{c.poste} · Staffing: <strong style={{color:totalTaux>100?'var(--red)':totalTaux>=80?'var(--orange)':'var(--green)'}}>{totalTaux}%</strong> ({(totalTaux/100*5).toFixed(1)}j/sem)</div>
-              </div>
-            </div>
-            <button className="btn btn-ghost btn-sm" onClick={(e)=>{e.stopPropagation();setSelectedCollab(null);}}>✕ Fermer</button>
-          </div>
-          {myAssignments.length === 0 ? <p style={{color:'var(--muted)',fontSize:'0.82rem',fontStyle:'italic'}}>Aucune mission active</p> :
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:10}}>
-            {myAssignments.map(a => (
-              <div key={a.id} style={{padding:'12px 16px',border:'1.5px solid var(--lavender)',borderRadius:12,borderLeft:'4px solid var(--blue)',background:'white'}}>
-                <div style={{fontWeight:700,color:'var(--navy)',fontSize:'0.88rem'}}>{a.mission.nom}</div>
-                <div style={{fontSize:'0.75rem',color:'var(--muted)',marginTop:2}}>{a.mission.clients?.nom || a.mission.client || '—'}</div>
-                <div style={{display:'flex',gap:12,marginTop:8,fontSize:'0.75rem',color:'var(--muted)'}}>
-                  <span>👤 {a.role || '—'}</span>
-                  <span style={{fontWeight:700,color:'var(--blue)'}}>{a.taux_staffing}%</span>
-                </div>
-                <div style={{fontSize:'0.72rem',color:'var(--muted)',marginTop:4}}>📅 {fmtDate(a.date_debut)} → {fmtDate(a.date_fin)}</div>
-                {a.tjm && <div style={{fontSize:'0.72rem',color:'var(--muted)',marginTop:2}}>💰 {a.tjm} €/j</div>}
-              </div>
-            ))}
-          </div>}
-        </div>;
-      })()}
     </div>
   );
 }

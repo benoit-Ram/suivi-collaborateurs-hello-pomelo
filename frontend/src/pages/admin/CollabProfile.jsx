@@ -14,7 +14,7 @@ function exportCollabCSV(c, getManagerName) {
   const blob = new Blob([BOM+lines.join('\n')], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href=url; a.download=`${c.prenom}_${c.nom}.csv`; a.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 200);
 }
 
 export default function CollabProfile() {
