@@ -42,7 +42,9 @@ export function DataProvider({ children }) {
             contenu: 'Entretien RH ' + cm,
           }));
           for (const row of rows) {
-            try { await api.createPointSuivi(row); } catch(e) { /* ignore duplicates */ }
+            try { await api.createPointSuivi(row); } catch(e) {
+              if (!e.message?.includes('duplicate') && !e.message?.includes('unique')) console.warn('Auto-create entretien failed:', e.message);
+            }
           }
         } catch(e) { console.warn('Auto-create entretiens:', e); }
       }

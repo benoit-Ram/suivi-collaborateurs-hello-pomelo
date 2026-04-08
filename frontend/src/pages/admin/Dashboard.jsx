@@ -24,7 +24,7 @@ export default function Dashboard() {
       });
       const vals = Object.values(taux);
       setStaffingMoyen(vals.length ? Math.round(vals.reduce((s,v)=>s+v,0)/vals.length) : 0);
-    }).catch(() => {});
+    }).catch(e => console.error('Staffing load error:', e));
   }, [collabs]);
 
   if (loading) return <div style={{maxWidth:600,margin:'40px auto'}}><Skeleton lines={5} /></div>;

@@ -3,7 +3,7 @@ import { MissionsService } from './missions.service';
 import { Roles } from '../auth/auth.guard';
 
 function stripFinancials(data: any) {
-  if (!data) return data;
+  if (!data) return [];
   const items = Array.isArray(data) ? data : [data];
   return items.map(m => {
     const { tjm, budget_vendu, ...safe } = m;
@@ -30,7 +30,8 @@ export class MissionsController {
   @Get(':id')
   async findOne(@Param('id') id: string, @Req() req: any) {
     const data = await this.service.findOne(id);
-    return req.user?.isAdmin ? data : stripFinancials(data)[0];
+    const stripped = stripFinancials(data);
+    return req.user?.isAdmin ? data : (stripped[0] || null);
   }
 
   @Roles('admin')
