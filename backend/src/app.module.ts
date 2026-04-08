@@ -14,6 +14,7 @@ import { ClientsModule } from './modules/clients/clients.module';
 import { MissionsModule } from './modules/missions/missions.module';
 import { AssignmentsModule } from './modules/assignments/assignments.module';
 import { TimeEntriesModule } from './modules/time-entries/time-entries.module';
+import { ActivityLogModule } from './modules/activity-log/activity-log.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { TimeEntriesModule } from './modules/time-entries/time-entries.module';
     MissionsModule,
     AssignmentsModule,
     TimeEntriesModule,
+    ActivityLogModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: AuthGuard },

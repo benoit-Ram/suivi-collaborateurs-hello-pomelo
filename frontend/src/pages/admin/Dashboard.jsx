@@ -11,6 +11,7 @@ export default function Dashboard() {
   const [staffingMoyen, setStaffingMoyen] = useState(null);
   const [missionAlerts, setMissionAlerts] = useState([]);
   const [missionStats, setMissionStats] = useState(null);
+  const [activityLog, setActivityLog] = useState([]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -45,6 +46,10 @@ export default function Dashboard() {
       setMissionStats({ active: activeMissions.length, total: (missions||[]).length, nonStaffed: nonStaffed.length });
     }).catch(e => console.error('Staffing load error:', e));
   }, [collabs]);
+
+  useEffect(() => {
+    api.getActivityLog(15).then(setActivityLog).catch(() => {});
+  }, []);
 
   if (loading) return <div style={{maxWidth:600,margin:'40px auto'}}><Skeleton lines={5} /></div>;
 
@@ -237,6 +242,29 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+
+      {/* Activity log */}
+      {activityLog.length > 0 && (
+        <div className="card" style={{marginBottom:24}}>
+          <div className="section-title" style={{marginTop:0}}>Activité récente</div>
+          {activityLog.slice(0,10).map((a,i) => (
+            <div key={a.id||i} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderBottom:i<9?'1px solid var(--lavender)':'none',fontSize:'0.82rem'}}>
+              <span style={{fontSize:'0.9rem'}}>{{
+                'Création mission':'🚀','Modification mission':'✏️','Suppression mission':'🗑️',
+                'Création client':'🏢','Modification client':'✏️','Suppression client':'🗑️',
+                'Affectation collab':'👤','Retrait affectation':'❌'
+              }[a.action]||'📋'}</span>
+              <div style={{flex:1}}>
+                <span style={{fontWeight:700,color:'var(--navy)'}}>{a.auteur||'—'}</span>
+                <span style={{color:'var(--muted)'}}> {a.action?.toLowerCase()} </span>
+                {a.cible && <span style={{fontWeight:600,color:'var(--navy)'}}>{a.cible}</span>}
+                {a.details && <span style={{color:'var(--muted)',fontSize:'0.75rem'}}> · {a.details}</span>}
+              </div>
+              <span style={{fontSize:'0.68rem',color:'var(--muted)',whiteSpace:'nowrap'}}>{a.created_at ? new Date(a.created_at).toLocaleDateString('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : ''}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Collaborateurs */}
       <div className="section-title">Collaborateurs</div>

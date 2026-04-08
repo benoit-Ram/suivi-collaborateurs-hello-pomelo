@@ -94,4 +94,8 @@ export const api = {
   getTimeEntries: (filters) => request('/time-entries?' + new URLSearchParams(filters || {})),
   createTimeEntry: (data) => request('/time-entries', { method: 'POST', body: data }),
   updateTimeEntry: (id, data) => request(`/time-entries/${id}`, { method: 'PUT', body: data }),
+
+  // Activity Log
+  getActivityLog: (limit) => request(`/activity-log?limit=${limit || 50}`),
+  logActivity: (action, auteur, cible, details) => request('/activity-log', { method: 'POST', body: { action, auteur, cible, details } }).catch(() => {}),
 };

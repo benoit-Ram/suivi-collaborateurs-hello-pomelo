@@ -105,9 +105,11 @@ export default function Missions() {
       const row = { ...form, client: clientObj?.nom || '', budget_vendu: form.budget_vendu ? parseFloat(form.budget_vendu) : null, responsable_id: form.responsable_id || null, lien_propale: form.lien_propale || null, description: form.description || null, categorie: form.categorie || null, date_debut: form.date_debut || null, date_fin: form.date_fin || null };
       if (modal === 'create') {
         await api.createMission(row);
+        api.logActivity('Création mission', authUser?.name, row.nom, `Client: ${row.client}`);
         showToast('Mission créée ✓');
       } else {
         await api.updateMission(modal.id, row);
+        api.logActivity('Modification mission', authUser?.name, row.nom, '');
         showToast('Mission mise à jour ✓');
       }
       setModal(null);
@@ -124,9 +126,11 @@ export default function Missions() {
       Object.entries(clientForm).forEach(([k, v]) => { cleaned[k] = (v === '' && k !== 'nom') ? null : v; });
       if (clientModal === 'create') {
         await api.createClient(cleaned);
+        api.logActivity('Création client', authUser?.name, cleaned.nom, '');
         showToast('Client créé ✓');
       } else {
         await api.updateClient(clientModal.id, cleaned);
+        api.logActivity('Modification client', authUser?.name, cleaned.nom, '');
         showToast('Client mis à jour ✓');
       }
       setClientModal(null);
@@ -138,12 +142,12 @@ export default function Missions() {
     const clientMissions = missions.filter(m => m.client_id === id);
     if (clientMissions.length > 0) { showToast('Impossible : ce client a des missions actives'); return; }
     if (!window.confirm('Supprimer ce client ?')) return;
-    try { await api.deleteClient(id); loadData(); showToast('Client supprimé'); } catch(e) { showToast('Erreur: ' + e.message); }
+    try { const cl=clients.find(c=>c.id===id); await api.deleteClient(id); api.logActivity('Suppression client',authUser?.name,cl?.nom||id,''); loadData(); showToast('Client supprimé'); } catch(e) { showToast('Erreur: ' + e.message); }
   };
 
   const deleteMission = async (id) => {
     if (!window.confirm('Supprimer cette mission et toutes ses affectations ?')) return;
-    try { await api.deleteMission(id); loadData(); showToast('Mission supprimée'); } catch(e) { showToast('Erreur: ' + e.message); }
+    try { const mi=missions.find(m=>m.id===id); await api.deleteMission(id); api.logActivity('Suppression mission',authUser?.name,mi?.nom||id,''); loadData(); showToast('Mission supprimée'); } catch(e) { showToast('Erreur: ' + e.message); }
   };
 
   const saveAssignment = async () => {
@@ -154,6 +158,8 @@ export default function Missions() {
       const jps = parseFloat(assignForm.jours_par_semaine) || 5;
       const taux = tauxFromJPS(jps);
       await api.createAssignment({ ...assignForm, mission_id: assignModal, taux_staffing: taux, jours_par_semaine: jps, tjm: assignForm.tjm ? parseFloat(assignForm.tjm) : null, date_debut: assignForm.date_debut||null, date_fin: assignForm.date_fin||null });
+      const collabName = collabs.find(c=>c.id===assignForm.collaborateur_id);
+      api.logActivity('Affectation collab', authUser?.name, collabName?`${collabName.prenom} ${collabName.nom}`:'', `Rôle: ${assignForm.role}`);
       setAssignModal(null);
       loadData();
       showToast('Collaborateur affecté ✓');
