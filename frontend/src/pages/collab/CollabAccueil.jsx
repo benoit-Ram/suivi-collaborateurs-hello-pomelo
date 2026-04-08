@@ -77,15 +77,17 @@ export default function CollabAccueil() {
       const todayStr = new Date().toISOString().split('T')[0];
       let totalTaux = 0;
       (missions || []).forEach(m => {
-        // Mission active aujourd'hui ?
         if (m.date_debut && m.date_debut > todayStr) return;
         if (m.date_fin && m.date_fin < todayStr) return;
-        (m.assignments || []).filter(a => a.collaborateur_id === selectedId && a.statut === 'actif').forEach(a => {
+        (m.assignments || []).forEach(a => {
+          if (a.collaborateur_id !== selectedId) return;
+          if (a.statut && a.statut !== 'actif') return; // skip only if explicitly non-actif
           totalTaux += (a.taux_staffing || 0);
         });
       });
+      console.log('[Staffing]', selectedId, 'missions:', (missions||[]).length, 'taux:', totalTaux);
       setStaffingGlobal(totalTaux);
-    }).catch(() => {});
+    }).catch(e => console.error('[Staffing] error:', e));
   }, [selectedId, collabs]);
 
   if (loading) return <div style={{maxWidth:600,margin:'40px auto'}}><Skeleton lines={5} /></div>;
