@@ -65,6 +65,11 @@ export default function Missions() {
   // Timeline/Staffing filters
   const [calGroupBy, setCalGroupBy] = useState('collab');
   const [calDisplayMode, setCalDisplayMode] = useState('pct');
+  // Dispo tab filters
+  const [dispoFilterComp, setDispoFilterComp] = useState('');
+  const [dispoFilterEq, setDispoFilterEq] = useState('');
+  const [dispoFilterBur, setDispoFilterBur] = useState('');
+  const [dispoShowAll, setDispoShowAll] = useState(false);
   const [filterClient, setFilterClient] = useState('');
   const [filterEquipes, setFilterEquipes] = useState([]); // multi-select
   const [showEquipeDropdown, setShowEquipeDropdown] = useState(false);
@@ -556,10 +561,6 @@ export default function Missions() {
         const allEquipes = [...new Set(collabs.flatMap(c=>(c.equipe||'').split(',').map(s=>s.trim())).filter(Boolean))].sort();
         const allBureaux = [...new Set(collabs.map(c=>c.bureau).filter(Boolean))].sort();
         const allCompetences = [...new Set(collabs.flatMap(c=>c.competences||[]))].sort();
-        const [filterComp, setFilterComp] = useState('');
-        const [filterEq, setFilterEq] = useState('');
-        const [filterBur, setFilterBur] = useState('');
-        const [showAll, setShowAll] = useState(false);
         const selectStyle = {border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 10px',fontFamily:'inherit',fontSize:'0.78rem',background:'var(--offwhite)',color:'var(--navy)'};
 
         // Calculate availability per collab
@@ -569,10 +570,10 @@ export default function Missions() {
           const joursDispo = dispo / 100 * 5;
           return { collab: c, taux, dispo, joursDispo, missions: staffingMap[c.id]?.missions || [] };
         }).filter(d => {
-          if (!showAll && d.dispo === 0) return false;
-          if (filterEq && !(d.collab.equipe||'').includes(filterEq)) return false;
-          if (filterBur && d.collab.bureau !== filterBur) return false;
-          if (filterComp && !(d.collab.competences||[]).includes(filterComp)) return false;
+          if (!dispoShowAll && d.dispo === 0) return false;
+          if (dispoFilterEq && !(d.collab.equipe||'').includes(dispoFilterEq)) return false;
+          if (dispoFilterBur && d.collab.bureau !== dispoFilterBur) return false;
+          if (dispoFilterComp && !(d.collab.competences||[]).includes(dispoFilterComp)) return false;
           return true;
         }).sort((a,b) => b.dispo - a.dispo);
 
@@ -597,20 +598,20 @@ export default function Missions() {
         </div>
         {/* Filtres */}
         <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
-          <select value={filterComp} onChange={e=>setFilterComp(e.target.value)} style={selectStyle}>
+          <select value={dispoFilterComp} onChange={e=>setDispoFilterComp(e.target.value)} style={selectStyle}>
             <option value="">Toutes compétences</option>
             {allCompetences.map(c=><option key={c} value={c}>{c}</option>)}
           </select>
-          <select value={filterEq} onChange={e=>setFilterEq(e.target.value)} style={selectStyle}>
+          <select value={dispoFilterEq} onChange={e=>setDispoFilterEq(e.target.value)} style={selectStyle}>
             <option value="">Toutes équipes</option>
             {allEquipes.map(e=><option key={e} value={e}>{e}</option>)}
           </select>
-          <select value={filterBur} onChange={e=>setFilterBur(e.target.value)} style={selectStyle}>
+          <select value={dispoFilterBur} onChange={e=>setDispoFilterBur(e.target.value)} style={selectStyle}>
             <option value="">Tous bureaux</option>
             {allBureaux.map(b=><option key={b} value={b}>{b}</option>)}
           </select>
           <label style={{display:'flex',alignItems:'center',gap:6,fontSize:'0.78rem',fontWeight:600,color:'var(--muted)',cursor:'pointer'}}>
-            <input type="checkbox" checked={showAll} onChange={e=>setShowAll(e.target.checked)} style={{accentColor:'var(--pink)'}} />
+            <input type="checkbox" checked={dispoShowAll} onChange={e=>setDispoShowAll(e.target.checked)} style={{accentColor:'var(--pink)'}} />
             Inclure staffés 100%
           </label>
           <button className="btn btn-ghost btn-sm" style={{marginLeft:'auto',fontSize:'0.7rem'}} onClick={()=>exportCSV('disponibilites.csv',['Collaborateur','Poste','Équipe','Bureau','Compétences','Staffing','Dispo','Jours dispo'],dispoData.map(({collab:c,taux,dispo,joursDispo})=>[`${c.prenom} ${c.nom}`,c.poste||'',c.equipe||'',c.bureau||'',(c.competences||[]).join(', '),`${taux}%`,`${dispo}%`,`${joursDispo.toFixed(1)}`]))}>📥 Export CSV</button>
