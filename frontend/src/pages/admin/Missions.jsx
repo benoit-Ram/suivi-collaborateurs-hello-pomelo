@@ -726,45 +726,59 @@ export default function Missions() {
 
           <div style={{height:1,background:'var(--lavender)',margin:'16px 0'}} />
 
-          {/* Section 2 : Équipe */}
+          {/* Section 2 : Équipe — éditable inline */}
           <div style={{fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--pink)',marginBottom:8}}>Équipe ({team.length})</div>
           {team.length === 0 ? <p style={{color:'var(--muted)',fontSize:'0.82rem',fontStyle:'italic',marginBottom:12}}>Aucun collaborateur affecté</p> :
-          team.map(a=>(
-            <div key={a.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',border:'1px solid var(--lavender)',borderRadius:10,marginBottom:6}}>
-              {a.collaborateurs && <Avatar prenom={a.collaborateurs.prenom} nom={a.collaborateurs.nom} photoUrl={a.collaborateurs.photo_url} size={28} />}
-              <div style={{flex:1}}>
-                <div style={{fontWeight:700,fontSize:'0.85rem',color:'var(--navy)'}}>{a.collaborateurs?a.collaborateurs.prenom+' '+a.collaborateurs.nom:'—'}</div>
-                <div style={{fontSize:'0.72rem',color:'var(--muted)'}}>{a.role||'—'} · {a.jours_par_semaine||Math.round(a.taux_staffing/100*5*10)/10}j/sem · {a.taux_staffing}% · {a.tjm?a.tjm+'€/j':'—'}</div>
-              </div>
-              <div style={{textAlign:'right',minWidth:80}}>
-                <div style={{fontSize:'0.78rem',fontWeight:700,color:'var(--blue)'}}>{Math.round(calcCA(a)).toLocaleString('fr-FR')} €</div>
-                <div style={{fontSize:'0.65rem',color:'var(--muted)'}}>{fmtDate(a.date_debut)} → {fmtDate(a.date_fin)}</div>
-              </div>
-              <button className="btn btn-danger btn-sm" style={{padding:'2px 6px',fontSize:'0.65rem'}} onClick={async()=>{await removeAssignment(a.id);const updated=(await api.getMissions()).find(m=>m.id===detail.id);if(updated)setDetail(updated);}}>✕</button>
-            </div>
-          ))}
+          <div className="card" style={{overflowX:'auto',marginBottom:8,padding:0}}>
+            <table style={{fontSize:'0.78rem'}}>
+              <thead><tr><th>Collab</th><th>Rôle</th><th>Jours/sem</th><th>TJM</th><th>Du</th><th>Au</th><th>CA est.</th><th></th></tr></thead>
+              <tbody>{team.map(a=>{
+                const updateAssign = async (field, value) => {
+                  try {
+                    const data = { [field]: value };
+                    if (field === 'jours_par_semaine') { data.taux_staffing = tauxFromJPS(parseFloat(value)||0); }
+                    await api.updateAssignment(a.id, data);
+                    const [newMissions] = await Promise.all([api.getMissions(), loadData()]);
+                    const updated = (newMissions||[]).find(m=>m.id===detail.id);
+                    if (updated) setDetail(updated);
+                    showToast('Mis à jour');
+                  } catch(e) { showToast('Erreur: '+e.message); }
+                };
+                const inputStyle = {border:'1px solid var(--lavender)',borderRadius:6,padding:'4px 6px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)',width:'100%'};
+                return <tr key={a.id}>
+                  <td style={{minWidth:100}}><div style={{display:'flex',alignItems:'center',gap:6}}>
+                    {a.collaborateurs && <Avatar prenom={a.collaborateurs.prenom} nom={a.collaborateurs.nom} photoUrl={a.collaborateurs.photo_url} size={24} />}
+                    <span style={{fontWeight:700,color:'var(--navy)',fontSize:'0.78rem'}}>{a.collaborateurs?a.collaborateurs.prenom+' '+a.collaborateurs.nom:'—'}</span>
+                  </div></td>
+                  <td><select defaultValue={a.role||''} onBlur={e=>{if(e.target.value!==a.role)updateAssign('role',e.target.value);}} style={{...inputStyle,width:120}}>
+                    <option value="">—</option>{missionRoles.map(r=><option key={r.label} value={r.label}>{r.label}</option>)}
+                  </select></td>
+                  <td style={{minWidth:60}}><input type="number" step="0.5" min="0" max="5" defaultValue={a.jours_par_semaine||Math.round(a.taux_staffing/100*5*10)/10} onBlur={e=>{const v=parseFloat(e.target.value);if(!isNaN(v))updateAssign('jours_par_semaine',v);}} style={{...inputStyle,width:55}} /></td>
+                  <td style={{minWidth:60}}><input type="number" defaultValue={a.tjm||''} onBlur={e=>{const v=parseFloat(e.target.value);if(!isNaN(v))updateAssign('tjm',v);}} style={{...inputStyle,width:60}} /></td>
+                  <td><input type="date" defaultValue={a.date_debut||''} onBlur={e=>updateAssign('date_debut',e.target.value||null)} style={{...inputStyle,width:110}} /></td>
+                  <td><input type="date" defaultValue={a.date_fin||''} onBlur={e=>updateAssign('date_fin',e.target.value||null)} style={{...inputStyle,width:110}} /></td>
+                  <td style={{fontWeight:700,color:'var(--blue)',whiteSpace:'nowrap',textAlign:'right'}}>{fmtEuro(Math.round(calcCA(a)))}</td>
+                  <td><button className="btn btn-danger btn-sm" style={{padding:'2px 6px',fontSize:'0.65rem'}} onClick={async()=>{await removeAssignment(a.id);const updated=(await api.getMissions()).find(m=>m.id===detail.id);if(updated)setDetail(updated);}}>✕</button></td>
+                </tr>;
+              })}</tbody>
+            </table>
+          </div>}
 
-          {/* Formulaire ajout inline */}
-          <div style={{padding:'10px 12px',border:'1.5px dashed var(--lavender)',borderRadius:10,marginTop:8}}>
-            <div style={{fontSize:'0.7rem',fontWeight:700,color:'var(--muted)',marginBottom:6}}>+ Ajouter un collaborateur</div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-              <select value={detailAssignForm.collaborateur_id} onChange={e=>setDetailAssignForm({...detailAssignForm,collaborateur_id:e.target.value})} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)'}}>
-                <option value="">Collaborateur...</option>
-                {collabs.map(c=><option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>)}
-              </select>
-              <select value={detailAssignForm.role} onChange={e=>{const role=missionRoles.find(r=>r.label===e.target.value);setDetailAssignForm({...detailAssignForm,role:e.target.value,tjm:role?String(role.tjm):detailAssignForm.tjm});}} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)'}}>
-                <option value="">Rôle...</option>
-                {missionRoles.map(r=><option key={r.label} value={r.label}>{r.label} ({r.tjm}€)</option>)}
-              </select>
-              <div style={{display:'flex',gap:4,alignItems:'center'}}>
-                <input type="number" step="0.5" min="0.5" max="5" value={detailAssignForm.jours_par_semaine} onChange={e=>{const jps=parseFloat(e.target.value)||0;setDetailAssignForm({...detailAssignForm,jours_par_semaine:jps,taux_staffing:Math.round(jps/5*100)});}} style={{width:60,border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)'}} />
-                <span style={{fontSize:'0.68rem',color:'var(--muted)'}}>j/sem</span>
-              </div>
-              <input type="number" placeholder="TJM €" value={detailAssignForm.tjm} onChange={e=>setDetailAssignForm({...detailAssignForm,tjm:e.target.value})} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)'}} />
-              <input type="date" value={detailAssignForm.date_debut} onChange={e=>setDetailAssignForm({...detailAssignForm,date_debut:e.target.value})} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)'}} />
-              <input type="date" value={detailAssignForm.date_fin} onChange={e=>setDetailAssignForm({...detailAssignForm,date_fin:e.target.value})} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)'}} />
+          {/* Ajout simplifié */}
+          <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap',padding:'8px 0'}}>
+            <select value={detailAssignForm.collaborateur_id} onChange={e=>setDetailAssignForm({...detailAssignForm,collaborateur_id:e.target.value})} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)',flex:1,minWidth:120}}>
+              <option value="">+ Collaborateur...</option>
+              {collabs.filter(c=>!team.some(a=>a.collaborateur_id===c.id)).map(c=><option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>)}
+            </select>
+            <select value={detailAssignForm.role} onChange={e=>{const role=missionRoles.find(r=>r.label===e.target.value);setDetailAssignForm({...detailAssignForm,role:e.target.value,tjm:role?String(role.tjm):detailAssignForm.tjm});}} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)',flex:1,minWidth:120}}>
+              <option value="">Rôle...</option>
+              {missionRoles.map(r=><option key={r.label} value={r.label}>{r.label}</option>)}
+            </select>
+            <div style={{display:'flex',alignItems:'center',gap:3}}>
+              <input type="number" step="0.5" min="0.5" max="5" value={detailAssignForm.jours_par_semaine} onChange={e=>{const jps=parseFloat(e.target.value)||0;setDetailAssignForm({...detailAssignForm,jours_par_semaine:jps,taux_staffing:Math.round(jps/5*100)});}} style={{width:50,border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)'}} />
+              <span style={{fontSize:'0.68rem',color:'var(--muted)'}}>j/sem</span>
             </div>
-            <div style={{display:'flex',justifyContent:'flex-end',marginTop:8}}><button className="btn btn-primary btn-sm" onClick={addAssignInline}>+ Affecter</button></div>
+            <button className="btn btn-primary btn-sm" onClick={addAssignInline} disabled={!detailAssignForm.collaborateur_id||!detailAssignForm.role}>+ Ajouter</button>
           </div>
 
           <div style={{height:1,background:'var(--lavender)',margin:'16px 0'}} />
