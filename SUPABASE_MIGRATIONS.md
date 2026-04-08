@@ -245,3 +245,11 @@ ALTER TABLE clients ADD COLUMN IF NOT EXISTS categorie_entreprise text;
 -- Lien proposition commerciale sur les missions
 ALTER TABLE missions ADD COLUMN IF NOT EXISTS lien_propale text;
 ```
+
+## Migration v12 — Staffing overrides par période
+
+```sql
+-- Overrides de staffing par semaine (JSONB: {"2026-W14": 50, "2026-W15": 100})
+-- Le taux_staffing reste le défaut ; les overrides le remplacent pour des semaines spécifiques
+ALTER TABLE assignments ADD COLUMN IF NOT EXISTS staffing_overrides jsonb DEFAULT '{}';
+```

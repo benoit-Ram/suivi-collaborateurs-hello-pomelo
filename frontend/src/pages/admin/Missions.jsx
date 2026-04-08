@@ -836,25 +836,43 @@ function TimelineView({ missions, collabs, staffingMap, allMissions, clients, gr
   const now = new Date(); const todayStr = now.toISOString().split('T')[0];
   const toggleRow = (id) => setExpanded(prev => { const n = new Set(prev); n.has(id)?n.delete(id):n.add(id); return n; });
 
+  // Week key helper: "2026-W14" format
+  const getWeekKey = (d) => { const wn = Math.ceil(((d - new Date(d.getFullYear(),0,1))/86400000+1)/7); return `${d.getFullYear()}-W${String(wn).padStart(2,'0')}`; };
+  const getMonthKey = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+
+  // Resolve taux for an assignment in a column (overrides > default)
+  const getAssignmentTaux = (a, col) => {
+    const overrides = a.staffing_overrides || {};
+    // Try week key first, then month key
+    const colDate = new Date(col.start);
+    const wk = getWeekKey(colDate);
+    const mk = getMonthKey(colDate);
+    if (overrides[wk] !== undefined) return overrides[wk];
+    if (viewUnit === 'month' && overrides[mk] !== undefined) return overrides[mk];
+    // Day view: use week key
+    if (viewUnit === 'day') { if (overrides[wk] !== undefined) return overrides[wk]; }
+    return a.taux_staffing || 0;
+  };
+
   // Build columns
   const columns = viewUnit === 'day'
     ? Array.from({length:DAYS},(_,i) => {
         const d = new Date(now); d.setDate(now.getDate() - ((now.getDay()+6)%7) + offset*7 + Math.floor(i/5)*7 + (i%5));
         d.setHours(0,0,0,0);
         const ds = d.toISOString().split('T')[0];
-        return { label:d.toLocaleDateString('fr-FR',{weekday:'short'})+' '+d.getDate(), start:ds, end:ds, isCurrent:ds===todayStr, month:d.toLocaleDateString('fr-FR',{month:'short'}), year:d.getFullYear() };
+        return { label:d.toLocaleDateString('fr-FR',{weekday:'short'})+' '+d.getDate(), start:ds, end:ds, isCurrent:ds===todayStr, month:d.toLocaleDateString('fr-FR',{month:'short'}), year:d.getFullYear(), periodKey:getWeekKey(d) };
       })
     : viewUnit === 'week'
     ? Array.from({length:WEEKS},(_,i) => {
         const sm = new Date(now); sm.setDate(now.getDate()-((now.getDay()+6)%7)+offset*WEEKS+i*7); sm.setHours(0,0,0,0);
         const wn = Math.ceil(((sm - new Date(sm.getFullYear(),0,1))/86400000+1)/7);
         const end = new Date(sm.getTime()+4*86400000);
-        return { label:`S${wn}`, start:sm.toISOString().split('T')[0], end:end.toISOString().split('T')[0], month:sm.toLocaleDateString('fr-FR',{month:'short'}), year:sm.getFullYear(), isCurrent:todayStr>=sm.toISOString().split('T')[0]&&todayStr<=end.toISOString().split('T')[0] };
+        return { label:`S${wn}`, start:sm.toISOString().split('T')[0], end:end.toISOString().split('T')[0], month:sm.toLocaleDateString('fr-FR',{month:'short'}), year:sm.getFullYear(), isCurrent:todayStr>=sm.toISOString().split('T')[0]&&todayStr<=end.toISOString().split('T')[0], periodKey:`${sm.getFullYear()}-W${String(wn).padStart(2,'0')}` };
       })
     : Array.from({length:MONTHS_COUNT},(_,i) => {
         const d = new Date(now.getFullYear(),now.getMonth()+offset*MONTHS_COUNT+i,1);
         const endD = new Date(d.getFullYear(),d.getMonth()+1,0);
-        return { label:d.toLocaleDateString('fr-FR',{month:'short',year:'numeric'}), start:d.toISOString().split('T')[0], end:endD.toISOString().split('T')[0], isCurrent:d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear() };
+        return { label:d.toLocaleDateString('fr-FR',{month:'short',year:'numeric'}), start:d.toISOString().split('T')[0], end:endD.toISOString().split('T')[0], isCurrent:d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear(), periodKey:getMonthKey(d) };
       });
 
   // Month headers for week/day views
@@ -872,12 +890,12 @@ function TimelineView({ missions, collabs, staffingMap, allMissions, clients, gr
   const colCount = columns.length + 1;
   const minW = viewUnit==='day'?55:viewUnit==='week'?45:80;
 
-  // Helper: get taux for a collab in a column period
+  // Helper: get taux for a collab in a column period (respects overrides)
   const getCollabTaux = (collabId, col) => {
     return (allMissions||missions).reduce((total, m) => {
       if (!m.date_debut || !m.date_fin || m.date_debut > col.end || m.date_fin < col.start) return total;
       const a = (m.assignments||[]).find(x => x.collaborateur_id === collabId && x.statut === 'actif');
-      return total + (a ? (a.taux_staffing||0) : 0);
+      return total + (a ? getAssignmentTaux(a, col) : 0);
     }, 0);
   };
 
@@ -900,20 +918,20 @@ function TimelineView({ missions, collabs, staffingMap, allMissions, clients, gr
         id:c.id, label:c.nom, sub:c.secteur||'', subRows: missions.filter(m => m.client_id === c.id).map(m => ({
           id:m.id, label:m.nom, sub:m.categorie||'', missionRef:m,
           assignmentRows: (m.assignments||[]).filter(a=>a.statut==='actif').map(a => { const collab=collabs.find(x=>x.id===a.collaborateur_id); return {
-            id:a.id, assignmentId:a.id, label:collab?collab.prenom+' '+collab.nom:'—', sub:a.role||'', avatar:collab, taux:a.taux_staffing||0,
-            getCellTaux:(col)=>(!m.date_debut||!m.date_fin||m.date_debut>col.end||m.date_fin<col.start)?0:(a.taux_staffing||0)
+            id:a.id, assignmentId:a.id, label:collab?collab.prenom+' '+collab.nom:'—', sub:a.role||'', avatar:collab, taux:a.taux_staffing||0, assignment:a,
+            getCellTaux:(col)=>(!m.date_debut||!m.date_fin||m.date_debut>col.end||m.date_fin<col.start)?0:getAssignmentTaux(a,col)
           };}),
-          getCellTaux:(col) => (m.assignments||[]).filter(a=>a.statut==='actif').reduce((s,a)=>s+((!m.date_debut||!m.date_fin||m.date_debut>col.end||m.date_fin<col.start)?0:(a.taux_staffing||0)),0)
+          getCellTaux:(col) => (m.assignments||[]).filter(a=>a.statut==='actif').reduce((s,a)=>s+((!m.date_debut||!m.date_fin||m.date_debut>col.end||m.date_fin<col.start)?0:getAssignmentTaux(a,col)),0)
         })),
-        getCellTaux:(col) => missions.filter(m=>m.client_id===c.id).reduce((s,m)=>{if(!m.date_debut||!m.date_fin||m.date_debut>col.end||m.date_fin<col.start)return s;return s+(m.assignments||[]).filter(a=>a.statut==='actif').reduce((s2,a)=>s2+(a.taux_staffing||0),0);},0)
+        getCellTaux:(col) => missions.filter(m=>m.client_id===c.id).reduce((s,m)=>{if(!m.date_debut||!m.date_fin||m.date_debut>col.end||m.date_fin<col.start)return s;return s+(m.assignments||[]).filter(a=>a.statut==='actif').reduce((s2,a)=>s2+getAssignmentTaux(a,col),0);},0)
       }));
       case 'mission': return missions.map(m => ({
         id:m.id, label:m.nom, sub:(m.clients?.nom||m.client||'')+(m.categorie?' · '+m.categorie:''),
         subRows: (m.assignments||[]).filter(a=>a.statut==='actif').map(a => { const c=collabs.find(x=>x.id===a.collaborateur_id); return {
-          id:a.id, label:c?c.prenom+' '+c.nom:'—', sub:a.role||'', avatar:c,
-          getCellTaux:(col)=>(!m.date_debut||!m.date_fin||m.date_debut>col.end||m.date_fin<col.start)?0:(a.taux_staffing||0)
+          id:a.id, assignmentId:a.id, label:c?c.prenom+' '+c.nom:'—', sub:a.role||'', avatar:c, taux:a.taux_staffing||0, assignment:a,
+          getCellTaux:(col)=>(!m.date_debut||!m.date_fin||m.date_debut>col.end||m.date_fin<col.start)?0:getAssignmentTaux(a,col)
         };}),
-        getCellTaux:(col)=>(!m.date_debut||!m.date_fin||m.date_debut>col.end||m.date_fin<col.start)?0:(m.assignments||[]).filter(a=>a.statut==='actif').reduce((s,a)=>s+(a.taux_staffing||0),0)
+        getCellTaux:(col)=>(!m.date_debut||!m.date_fin||m.date_debut>col.end||m.date_fin<col.start)?0:(m.assignments||[]).filter(a=>a.statut==='actif').reduce((s,a)=>s+getAssignmentTaux(a,col),0)
       }));
       case 'bureau': return [...new Set(collabs.map(c=>c.bureau).filter(Boolean))].sort().map(b => {
         const bCollabs = collabs.filter(c=>c.bureau===b);
@@ -939,8 +957,8 @@ function TimelineView({ missions, collabs, staffingMap, allMissions, clients, gr
         return collabs.filter(c=>staffingMap[c.id]?.missions?.length>0).sort((a,b)=>(staffingMap[b.id]?.taux||0)-(staffingMap[a.id]?.taux||0)).map(c => ({
           id:c.id, label:c.prenom+' '+c.nom[0]+'.', sub:c.poste||'', avatar:c,
           subRows: getCollabAssignments(c.id).map(a=>({
-            id:a.id, label:a.mission.nom, sub:(a.mission.clients?.nom||'—')+' · '+(a.role||'—'),
-            getCellTaux:(col)=>(a.mission.date_debut&&a.mission.date_fin&&a.mission.date_debut<=col.end&&a.mission.date_fin>=col.start)?(a.taux_staffing||0):0
+            id:a.id, assignmentId:a.id, label:a.mission.nom, sub:(a.mission.clients?.nom||'—')+' · '+(a.role||'—'), taux:a.taux_staffing||0, assignment:a,
+            getCellTaux:(col)=>(a.mission.date_debut&&a.mission.date_fin&&a.mission.date_debut<=col.end&&a.mission.date_fin>=col.start)?getAssignmentTaux(a,col):0
           })),
           getCellTaux:(col)=>getCollabTaux(c.id,col)
         }));
@@ -1027,8 +1045,18 @@ function TimelineView({ missions, collabs, staffingMap, allMissions, clients, gr
                     {columns.map((col,ci) => {
                       const taux = Math.round(sr.getCellTaux(col));
                       const val = fmtCell(taux);
-                      return <td key={ci} style={{padding:1,background:col.isCurrent?'rgba(255,50,133,0.03)':'transparent',textAlign:'center'}}>
-                        {val ? <div style={{background:cellBg(taux),color:cellColor(taux),borderRadius:3,padding:'2px 2px',fontSize:'0.5rem',fontWeight:700,opacity:0.8}}>{val}</div> : <div style={{height:14}} />}
+                      const canEdit = sr.assignmentId && onUpdateAssignment;
+                      const isEditing2 = editingCell && editingCell.assignmentId === sr.assignmentId && editingCell.colIdx === ci;
+                      return <td key={ci} style={{padding:1,background:col.isCurrent?'rgba(255,50,133,0.03)':'transparent',textAlign:'center',cursor:canEdit?'pointer':'default'}} onClick={canEdit?(e)=>{e.stopPropagation();setEditingCell({assignmentId:sr.assignmentId,colIdx:ci,periodKey:col.periodKey,assignment:sr.assignment});setEditValue(String(taux));}:undefined}>
+                        {isEditing2 ? (
+                          <input type="number" min="0" max="200" step="10" value={editValue} autoFocus
+                            style={{width:36,padding:'1px 2px',fontSize:'0.5rem',fontWeight:700,textAlign:'center',border:'1.5px solid var(--pink)',borderRadius:3,outline:'none',background:'white',color:'var(--navy)'}}
+                            onChange={e=>setEditValue(e.target.value)}
+                            onBlur={()=>{const v=parseInt(editValue);if(!isNaN(v)&&v>=0&&v<=200){const a=editingCell.assignment;const key=editingCell.periodKey;const overrides={...(a.staffing_overrides||{})};if(v===(a.taux_staffing||0)){delete overrides[key];}else{overrides[key]=v;}onUpdateAssignment(sr.assignmentId,{staffing_overrides:overrides});}setEditingCell(null);}}
+                            onKeyDown={e=>{if(e.key==='Enter')e.target.blur();if(e.key==='Escape')setEditingCell(null);}}
+                            onClick={e=>e.stopPropagation()}
+                          />
+                        ) : val ? <div style={{background:cellBg(taux),color:cellColor(taux),borderRadius:3,padding:'2px 2px',fontSize:'0.5rem',fontWeight:700,opacity:canEdit&&taux!==(sr.taux||0)?1:0.8,border:canEdit&&taux!==(sr.taux||0)?'1px dashed var(--pink)':'none'}}>{val}</div> : <div style={{height:14}} />}
                       </td>;
                     })}
                   </tr>
@@ -1048,19 +1076,29 @@ function TimelineView({ missions, collabs, staffingMap, allMissions, clients, gr
                         const taux = Math.round(ar.getCellTaux(col));
                         const val = fmtCell(taux);
                         const isEditing = editingCell && editingCell.assignmentId === ar.assignmentId && editingCell.colIdx === ci;
-                        return <td key={ci} style={{padding:1,background:col.isCurrent?'rgba(255,50,133,0.03)':'transparent',textAlign:'center',cursor:taux>0?'pointer':'default'}} onClick={(e)=>{
+                        return <td key={ci} style={{padding:1,background:col.isCurrent?'rgba(255,50,133,0.03)':'transparent',textAlign:'center',cursor:onUpdateAssignment?'pointer':'default'}} onClick={(e)=>{
                           e.stopPropagation();
-                          if (taux > 0 && onUpdateAssignment) { setEditingCell({assignmentId:ar.assignmentId, colIdx:ci}); setEditValue(String(ar.taux)); }
+                          if (onUpdateAssignment) { setEditingCell({assignmentId:ar.assignmentId, colIdx:ci, periodKey:col.periodKey, assignment:ar.assignment}); setEditValue(String(taux)); }
                         }}>
                           {isEditing ? (
-                            <input type="number" min="0" max="100" step="10" value={editValue} autoFocus
+                            <input type="number" min="0" max="200" step="10" value={editValue} autoFocus
                               style={{width:36,padding:'1px 2px',fontSize:'0.55rem',fontWeight:700,textAlign:'center',border:'1.5px solid var(--pink)',borderRadius:3,outline:'none',background:'white',color:'var(--navy)'}}
                               onChange={e=>setEditValue(e.target.value)}
-                              onBlur={()=>{const v=parseInt(editValue);if(!isNaN(v)&&v>=0&&v<=200&&v!==ar.taux){onUpdateAssignment(ar.assignmentId,{taux_staffing:v,jours_par_semaine:v/100*5});}setEditingCell(null);}}
+                              onBlur={()=>{
+                                const v=parseInt(editValue);
+                                if(!isNaN(v)&&v>=0&&v<=200) {
+                                  const a = editingCell.assignment;
+                                  const key = editingCell.periodKey;
+                                  const overrides = {...(a.staffing_overrides||{})};
+                                  if (v === (a.taux_staffing||0)) { delete overrides[key]; } else { overrides[key] = v; }
+                                  onUpdateAssignment(ar.assignmentId, { staffing_overrides: overrides });
+                                }
+                                setEditingCell(null);
+                              }}
                               onKeyDown={e=>{if(e.key==='Enter')e.target.blur();if(e.key==='Escape')setEditingCell(null);}}
                               onClick={e=>e.stopPropagation()}
                             />
-                          ) : val ? <div style={{background:cellBg(taux),color:cellColor(taux),borderRadius:3,padding:'1px 2px',fontSize:'0.48rem',fontWeight:700,opacity:0.7}}>{val}</div> : <div style={{height:12}} />}
+                          ) : val ? <div style={{background:cellBg(taux),color:cellColor(taux),borderRadius:3,padding:'1px 2px',fontSize:'0.48rem',fontWeight:700,opacity:taux!==(ar.taux||0)?1:0.7,border:taux!==(ar.taux||0)?'1px dashed var(--pink)':'none'}}>{val}</div> : <div style={{height:12}} />}
                         </td>;
                       })}
                     </tr>
