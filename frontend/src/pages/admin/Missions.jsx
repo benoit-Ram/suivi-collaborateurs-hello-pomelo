@@ -454,7 +454,7 @@ export default function Missions() {
           {(filterClient || filterBureau || filterEquipes.length > 0) && <button className="btn btn-ghost btn-sm" style={{fontSize:'0.72rem',color:'var(--muted)'}} onClick={()=>{setFilterClient('');setFilterBureau('');setFilterEquipes([]);}}>Reinitialiser</button>}
         </div>
         <div className="card" style={{padding:0,overflow:'hidden'}}>
-          <TimelineView missions={filterClient ? active.filter(m=>m.client_id===filterClient) : active} collabs={filteredCollabs} staffingMap={staffingMap} allMissions={active} clients={clients} groupBy={calGroupBy} displayMode={calDisplayMode} />
+          <TimelineView missions={filterClient ? active.filter(m=>m.client_id===filterClient) : active} collabs={filteredCollabs} staffingMap={staffingMap} allMissions={active} clients={clients} groupBy={calGroupBy} displayMode={calDisplayMode} onUpdateAssignment={async(id,data)=>{try{await api.updateAssignment(id,data);await loadData();showToast('Staffing mis à jour');}catch(e){showToast('Erreur: '+e.message);}}} />
         </div>
       </div></FadeIn>})()}
 
@@ -823,10 +823,14 @@ function MissionCard({ m, collabs, onEdit, onDelete, onAssign, onRemoveAssign, o
 }
 
 /** Vue timeline Gantt — configurable par groupBy, displayMode, viewUnit */
-function TimelineView({ missions, collabs, staffingMap, allMissions, clients, groupBy, displayMode }) {
+function TimelineView({ missions, collabs, staffingMap, allMissions, clients, groupBy, displayMode, onUpdateAssignment }) {
   const [offset, setOffset] = useState(0);
   const [expanded, setExpanded] = useState(new Set());
+  const [expandedSub, setExpandedSub] = useState(new Set());
+  const [editingCell, setEditingCell] = useState(null); // {assignmentId, colIdx}
+  const [editValue, setEditValue] = useState('');
   const [viewUnit, setViewUnit] = useState('week');
+  const toggleSub = (id) => setExpandedSub(prev => { const n = new Set(prev); n.has(id)?n.delete(id):n.add(id); return n; });
   const DAYS = 10; const WEEKS = 16; const MONTHS_COUNT = 6;
   const COLORS = ['#3B82F6','#8B5CF6','#EC4899','#F59E0B','#10B981','#6366F1'];
   const now = new Date(); const todayStr = now.toISOString().split('T')[0];
@@ -894,7 +898,12 @@ function TimelineView({ missions, collabs, staffingMap, allMissions, clients, gr
     switch (groupBy) {
       case 'client': return (clients||[]).filter(c => missions.some(m => m.client_id === c.id)).map(c => ({
         id:c.id, label:c.nom, sub:c.secteur||'', subRows: missions.filter(m => m.client_id === c.id).map(m => ({
-          id:m.id, label:m.nom, sub:m.categorie||'', getCellTaux:(col) => (m.assignments||[]).filter(a=>a.statut==='actif').reduce((s,a)=>s+((!m.date_debut||!m.date_fin||m.date_debut>col.end||m.date_fin<col.start)?0:(a.taux_staffing||0)),0)
+          id:m.id, label:m.nom, sub:m.categorie||'', missionRef:m,
+          assignmentRows: (m.assignments||[]).filter(a=>a.statut==='actif').map(a => { const collab=collabs.find(x=>x.id===a.collaborateur_id); return {
+            id:a.id, assignmentId:a.id, label:collab?collab.prenom+' '+collab.nom:'—', sub:a.role||'', avatar:collab, taux:a.taux_staffing||0,
+            getCellTaux:(col)=>(!m.date_debut||!m.date_fin||m.date_debut>col.end||m.date_fin<col.start)?0:(a.taux_staffing||0)
+          };}),
+          getCellTaux:(col) => (m.assignments||[]).filter(a=>a.statut==='actif').reduce((s,a)=>s+((!m.date_debut||!m.date_fin||m.date_debut>col.end||m.date_fin<col.start)?0:(a.taux_staffing||0)),0)
         })),
         getCellTaux:(col) => missions.filter(m=>m.client_id===c.id).reduce((s,m)=>{if(!m.date_debut||!m.date_fin||m.date_debut>col.end||m.date_fin<col.start)return s;return s+(m.assignments||[]).filter(a=>a.statut==='actif').reduce((s2,a)=>s2+(a.taux_staffing||0),0);},0)
       }));
@@ -1000,10 +1009,14 @@ function TimelineView({ missions, collabs, staffingMap, allMissions, clients, gr
                     </td>;
                   })}
                 </tr>
-                {isExp && (row.subRows||[]).map(sr => (
-                  <tr key={sr.id} style={{background:'rgba(255,50,133,0.02)',borderBottom:'1px solid var(--lavender)'}}>
+                {isExp && (row.subRows||[]).map(sr => {
+                  const isSubExp = expandedSub.has(sr.id);
+                  const hasDetails = sr.assignmentRows && sr.assignmentRows.length > 0;
+                  return <React.Fragment key={sr.id}>
+                  <tr style={{background:'rgba(255,50,133,0.02)',borderBottom:(isSubExp&&hasDetails)?'none':'1px solid var(--lavender)',cursor:hasDetails?'pointer':'default'}} onClick={()=>hasDetails&&toggleSub(sr.id)}>
                     <td style={{padding:'4px 14px 4px 40px',...stickyStyle,background:'rgba(255,50,133,0.03)'}}>
                       <div style={{display:'flex',alignItems:'center',gap:6}}>
+                        {hasDetails && <span style={{fontSize:'0.55rem',color:'var(--muted)'}}>{isSubExp?'▼':'▶'}</span>}
                         {sr.avatar && <Avatar prenom={sr.avatar.prenom} nom={sr.avatar.nom} photoUrl={sr.avatar.photo_url} size={20} />}
                         <div style={{fontSize:'0.68rem'}}>
                           <span style={{fontWeight:700,color:'var(--navy)'}}>{sr.label}</span>
@@ -1019,7 +1032,41 @@ function TimelineView({ missions, collabs, staffingMap, allMissions, clients, gr
                       </td>;
                     })}
                   </tr>
-                ))}
+                  {/* Level 3: individual assignments (editable cells) */}
+                  {isSubExp && hasDetails && sr.assignmentRows.map(ar => (
+                    <tr key={ar.id} style={{background:'rgba(59,130,246,0.03)',borderBottom:'1px solid var(--lavender)'}}>
+                      <td style={{padding:'3px 14px 3px 60px',...stickyStyle,background:'rgba(59,130,246,0.04)'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:6}}>
+                          {ar.avatar && <Avatar prenom={ar.avatar.prenom} nom={ar.avatar.nom} photoUrl={ar.avatar.photo_url} size={18} />}
+                          <div style={{fontSize:'0.62rem'}}>
+                            <span style={{fontWeight:600,color:'var(--navy)'}}>{ar.label}</span>
+                            <span style={{color:'var(--muted)'}}> · {ar.sub} · {ar.taux}%</span>
+                          </div>
+                        </div>
+                      </td>
+                      {columns.map((col,ci) => {
+                        const taux = Math.round(ar.getCellTaux(col));
+                        const val = fmtCell(taux);
+                        const isEditing = editingCell && editingCell.assignmentId === ar.assignmentId && editingCell.colIdx === ci;
+                        return <td key={ci} style={{padding:1,background:col.isCurrent?'rgba(255,50,133,0.03)':'transparent',textAlign:'center',cursor:taux>0?'pointer':'default'}} onClick={(e)=>{
+                          e.stopPropagation();
+                          if (taux > 0 && onUpdateAssignment) { setEditingCell({assignmentId:ar.assignmentId, colIdx:ci}); setEditValue(String(ar.taux)); }
+                        }}>
+                          {isEditing ? (
+                            <input type="number" min="0" max="100" step="10" value={editValue} autoFocus
+                              style={{width:36,padding:'1px 2px',fontSize:'0.55rem',fontWeight:700,textAlign:'center',border:'1.5px solid var(--pink)',borderRadius:3,outline:'none',background:'white',color:'var(--navy)'}}
+                              onChange={e=>setEditValue(e.target.value)}
+                              onBlur={()=>{const v=parseInt(editValue);if(!isNaN(v)&&v>=0&&v<=200&&v!==ar.taux){onUpdateAssignment(ar.assignmentId,{taux_staffing:v,jours_par_semaine:v/100*5});}setEditingCell(null);}}
+                              onKeyDown={e=>{if(e.key==='Enter')e.target.blur();if(e.key==='Escape')setEditingCell(null);}}
+                              onClick={e=>e.stopPropagation()}
+                            />
+                          ) : val ? <div style={{background:cellBg(taux),color:cellColor(taux),borderRadius:3,padding:'1px 2px',fontSize:'0.48rem',fontWeight:700,opacity:0.7}}>{val}</div> : <div style={{height:12}} />}
+                        </td>;
+                      })}
+                    </tr>
+                  ))}
+                  </React.Fragment>;
+                })}
               </React.Fragment>;
             })}
           </tbody>
