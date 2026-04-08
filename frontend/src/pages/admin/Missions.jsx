@@ -18,6 +18,15 @@ const calcMonthlyCA = (assignments) => (assignments || []).filter(a => a.statut 
 const fmtEuro = (v) => v ? v.toLocaleString('fr-FR') + ' €' : '—';
 const tauxFromJPS = (jps) => Math.round(jps / 5 * 100);
 
+function exportCSV(filename, headers, rows) {
+  const BOM = '\uFEFF';
+  const csv = [headers.join(';'), ...rows.map(r => r.map(v => `"${String(v||'').replace(/"/g,'""')}"`).join(';'))].join('\n');
+  const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 200);
+}
+
 export default function Missions() {
   const { collabs, settings, showToast, loading: ctxLoading } = useData();
   const missionCategories = settings?.mission_categories || ['Web','Mobile','ERP','DevOps','Design','Data','Conseil','TMA'];
@@ -485,6 +494,7 @@ export default function Missions() {
         return <FadeIn><div>
         <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
           <span style={{fontSize:'0.78rem',color:'var(--muted)',fontWeight:600}}>Taux moyen: {avg}%</span>
+          <button className="btn btn-ghost btn-sm" style={{marginLeft:'auto',fontSize:'0.7rem'}} onClick={()=>exportCSV('staffing.csv',['Collaborateur','Poste','Taux staffing','Jours/sem','Jours staffés','Missions'],filteredStaffing.sort((a,b)=>b.taux-a.taux).map(({collab:c,taux,missions:ms})=>[`${c.prenom} ${c.nom}`,c.poste||'',`${taux}%`,`${(taux/100*5).toFixed(1)}`,`${Math.round(calcStaffedDays(c.id)*10)/10}`,ms.map(m=>`${m.nom} (${m.taux}%)`).join(', ')||'Non staffé']))}>📥 Export CSV</button>
           {/* Multi-select équipes */}
           <div ref={equipeDropdownRef} style={{position:'relative'}}>
             <button onClick={()=>setShowEquipeDropdown(!showEquipeDropdown)} className="btn btn-ghost btn-sm" style={{fontSize:'0.75rem'}}>
@@ -603,6 +613,7 @@ export default function Missions() {
             <input type="checkbox" checked={showAll} onChange={e=>setShowAll(e.target.checked)} style={{accentColor:'var(--pink)'}} />
             Inclure staffés 100%
           </label>
+          <button className="btn btn-ghost btn-sm" style={{marginLeft:'auto',fontSize:'0.7rem'}} onClick={()=>exportCSV('disponibilites.csv',['Collaborateur','Poste','Équipe','Bureau','Compétences','Staffing','Dispo','Jours dispo'],dispoData.map(({collab:c,taux,dispo,joursDispo})=>[`${c.prenom} ${c.nom}`,c.poste||'',c.equipe||'',c.bureau||'',(c.competences||[]).join(', '),`${taux}%`,`${dispo}%`,`${joursDispo.toFixed(1)}`]))}>📥 Export CSV</button>
         </div>
         {/* Table */}
         <div className="card" style={{overflowX:'auto'}}>
