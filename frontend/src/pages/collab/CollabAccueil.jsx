@@ -70,31 +70,48 @@ export default function CollabAccueil() {
     }).catch(() => setLoading(false));
   }, [authUser]);
 
-  // Staffing actuel : taux effectif cette semaine (overrides > taux_staffing)
+  // Staffing moyen annuel : parcourt chaque semaine depuis le 1er janv (ou date_entree) et calcule le taux effectif
   useEffect(() => {
     if (!selectedId) return;
+    const collab = collabs.find(x => x.id === selectedId);
+    if (!collab) return;
     api.getMissions().then(missions => {
       const now = new Date();
-      const todayStr = now.toISOString().split('T')[0];
-      // Current week key: "2026-W14"
-      const mon = new Date(now); mon.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-      const wn = Math.ceil(((mon - new Date(mon.getFullYear(), 0, 1)) / 86400000 + 1) / 7);
-      const weekKey = `${mon.getFullYear()}-W${String(wn).padStart(2, '0')}`;
+      const janFirst = new Date(now.getFullYear(), 0, 1);
+      const startDate = collab.date_entree && new Date(collab.date_entree) > janFirst ? new Date(collab.date_entree) : janFirst;
 
+      // Iterate week by week from startDate to now
+      const cursor = new Date(startDate);
+      cursor.setDate(cursor.getDate() - ((cursor.getDay() + 6) % 7)); // align to Monday
       let totalTaux = 0;
-      (missions || []).forEach(m => {
-        if (m.date_debut && m.date_debut > todayStr) return;
-        if (m.date_fin && m.date_fin < todayStr) return;
-        (m.assignments || []).forEach(a => {
-          if (a.collaborateur_id !== selectedId) return;
-          if (a.statut && a.statut !== 'actif') return;
-          // Check override for this week, fallback to default taux
-          const overrides = a.staffing_overrides || {};
-          const taux = overrides[weekKey] !== undefined ? overrides[weekKey] : (a.taux_staffing || 0);
-          totalTaux += taux;
+      let weekCount = 0;
+
+      while (cursor <= now) {
+        const wn = Math.ceil(((cursor - new Date(cursor.getFullYear(), 0, 1)) / 86400000 + 1) / 7);
+        const weekKey = `${cursor.getFullYear()}-W${String(wn).padStart(2, '0')}`;
+        const weekStart = cursor.toISOString().split('T')[0];
+        const weekEnd = new Date(cursor.getTime() + 4 * 86400000).toISOString().split('T')[0];
+
+        let weekTaux = 0;
+        (missions || []).forEach(m => {
+          if (m.date_debut && m.date_debut > weekEnd) return;
+          if (m.date_fin && m.date_fin < weekStart) return;
+          (m.assignments || []).forEach(a => {
+            if (a.collaborateur_id !== selectedId) return;
+            if (a.statut && a.statut !== 'actif') return;
+            if (a.date_debut && a.date_debut > weekEnd) return;
+            if (a.date_fin && a.date_fin < weekStart) return;
+            const ov = a.staffing_overrides || {};
+            weekTaux += ov[weekKey] !== undefined ? ov[weekKey] : (a.taux_staffing || 0);
+          });
         });
-      });
-      setStaffingGlobal(totalTaux);
+
+        totalTaux += weekTaux;
+        weekCount++;
+        cursor.setDate(cursor.getDate() + 7);
+      }
+
+      setStaffingGlobal(weekCount > 0 ? Math.round(totalTaux / weekCount) : 0);
     }).catch(() => {});
   }, [selectedId, collabs]);
 
@@ -211,7 +228,7 @@ export default function CollabAccueil() {
           </div>
         )}
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(100px,1fr))',gap:10,marginBottom:24}}>
-          {staffingGlobal !== null && <div className="card" style={{textAlign:'center',padding:14}}><div style={{fontSize:'clamp(1.4rem,5vw,2rem)',fontWeight:700,color:staffingGlobal>=80?'var(--green)':staffingGlobal>=50?'var(--orange)':'var(--red)'}}>{staffingGlobal}%</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Staffing actuel</div></div>}
+          {staffingGlobal !== null && <div className="card" style={{textAlign:'center',padding:14}}><div style={{fontSize:'clamp(1.4rem,5vw,2rem)',fontWeight:700,color:staffingGlobal>=80?'var(--green)':staffingGlobal>=50?'var(--orange)':'var(--red)'}}>{staffingGlobal}%</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Staffing {new Date().getFullYear()}</div></div>}
           <div className="card" style={{textAlign:'center',padding:14}}><div style={{fontSize:'clamp(1.4rem,5vw,2rem)',fontWeight:700,color:'var(--pink)'}}>{enCours.length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Obj. en cours</div></div>
           <div className="card" style={{textAlign:'center',padding:14}}><div style={{fontSize:'clamp(1.4rem,5vw,2rem)',fontWeight:700,color:'var(--green)'}}>{atteints.length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Obj. atteints</div></div>
           <div className="card" style={{textAlign:'center',padding:14}}><div style={{fontSize:'clamp(1.4rem,5vw,2rem)',fontWeight:700,color:'var(--navy)'}}>{solde.toFixed(2)}j</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Congés</div></div>
