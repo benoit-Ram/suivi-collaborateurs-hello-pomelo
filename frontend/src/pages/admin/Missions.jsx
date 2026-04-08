@@ -279,7 +279,7 @@ export default function Missions() {
       })()}
 
       <div className="tabs-scroll" style={{display:'flex',gap:6,marginBottom:24,background:'var(--offwhite)',padding:6,borderRadius:12,overflowX:'auto'}}>
-        {[['missions',`🏢 Clients & Missions`],['timeline','📅 Calendrier'],['staffing','📊 Staffing'],['finance','💰 Finance']].map(([k,l])=>(
+        {[['missions',`🏢 Clients & Missions`],['timeline','📅 Calendrier'],['staffing','📊 Staffing'],['dispo','👤 Disponibilités'],['finance','💰 Finance']].map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)} style={{flex:'1 0 auto',padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',background:tab===k?'var(--pink)':'transparent',color:tab===k?'white':'var(--muted)',border:tab===k?'none':'1.5px solid var(--lavender)',boxShadow:tab===k?'0 4px 14px rgba(255,50,133,0.3)':'none'}}>{l}</button>
         ))}
       </div>
@@ -534,6 +534,90 @@ export default function Missions() {
         </div>
         <FinanceByClient clients={clients} missions={missions} isMissionActive={isMissionActive} />
       </div></FadeIn>}
+
+      {/* DISPONIBILITÉS / INTER-CONTRAT */}
+      {tab==='dispo' && (()=>{
+        const allEquipes = [...new Set(collabs.flatMap(c=>(c.equipe||'').split(',').map(s=>s.trim())).filter(Boolean))].sort();
+        const allBureaux = [...new Set(collabs.map(c=>c.bureau).filter(Boolean))].sort();
+        const allCompetences = [...new Set(collabs.flatMap(c=>c.competences||[]))].sort();
+        const [filterComp, setFilterComp] = useState('');
+        const [filterEq, setFilterEq] = useState('');
+        const [filterBur, setFilterBur] = useState('');
+        const [showAll, setShowAll] = useState(false);
+        const selectStyle = {border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 10px',fontFamily:'inherit',fontSize:'0.78rem',background:'var(--offwhite)',color:'var(--navy)'};
+
+        // Calculate availability per collab
+        const dispoData = collabs.map(c => {
+          const taux = staffingMap[c.id]?.taux || 0;
+          const dispo = Math.max(0, 100 - taux);
+          const joursDispo = dispo / 100 * 5;
+          return { collab: c, taux, dispo, joursDispo, missions: staffingMap[c.id]?.missions || [] };
+        }).filter(d => {
+          if (!showAll && d.dispo === 0) return false;
+          if (filterEq && !(d.collab.equipe||'').includes(filterEq)) return false;
+          if (filterBur && d.collab.bureau !== filterBur) return false;
+          if (filterComp && !(d.collab.competences||[]).includes(filterComp)) return false;
+          return true;
+        }).sort((a,b) => b.dispo - a.dispo);
+
+        const totalDispo = dispoData.reduce((s,d) => s + d.joursDispo, 0);
+        const interContrat = dispoData.filter(d => d.dispo === 100);
+
+        return <FadeIn><div>
+        {/* Stats */}
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:12,marginBottom:20}}>
+          <div className="stat-card" style={{borderColor:'var(--orange)'}}>
+            <div className="stat-num" style={{fontSize:'clamp(1.4rem,5vw,2rem)',fontWeight:700,color:'var(--orange)',lineHeight:1}}>{interContrat.length}</div>
+            <div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Inter-contrat</div>
+          </div>
+          <div className="stat-card" style={{borderColor:'var(--blue)'}}>
+            <div className="stat-num" style={{fontSize:'clamp(1.4rem,5vw,2rem)',fontWeight:700,color:'var(--blue)',lineHeight:1}}>{Math.round(totalDispo*10)/10}j</div>
+            <div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Jours dispo / sem.</div>
+          </div>
+          <div className="stat-card" style={{borderColor:'var(--green)'}}>
+            <div className="stat-num" style={{fontSize:'clamp(1.4rem,5vw,2rem)',fontWeight:700,color:'var(--green)',lineHeight:1}}>{dispoData.filter(d=>d.dispo>0&&d.dispo<100).length}</div>
+            <div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Partiellement dispo</div>
+          </div>
+        </div>
+        {/* Filtres */}
+        <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
+          <select value={filterComp} onChange={e=>setFilterComp(e.target.value)} style={selectStyle}>
+            <option value="">Toutes compétences</option>
+            {allCompetences.map(c=><option key={c} value={c}>{c}</option>)}
+          </select>
+          <select value={filterEq} onChange={e=>setFilterEq(e.target.value)} style={selectStyle}>
+            <option value="">Toutes équipes</option>
+            {allEquipes.map(e=><option key={e} value={e}>{e}</option>)}
+          </select>
+          <select value={filterBur} onChange={e=>setFilterBur(e.target.value)} style={selectStyle}>
+            <option value="">Tous bureaux</option>
+            {allBureaux.map(b=><option key={b} value={b}>{b}</option>)}
+          </select>
+          <label style={{display:'flex',alignItems:'center',gap:6,fontSize:'0.78rem',fontWeight:600,color:'var(--muted)',cursor:'pointer'}}>
+            <input type="checkbox" checked={showAll} onChange={e=>setShowAll(e.target.checked)} style={{accentColor:'var(--pink)'}} />
+            Inclure staffés 100%
+          </label>
+        </div>
+        {/* Table */}
+        <div className="card" style={{overflowX:'auto'}}>
+        <table>
+          <thead><tr><th>Collaborateur</th><th>Poste</th><th>Équipe</th><th>Bureau</th><th>Compétences</th><th>Staffing</th><th>Dispo</th><th>Jours dispo</th></tr></thead>
+          <tbody>{dispoData.map(({collab:c,taux,dispo,joursDispo,missions:ms})=>(
+            <tr key={c.id} style={{background:dispo===100?'rgba(249,115,22,0.05)':dispo>0?'rgba(34,197,94,0.04)':'transparent'}}>
+              <td><div style={{display:'flex',alignItems:'center',gap:8}}><Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={28} /><span style={{fontWeight:700,color:'var(--navy)'}}>{c.prenom} {c.nom}</span></div></td>
+              <td style={{fontSize:'0.78rem',color:'var(--muted)'}}>{c.poste||'—'}</td>
+              <td style={{fontSize:'0.78rem',color:'var(--muted)'}}>{c.equipe||'—'}</td>
+              <td style={{fontSize:'0.78rem',color:'var(--muted)'}}>{c.bureau||'—'}</td>
+              <td><div style={{display:'flex',gap:3,flexWrap:'wrap'}}>{(c.competences||[]).map(comp=><span key={comp} style={{padding:'2px 6px',borderRadius:4,fontSize:'0.6rem',fontWeight:700,background:'var(--bg-info)',color:'var(--text-info)'}}>{comp}</span>)}</div></td>
+              <td><span style={{fontWeight:700,fontSize:'0.82rem',color:taux>100?'var(--red)':taux>=80?'var(--orange)':'var(--green)'}}>{taux}%</span></td>
+              <td><span style={{fontWeight:700,fontSize:'0.82rem',color:dispo===100?'var(--orange)':dispo>0?'var(--green)':'var(--muted)'}}>{dispo}%</span></td>
+              <td style={{fontWeight:700,color:joursDispo>0?'var(--blue)':'var(--muted)'}}>{joursDispo.toFixed(1)}j</td>
+            </tr>
+          ))}</tbody>
+        </table>
+        </div>
+      </div></FadeIn>;
+      })()}
 
       {/* CREATE/EDIT MODAL */}
       <Modal open={!!modal} onClose={()=>setModal(null)} title={modal==='create'?'Nouvelle mission':'Modifier la mission'}>
