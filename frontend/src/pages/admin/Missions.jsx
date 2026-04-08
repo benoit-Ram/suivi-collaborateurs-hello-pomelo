@@ -102,7 +102,7 @@ export default function Missions() {
     setFormLoading(true);
     try {
       const clientObj = clients.find(c => c.id === form.client_id);
-      const row = { ...form, client: clientObj?.nom || '', budget_vendu: form.budget_vendu ? parseFloat(form.budget_vendu) : null, responsable_id: form.responsable_id || null, lien_propale: form.lien_propale || null };
+      const row = { ...form, client: clientObj?.nom || '', budget_vendu: form.budget_vendu ? parseFloat(form.budget_vendu) : null, responsable_id: form.responsable_id || null, lien_propale: form.lien_propale || null, description: form.description || null, categorie: form.categorie || null, date_debut: form.date_debut || null, date_fin: form.date_fin || null };
       if (modal === 'create') {
         await api.createMission(row);
         showToast('Mission créée ✓');
@@ -119,11 +119,14 @@ export default function Missions() {
   const saveClient = async () => {
     if (!clientForm.nom) { showToast('Le nom du client est obligatoire'); return; }
     try {
+      // Clean empty strings to null for optional/FK fields
+      const cleaned = {};
+      Object.entries(clientForm).forEach(([k, v]) => { cleaned[k] = (v === '' && k !== 'nom') ? null : v; });
       if (clientModal === 'create') {
-        await api.createClient(clientForm);
+        await api.createClient(cleaned);
         showToast('Client créé ✓');
       } else {
-        await api.updateClient(clientModal.id, clientForm);
+        await api.updateClient(clientModal.id, cleaned);
         showToast('Client mis à jour ✓');
       }
       setClientModal(null);
@@ -150,7 +153,7 @@ export default function Missions() {
     try {
       const jps = parseFloat(assignForm.jours_par_semaine) || 5;
       const taux = tauxFromJPS(jps);
-      await api.createAssignment({ ...assignForm, mission_id: assignModal, taux_staffing: taux, jours_par_semaine: jps, tjm: assignForm.tjm ? parseFloat(assignForm.tjm) : null });
+      await api.createAssignment({ ...assignForm, mission_id: assignModal, taux_staffing: taux, jours_par_semaine: jps, tjm: assignForm.tjm ? parseFloat(assignForm.tjm) : null, date_debut: assignForm.date_debut||null, date_fin: assignForm.date_fin||null });
       setAssignModal(null);
       loadData();
       showToast('Collaborateur affecté ✓');
@@ -582,10 +585,10 @@ export default function Missions() {
           const saveDetail = async () => {
             try {
               const clientObj = clients.find(c=>c.id===detailForm.client_id);
-              const row = { ...detailForm, client: clientObj?.nom||'', budget_vendu: detailForm.budget_vendu ? parseFloat(detailForm.budget_vendu) : null, responsable_id: detailForm.responsable_id||null, lien_propale: detailForm.lien_propale||null };
+              const row = { ...detailForm, client: clientObj?.nom||'', budget_vendu: detailForm.budget_vendu ? parseFloat(detailForm.budget_vendu) : null, responsable_id: detailForm.responsable_id||null, lien_propale: detailForm.lien_propale||null, description: detailForm.description||null, categorie: detailForm.categorie||null, date_debut: detailForm.date_debut||null, date_fin: detailForm.date_fin||null };
               await api.updateMission(detail.id, row);
-              await loadData();
-              const updated = (await api.getMissions()).find(m=>m.id===detail.id);
+              const [newMissions] = await Promise.all([api.getMissions(), loadData()]);
+              const updated = (newMissions||[]).find(m=>m.id===detail.id);
               if (updated) setDetail(updated);
               showToast('Mission mise à jour');
             } catch(e) { showToast('Erreur: '+e.message); }
@@ -594,9 +597,10 @@ export default function Missions() {
           const addAssignInline = async () => {
             if (!detailAssignForm.collaborateur_id || !detailAssignForm.role || !detailAssignForm.tjm) { showToast('Collaborateur, rôle et TJM requis'); return; }
             try {
-              await api.createAssignment({ ...detailAssignForm, mission_id: detail.id, tjm: parseFloat(detailAssignForm.tjm), statut:'actif' });
-              await loadData();
-              const updated = (await api.getMissions()).find(m=>m.id===detail.id);
+              const jps = parseFloat(detailAssignForm.jours_par_semaine)||5;
+              await api.createAssignment({ ...detailAssignForm, mission_id: detail.id, tjm: parseFloat(detailAssignForm.tjm), taux_staffing: tauxFromJPS(jps), jours_par_semaine: jps, statut:'actif', date_debut: detailAssignForm.date_debut||null, date_fin: detailAssignForm.date_fin||null });
+              const [newMissions] = await Promise.all([api.getMissions(), loadData()]);
+              const updated = (newMissions||[]).find(m=>m.id===detail.id);
               if (updated) setDetail(updated);
               setDetailAssignForm({ collaborateur_id:'', role:'', taux_staffing:100, jours_par_semaine:5, tjm:'', date_debut:detail.date_debut||'', date_fin:detail.date_fin||'' });
               showToast('Collaborateur affecté');
