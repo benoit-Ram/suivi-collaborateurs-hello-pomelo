@@ -123,7 +123,7 @@ export default function CollabLayout() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         position: 'sticky', top: 0, zIndex: 50
       }}>
-        <div onClick={() => navigate('/collab')} style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, cursor: 'pointer' }}>
+        <div onClick={() => { navigate('/collab'); window.dispatchEvent(new Event('collab-go-home')); }} style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, cursor: 'pointer' }}>
           <img src="/logo.png" alt="Hello Pomelo" style={{ height: 32, width: 32, objectFit: 'contain', borderRadius: 8, flexShrink: 0 }} />
           <span className="hide-mobile" style={{ color: 'white', fontWeight: 700, fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>Hello Pomelo</span>
           <span style={{ background: 'rgba(255,50,133,0.25)', color: '#FF3285', fontSize: '0.6rem', fontWeight: 700, padding: '3px 6px', borderRadius: 6, textTransform: 'uppercase', whiteSpace: 'nowrap', flexShrink: 0 }}>

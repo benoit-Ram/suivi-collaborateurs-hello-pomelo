@@ -18,6 +18,11 @@ export default function CollabAccueil() {
   const [settings, setSettings] = useState({});
   const [selectedId, setSelectedId] = useState('');
   const [tab, setTab] = useState('accueil');
+  useEffect(() => {
+    const goHome = () => setTab('accueil');
+    window.addEventListener('collab-go-home', goHome);
+    return () => window.removeEventListener('collab-go-home', goHome);
+  }, []);
 
   const [loading, setLoading] = useState(true);
   const [teamPendingAbs, setTeamPendingAbs] = useState([]);
@@ -107,6 +112,30 @@ export default function CollabAccueil() {
   const pendingCount = teamPendingAbs.length;
   const isManager = myTeam.length > 0;
 
+  // Staffing global depuis le 1er janvier ou date d'entrée
+  const [staffingGlobal, setStaffingGlobal] = useState(null);
+  useEffect(() => {
+    if (!c) return;
+    api.getMissions().then(missions => {
+      const now = new Date();
+      const janFirst = new Date(now.getFullYear(), 0, 1);
+      const startDate = c.date_entree && new Date(c.date_entree) > janFirst ? new Date(c.date_entree) : janFirst;
+      const totalWeeks = Math.max(1, (now - startDate) / (7 * 86400000));
+      let staffedWeeks = 0;
+      (missions || []).forEach(m => {
+        (m.assignments || []).filter(a => a.collaborateur_id === c.id && a.statut === 'actif').forEach(a => {
+          const aStart = a.date_debut ? new Date(Math.max(new Date(a.date_debut), startDate)) : startDate;
+          const aEnd = a.date_fin ? new Date(Math.min(new Date(a.date_fin), now)) : now;
+          if (aEnd >= aStart) {
+            const weeks = (aEnd - aStart) / (7 * 86400000);
+            staffedWeeks += weeks * (a.taux_staffing || 0) / 100;
+          }
+        });
+      });
+      setStaffingGlobal(Math.round(staffedWeeks / totalWeeks * 100));
+    }).catch(() => {});
+  }, [c?.id]);
+
   const tabs = [['objectifs', isManager ? '🎯 Mes objectifs' : '🎯 Objectifs'],['missions','🚀 Missions'],['points', isManager ? '📋 Mes entretiens RH' : '📋 Entretien RH'],['conges', isManager ? '🏖️ Mes congés' : '🏖️ Congés']];
   if (isManager) tabs.splice(3, 0, ['management', pendingCount > 0 ? `👔 Management (${pendingCount})` : '👔 Management']);
 
@@ -178,8 +207,9 @@ export default function CollabAccueil() {
           </div>
         )}
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(100px,1fr))',gap:10,marginBottom:24}}>
-          <div className="card" style={{textAlign:'center',padding:14}}><div style={{fontSize:'clamp(1.4rem,5vw,2rem)',fontWeight:700,color:'var(--pink)'}}>{enCours.length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>En cours</div></div>
-          <div className="card" style={{textAlign:'center',padding:14}}><div style={{fontSize:'clamp(1.4rem,5vw,2rem)',fontWeight:700,color:'var(--green)'}}>{atteints.length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Atteints</div></div>
+          {staffingGlobal !== null && <div className="card" style={{textAlign:'center',padding:14}}><div style={{fontSize:'clamp(1.4rem,5vw,2rem)',fontWeight:700,color:staffingGlobal>=80?'var(--green)':staffingGlobal>=50?'var(--orange)':'var(--red)'}}>{staffingGlobal}%</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Staffing {new Date().getFullYear()}</div></div>}
+          <div className="card" style={{textAlign:'center',padding:14}}><div style={{fontSize:'clamp(1.4rem,5vw,2rem)',fontWeight:700,color:'var(--pink)'}}>{enCours.length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Obj. en cours</div></div>
+          <div className="card" style={{textAlign:'center',padding:14}}><div style={{fontSize:'clamp(1.4rem,5vw,2rem)',fontWeight:700,color:'var(--green)'}}>{atteints.length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Obj. atteints</div></div>
           <div className="card" style={{textAlign:'center',padding:14}}><div style={{fontSize:'clamp(1.4rem,5vw,2rem)',fontWeight:700,color:'var(--navy)'}}>{solde.toFixed(2)}j</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Congés</div></div>
         </div>
         <div className="card">
