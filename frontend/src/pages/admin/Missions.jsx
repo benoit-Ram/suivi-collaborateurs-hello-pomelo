@@ -73,6 +73,7 @@ export default function Missions() {
   const [viewMode, setViewMode] = useState('cartes'); // cartes | liste
   const [missionDateDebut, setMissionDateDebut] = useState('');
   const [missionDateFin, setMissionDateFin] = useState('');
+  const [periodType, setPeriodType] = useState(''); // '', 'week', 'month', 'q', 'year'
 
   useEffect(() => { loadData(); }, []);
   useEffect(() => {
@@ -230,26 +231,49 @@ export default function Missions() {
         <button className="btn btn-primary btn-sm" onClick={openCreate}>+ Nouvelle mission</button>
       </div>
 
-      {/* Global date filter + stat cards */}
-      <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
-        <div style={{display:'flex',alignItems:'center',gap:4}}>
-          <span style={{fontSize:'0.78rem',fontWeight:700,color:'var(--muted)'}}>Période :</span>
-          <input type="date" value={missionDateDebut} onChange={e=>setMissionDateDebut(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'5px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)'}} />
-          <span style={{color:'var(--muted)',fontSize:'0.75rem'}}>→</span>
-          <input type="date" value={missionDateFin} onChange={e=>setMissionDateFin(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'5px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)'}} />
-        </div>
-        <div style={{display:'flex',gap:3}}>
-          {[['','Tout'],['month','Ce mois'],['q','Ce trimestre'],['year','Cette année']].map(([k,l])=>(
-            <button key={k} onClick={()=>{
-              const y=now.getFullYear(),m=now.getMonth();
-              if (!k) { setMissionDateDebut(''); setMissionDateFin(''); }
-              else if (k==='month') { setMissionDateDebut(`${y}-${String(m+1).padStart(2,'0')}-01`); setMissionDateFin(new Date(y,m+1,0).toISOString().split('T')[0]); }
-              else if (k==='q') { const qs=Math.floor(m/3)*3; setMissionDateDebut(`${y}-${String(qs+1).padStart(2,'0')}-01`); setMissionDateFin(new Date(y,qs+3,0).toISOString().split('T')[0]); }
-              else if (k==='year') { setMissionDateDebut(`${y}-01-01`); setMissionDateFin(`${y}-12-31`); }
-            }} className="btn btn-ghost btn-sm" style={{padding:'3px 8px',fontSize:'0.68rem',background:(!missionDateDebut&&!k)?'var(--pink)':'transparent',color:(!missionDateDebut&&!k)?'white':'var(--muted)'}}>{l}</button>
-          ))}
-        </div>
-      </div>
+      {/* Global period filter with arrows */}
+      {(()=>{
+        const dateStyle = {border:'1.5px solid var(--lavender)',borderRadius:8,padding:'5px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)'};
+        const btnStyle = (active) => ({padding:'3px 8px',fontSize:'0.68rem',background:active?'var(--pink)':'transparent',color:active?'white':'var(--muted)'});
+        const arrowStyle = {padding:'3px 6px',fontSize:'0.75rem',lineHeight:1};
+
+        const setPeriod = (type, refDate) => {
+          const d = refDate || new Date();
+          const y = d.getFullYear(), m = d.getMonth();
+          setPeriodType(type);
+          if (!type) { setMissionDateDebut(''); setMissionDateFin(''); }
+          else if (type==='week') { const mon=new Date(d); mon.setDate(d.getDate()-((d.getDay()+6)%7)); const fri=new Date(mon); fri.setDate(mon.getDate()+4); setMissionDateDebut(mon.toISOString().split('T')[0]); setMissionDateFin(fri.toISOString().split('T')[0]); }
+          else if (type==='month') { setMissionDateDebut(`${y}-${String(m+1).padStart(2,'0')}-01`); setMissionDateFin(new Date(y,m+1,0).toISOString().split('T')[0]); }
+          else if (type==='q') { const qs=Math.floor(m/3)*3; setMissionDateDebut(`${y}-${String(qs+1).padStart(2,'0')}-01`); setMissionDateFin(new Date(y,qs+3,0).toISOString().split('T')[0]); }
+          else if (type==='year') { setMissionDateDebut(`${y}-01-01`); setMissionDateFin(`${y}-12-31`); }
+        };
+
+        const shiftPeriod = (dir) => {
+          if (!missionDateDebut || !periodType) return;
+          const base = new Date(missionDateDebut);
+          if (periodType==='week') base.setDate(base.getDate() + dir*7);
+          else if (periodType==='month') base.setMonth(base.getMonth() + dir);
+          else if (periodType==='q') base.setMonth(base.getMonth() + dir*3);
+          else if (periodType==='year') base.setFullYear(base.getFullYear() + dir);
+          setPeriod(periodType, base);
+        };
+
+        return <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
+          <div style={{display:'flex',alignItems:'center',gap:4}}>
+            <span style={{fontSize:'0.78rem',fontWeight:700,color:'var(--muted)'}}>Période :</span>
+            {periodType && <button className="btn btn-ghost btn-sm" style={arrowStyle} onClick={()=>shiftPeriod(-1)}>←</button>}
+            <input type="date" value={missionDateDebut} onChange={e=>{setMissionDateDebut(e.target.value);setPeriodType('');}} style={dateStyle} />
+            <span style={{color:'var(--muted)',fontSize:'0.75rem'}}>→</span>
+            <input type="date" value={missionDateFin} onChange={e=>{setMissionDateFin(e.target.value);setPeriodType('');}} style={dateStyle} />
+            {periodType && <button className="btn btn-ghost btn-sm" style={arrowStyle} onClick={()=>shiftPeriod(1)}>→</button>}
+          </div>
+          <div style={{display:'flex',gap:3}}>
+            {[['','Tout'],['week','Semaine'],['month','Mois'],['q','Trimestre'],['year','Année']].map(([k,l])=>(
+              <button key={k} onClick={()=>setPeriod(k)} className="btn btn-ghost btn-sm" style={btnStyle(periodType===k)}>{l}</button>
+            ))}
+          </div>
+        </div>;
+      })()}
 
       <div className="tabs-scroll" style={{display:'flex',gap:6,marginBottom:24,background:'var(--offwhite)',padding:6,borderRadius:12,overflowX:'auto'}}>
         {[['missions',`🏢 Clients & Missions`],['timeline','📅 Calendrier'],['staffing','📊 Staffing'],['finance','💰 Finance']].map(([k,l])=>(
