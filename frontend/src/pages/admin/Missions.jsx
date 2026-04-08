@@ -462,6 +462,18 @@ export default function Missions() {
       {tab==='staffing' && (()=>{
         const allEquipes = [...new Set(collabs.flatMap(c=>(c.equipe||'').split(',').map(s=>s.trim())).filter(Boolean))].sort();
         const toggleEquipe = (eq) => setFilterEquipes(prev => prev.includes(eq) ? prev.filter(e=>e!==eq) : [...prev, eq]);
+        // Calculate total staffed days per collab over the period
+        const calcStaffedDays = (collabId) => {
+          return active.reduce((total, m) => {
+            const a = (m.assignments||[]).find(x => x.collaborateur_id === collabId && x.statut === 'actif');
+            if (!a || !a.date_debut) return total;
+            const start = new Date(Math.max(new Date(a.date_debut), new Date(periodStart)));
+            const end = a.date_fin ? new Date(Math.min(new Date(a.date_fin), new Date(periodEnd))) : new Date(periodEnd);
+            if (end < start) return total;
+            const weeks = Math.max(0, (end - start) / (7 * 86400000));
+            return total + (a.taux_staffing || 0) / 100 * 5 * weeks;
+          }, 0);
+        };
         const filteredStaffing = Object.values(staffingMap).filter(({collab:c}) => filterEquipes.length===0 || filterEquipes.some(eq=>(c.equipe||'').includes(eq)));
         const avg = filteredStaffing.length ? Math.round(filteredStaffing.reduce((s,v)=>s+v.taux,0)/filteredStaffing.length) : 0;
 
@@ -486,16 +498,18 @@ export default function Missions() {
         </div>
         <div className="card" style={{overflowX:'auto'}}>
         <table>
-          <thead><tr><th>Collaborateur</th><th>Poste</th><th>Taux staffing</th><th>Jours/sem.</th><th>Missions</th></tr></thead>
-          <tbody>{filteredStaffing.sort((a,b)=>b.taux-a.taux).map(({collab:c,taux,missions:ms})=>(
-            <tr key={c.id}>
+          <thead><tr><th>Collaborateur</th><th>Poste</th><th>Taux staffing</th><th>Jours/sem.</th><th>Jours staffés</th><th>Missions</th></tr></thead>
+          <tbody>{filteredStaffing.sort((a,b)=>b.taux-a.taux).map(({collab:c,taux,missions:ms})=>{
+            const totalDays = Math.round(calcStaffedDays(c.id)*10)/10;
+            return <tr key={c.id}>
               <td><div style={{display:'flex',alignItems:'center',gap:8}}><Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={28} /><span style={{fontWeight:700,color:'var(--navy)'}}>{c.prenom} {c.nom}</span></div></td>
               <td style={{fontSize:'0.78rem',color:'var(--muted)'}}>{c.poste||'—'}</td>
               <td><div style={{display:'flex',alignItems:'center',gap:8}}><div style={{width:80,height:8,background:'var(--offwhite)',borderRadius:4,overflow:'hidden'}}><div style={{height:'100%',width:`${Math.min(taux,100)}%`,background:taux>100?'var(--red)':taux>=80?'var(--orange)':'var(--green)',borderRadius:4}} /></div><span style={{fontWeight:700,fontSize:'0.85rem',color:taux>100?'var(--red)':taux>=80?'var(--orange)':'var(--green)'}}>{taux}%</span></div></td>
               <td style={{fontWeight:600,color:'var(--navy)'}}>{(taux/100*5).toFixed(1)}j</td>
+              <td style={{fontWeight:700,color:totalDays>0?'var(--blue)':'var(--muted)'}}>{totalDays}j</td>
               <td style={{fontSize:'0.78rem',color:'var(--muted)'}}>{ms.length===0?'Non staffé':ms.map(m=>`${m.nom} (${m.taux}%)`).join(', ')}</td>
-            </tr>
-          ))}</tbody>
+            </tr>;
+          })}</tbody>
         </table>
       </div></div></FadeIn>})()}
 
