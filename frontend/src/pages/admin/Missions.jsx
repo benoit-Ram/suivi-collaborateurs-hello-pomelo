@@ -21,8 +21,10 @@ export default function Missions() {
   const [missions, setMissions] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState('clients');
+  const [tab, setTab] = useState('missions');
   const [search, setSearch] = useState('');
+  const [expandedClients, setExpandedClients] = useState(new Set());
+  const toggleClient = (id) => setExpandedClients(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
   // Create/Edit modal
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({});
@@ -230,19 +232,20 @@ export default function Missions() {
       </div>
 
       <div className="tabs-scroll" style={{display:'flex',gap:6,marginBottom:24,background:'var(--offwhite)',padding:6,borderRadius:12,overflowX:'auto'}}>
-        {[['clients',`🏢 Clients (${clients.length})`],['missions',`🚀 Missions (${missions.length})`],['timeline','📅 Calendrier'],['staffing','📊 Staffing'],['finance','💰 Finance']].map(([k,l])=>(
+        {[['missions',`🏢 Clients & Missions`],['timeline','📅 Calendrier'],['staffing','📊 Staffing'],['finance','💰 Finance']].map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)} style={{flex:'1 0 auto',padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',background:tab===k?'var(--pink)':'transparent',color:tab===k?'white':'var(--muted)',border:tab===k?'none':'1.5px solid var(--lavender)',boxShadow:tab===k?'0 4px 14px rgba(255,50,133,0.3)':'none'}}>{l}</button>
         ))}
       </div>
 
-      {/* CLIENTS */}
-      {tab==='clients' && <FadeIn><div>
-        {selectedClient ? (()=>{
+      {/* CLIENTS & MISSIONS (fusionné) */}
+      {tab==='missions' && <FadeIn><div>
+        {/* Mode carte : vue détail client */}
+        {viewMode==='cartes' && selectedClient ? (()=>{
           const sc = clients.find(x=>x.id===selectedClient);
           if (!sc) return null;
           const cMissions = missions.filter(m => m.client_id === sc.id);
           return <div>
-            <button className="btn btn-ghost btn-sm" onClick={()=>setSelectedClient(null)} style={{marginBottom:16}}>← Retour aux clients</button>
+            <button className="btn btn-ghost btn-sm" onClick={()=>setSelectedClient(null)} style={{marginBottom:16}}>← Retour</button>
             <div className="card" style={{marginBottom:20,padding:20}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
                 <div>
@@ -252,86 +255,102 @@ export default function Missions() {
                   {sc.contact_nom && <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:6}}>👤 {sc.contact_nom}{sc.contact_email ? ` · ${sc.contact_email}` : ''}</div>}
                 </div>
                 <div style={{display:'flex',gap:6}}>
-                  <button className="btn btn-ghost btn-sm" onClick={()=>{setClientModal(sc);setClientForm({nom:sc.nom,description:sc.description||'',secteur:sc.secteur||'',contact_nom:sc.contact_nom||'',contact_email:sc.contact_email||''});}}>✏️ Modifier</button>
+                  <button className="btn btn-ghost btn-sm" onClick={()=>{setClientModal(sc);setClientForm({nom:sc.nom,description:sc.description||'',secteur:sc.secteur||'',contact_nom:sc.contact_nom||'',contact_email:sc.contact_email||''});}}>✏️</button>
                   <button className="btn btn-primary btn-sm" onClick={()=>openCreate(sc.id)}>+ Mission</button>
                 </div>
               </div>
             </div>
-            <div className="section-title">Missions ({cMissions.length})</div>
-            {cMissions.length === 0 ? <div className="card" style={{textAlign:'center',padding:24,color:'var(--muted)'}}>Aucune mission pour ce client</div> :
-            cMissions.map(m => <MissionCard key={m.id} m={m} collabs={collabs} onEdit={openEdit} onDelete={(id)=>{deleteMission(id);}} onAssign={()=>{setAssignModal(m.id);setAssignForm({collaborateur_id:'',role:'',taux_staffing:100,jours_par_semaine:5,tjm:'',date_debut:m.date_debut||'',date_fin:m.date_fin||''});}} onRemoveAssign={removeAssignment} onDetail={setDetail} onDuplicate={duplicateMission} />)}
+            {cMissions.length === 0 ? <div className="card" style={{textAlign:'center',padding:24,color:'var(--muted)'}}>Aucune mission</div> :
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(320px,1fr))',gap:16}}>
+              {cMissions.map(m => <MissionCard key={m.id} m={m} collabs={collabs} onEdit={openEdit} onDelete={deleteMission} onAssign={()=>{setAssignModal(m.id);setAssignForm({collaborateur_id:'',role:'',taux_staffing:100,jours_par_semaine:5,tjm:'',date_debut:m.date_debut||'',date_fin:m.date_fin||''});}} onRemoveAssign={removeAssignment} onDetail={setDetail} onDuplicate={duplicateMission} />)}
+            </div>}
           </div>;
         })() : <>
-        <div style={{display:'flex',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:8}}>
-          <input type="text" value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher un client..." style={{flex:1,maxWidth:300,border:'1.5px solid var(--lavender)',borderRadius:10,padding:'8px 14px',fontFamily:'inherit',fontSize:'0.85rem',outline:'none',background:'var(--offwhite)',color:'var(--navy)'}} />
-          <button className="btn btn-primary btn-sm" onClick={()=>{setClientModal('create');setClientForm({nom:'',description:'',secteur:'',siren:'',siret:'',tva_intra:'',adresse:'',code_postal:'',ville:'',categorie_entreprise:'',referent_id:'',contact_signature_nom:'',contact_signature_email:'',contact_signature_tel:'',contact_facturation_nom:'',contact_facturation_email:'',contact_facturation_tel:''});}}>+ Nouveau client</button>
-        </div>
-        {clients.length === 0 ? <div className="card" style={{textAlign:'center',padding:32,color:'var(--muted)'}}>Aucun client</div> :
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:16}}>
-          {clients.filter(c=>!search||(c.nom+(c.secteur||'')).toLowerCase().includes(search.toLowerCase())).map(c => {
-            const cMissions = missions.filter(m => m.client_id === c.id);
-            const activeMissions = cMissions.filter(m => isMissionActive(m));
-            return (
-              <div key={c.id} className="card" style={{padding:20,borderLeft:`4px solid ${activeMissions.length>0?'var(--blue)':'var(--lavender)'}`,cursor:'pointer'}} onClick={()=>setSelectedClient(c.id)}>
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
-                  <div>
-                    <div style={{fontWeight:700,fontSize:'1rem',color:'var(--navy)'}}>{c.nom}</div>
-                    {c.secteur && <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>{c.secteur}</div>}
-                  </div>
-                  <div style={{display:'flex',gap:4}} onClick={e=>e.stopPropagation()}>
-                    <button className="btn btn-ghost btn-sm" style={{padding:'3px 8px'}} onClick={()=>{setClientModal(c);setClientForm({nom:c.nom,description:c.description||'',secteur:c.secteur||'',siren:c.siren||'',siret:c.siret||'',tva_intra:c.tva_intra||'',adresse:c.adresse||'',code_postal:c.code_postal||'',ville:c.ville||'',categorie_entreprise:c.categorie_entreprise||'',referent_id:c.referent_id||'',contact_signature_nom:c.contact_signature_nom||'',contact_signature_email:c.contact_signature_email||'',contact_signature_tel:c.contact_signature_tel||'',contact_facturation_nom:c.contact_facturation_nom||'',contact_facturation_email:c.contact_facturation_email||'',contact_facturation_tel:c.contact_facturation_tel||''});}}>✏️</button>
-                    <button className="btn btn-danger btn-sm" style={{padding:'3px 8px'}} onClick={()=>deleteClient(c.id)}>🗑️</button>
-                  </div>
-                </div>
-                {c.siren && <div style={{fontSize:'0.7rem',color:'var(--muted)',marginBottom:4}}>SIREN {c.siren}{c.ville ? ` · ${c.ville}` : ''}</div>}
-                {(()=>{const ref=c.referent_id?collabs.find(x=>x.id===c.referent_id):null; return ref?<div style={{fontSize:'0.7rem',color:'var(--muted)',marginBottom:4}}>👔 {ref.prenom} {ref.nom}</div>:null;})()}
-                <div style={{fontSize:'0.82rem',fontWeight:700,color:'var(--navy)'}}>{activeMissions.length} en cours · {cMissions.length} au total</div>
-              </div>
-            );
-          })}
-        </div>}
-        </>}
-      </div></FadeIn>}
-
-      {/* MISSIONS (unified) */}
-      {tab==='missions' && <FadeIn><div>
+        {/* Barre de filtres */}
         <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
           <input type="text" value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher..." style={{flex:1,maxWidth:250,border:'1.5px solid var(--lavender)',borderRadius:10,padding:'8px 14px',fontFamily:'inherit',fontSize:'0.82rem',outline:'none',background:'var(--offwhite)',color:'var(--navy)'}} />
-          <div style={{display:'flex',alignItems:'center',gap:4}}>
-            <input type="date" value={missionDateDebut} onChange={e=>setMissionDateDebut(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'5px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)'}} />
-            <span style={{color:'var(--muted)',fontSize:'0.75rem'}}>→</span>
-            <input type="date" value={missionDateFin} onChange={e=>setMissionDateFin(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'5px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)'}} />
-          </div>
+          <button className="btn btn-ghost btn-sm" onClick={()=>{setClientModal('create');setClientForm({nom:'',description:'',secteur:'',siren:'',siret:'',tva_intra:'',adresse:'',code_postal:'',ville:'',categorie_entreprise:'',referent_id:'',contact_signature_nom:'',contact_signature_email:'',contact_signature_tel:'',contact_facturation_nom:'',contact_facturation_email:'',contact_facturation_tel:''});}}>+ Client</button>
+          <button className="btn btn-primary btn-sm" onClick={openCreate}>+ Mission</button>
           <div style={{display:'flex',gap:2,marginLeft:'auto'}}>
-            <button onClick={()=>setViewMode('cartes')} className={`btn btn-sm ${viewMode==='cartes'?'btn-primary':'btn-ghost'}`} style={{padding:'5px 10px',fontSize:'0.72rem'}}>🃏 Cartes</button>
-            <button onClick={()=>setViewMode('liste')} className={`btn btn-sm ${viewMode==='liste'?'btn-primary':'btn-ghost'}`} style={{padding:'5px 10px',fontSize:'0.72rem'}}>📋 Liste</button>
+            <button onClick={()=>{setViewMode('cartes');setSelectedClient(null);}} className={`btn btn-sm ${viewMode==='cartes'?'btn-primary':'btn-ghost'}`} style={{padding:'5px 10px',fontSize:'0.72rem'}}>Cartes</button>
+            <button onClick={()=>setViewMode('liste')} className={`btn btn-sm ${viewMode==='liste'?'btn-primary':'btn-ghost'}`} style={{padding:'5px 10px',fontSize:'0.72rem'}}>Liste</button>
           </div>
         </div>
+
         {(()=>{
-          let list = missions;
-          if (search) list = list.filter(m => (m.nom+getClientName(m)+(m.categorie||'')).toLowerCase().includes(search.toLowerCase()));
-          if (missionDateDebut) list = list.filter(m => !m.date_fin || m.date_fin >= missionDateDebut);
-          if (missionDateFin) list = list.filter(m => !m.date_debut || m.date_debut <= missionDateFin);
-          if (list.length === 0) return <div className="card" style={{textAlign:'center',padding:32,color:'var(--muted)'}}>Aucune mission trouvée</div>;
-          if (viewMode === 'cartes') return <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(320px,1fr))',gap:16}}>
-            {list.map(m => <MissionCard key={m.id} m={m} collabs={collabs} onEdit={openEdit} onDelete={deleteMission} onAssign={()=>{setAssignModal(m.id);setAssignForm({collaborateur_id:'',role:'',taux_staffing:100,jours_par_semaine:5,tjm:'',date_debut:m.date_debut||'',date_fin:m.date_fin||''});}} onRemoveAssign={removeAssignment} onDetail={setDetail} onDuplicate={duplicateMission} />)}
-          </div>;
-          return <div className="card" style={{overflowX:'auto'}}><table>
-            <thead><tr><th>Mission</th><th>Client</th><th>Catégorie</th><th>Statut</th><th>Dates</th><th>Équipe</th><th>Budget</th><th></th></tr></thead>
-            <tbody>{list.map(m=>(
-              <tr key={m.id}>
-                <td style={{fontWeight:700,color:'var(--navy)',cursor:'pointer'}} onClick={()=>setDetail(m)}>{m.nom}</td>
-                <td>{getClientName(m)}</td>
-                <td style={{fontSize:'0.78rem',color:'var(--muted)'}}>{m.categorie||'—'}</td>
-                <td><Badge type={isMissionActive(m)?'blue':'gray'}>{isMissionActive(m)?'En cours':'Passée'}</Badge></td>
-                <td style={{fontSize:'0.78rem',color:'var(--muted)'}}>{fmtDate(m.date_debut)} → {fmtDate(m.date_fin)}</td>
-                <td><div style={{display:'flex',gap:-4}}>{(m.assignments||[]).slice(0,4).map(a=>a.collaborateurs&&<Avatar key={a.id} prenom={a.collaborateurs.prenom} nom={a.collaborateurs.nom} photoUrl={a.collaborateurs.photo_url} size={24} />)}{(m.assignments||[]).length>4&&<span style={{fontSize:'0.7rem',color:'var(--muted)'}}>+{(m.assignments||[]).length-4}</span>}</div></td>
-                <td style={{fontWeight:600}}>{m.budget_vendu?m.budget_vendu.toLocaleString('fr-FR')+'€':'—'}</td>
-                <td><div style={{display:'flex',gap:4}}><button className="btn btn-ghost btn-sm" style={{padding:'3px 8px'}} onClick={()=>openEdit(m)}>✏️</button><button className="btn btn-danger btn-sm" style={{padding:'3px 8px'}} onClick={()=>deleteMission(m.id)}>🗑️</button></div></td>
-              </tr>
-            ))}</tbody>
+          const filteredClients = clients.filter(c => !search || (c.nom+(c.secteur||'')+missions.filter(m=>m.client_id===c.id).map(m=>m.nom).join('')).toLowerCase().includes(search.toLowerCase()));
+          if (filteredClients.length === 0) return <div className="card" style={{textAlign:'center',padding:32,color:'var(--muted)'}}>Aucun client trouvé</div>;
+
+          if (viewMode === 'liste') return <div className="card" style={{overflowX:'auto'}}><table>
+            <thead><tr><th style={{minWidth:160}}>Client</th><th>Secteur</th><th>Référent</th><th>Missions</th><th></th></tr></thead>
+            <tbody>{filteredClients.map(c => {
+              const cMissions = missions.filter(m => m.client_id === c.id);
+              const activeMissions = cMissions.filter(isMissionActive);
+              const isExpanded = expandedClients.has(c.id);
+              return <React.Fragment key={c.id}>
+                <tr style={{cursor:'pointer',background:isExpanded?'rgba(255,50,133,0.03)':'transparent',borderBottom:isExpanded?'none':'1px solid var(--lavender)'}} onClick={()=>toggleClient(c.id)}>
+                  <td style={{fontWeight:700,color:'var(--navy)'}}>
+                    <span style={{color:'var(--muted)',fontSize:'0.7rem',marginRight:8}}>{isExpanded?'▼':'▶'}</span>
+                    {c.nom}
+                  </td>
+                  <td style={{fontSize:'0.78rem',color:'var(--muted)'}}>{c.secteur||'—'}</td>
+                  <td style={{fontSize:'0.78rem',color:'var(--muted)'}}>{(()=>{const ref=c.referent_id?collabs.find(x=>x.id===c.referent_id):null; return ref?`${ref.prenom} ${ref.nom}`:'—';})()}</td>
+                  <td><span style={{fontWeight:700,color:activeMissions.length>0?'var(--blue)':'var(--muted)'}}>{activeMissions.length}</span><span style={{color:'var(--muted)',fontSize:'0.75rem'}}>/{cMissions.length}</span></td>
+                  <td><div style={{display:'flex',gap:4}} onClick={e=>e.stopPropagation()}>
+                    <button className="btn btn-ghost btn-sm" style={{padding:'3px 8px'}} onClick={()=>{setClientModal(c);setClientForm({nom:c.nom,description:c.description||'',secteur:c.secteur||'',siren:c.siren||'',siret:c.siret||'',tva_intra:c.tva_intra||'',adresse:c.adresse||'',code_postal:c.code_postal||'',ville:c.ville||'',categorie_entreprise:c.categorie_entreprise||'',referent_id:c.referent_id||'',contact_signature_nom:c.contact_signature_nom||'',contact_signature_email:c.contact_signature_email||'',contact_signature_tel:c.contact_signature_tel||'',contact_facturation_nom:c.contact_facturation_nom||'',contact_facturation_email:c.contact_facturation_email||'',contact_facturation_tel:c.contact_facturation_tel||''});}}>✏️</button>
+                    <button className="btn btn-ghost btn-sm" style={{padding:'3px 8px'}} onClick={()=>openCreate(c.id)}>+</button>
+                    <button className="btn btn-danger btn-sm" style={{padding:'3px 8px'}} onClick={()=>deleteClient(c.id)}>🗑️</button>
+                  </div></td>
+                </tr>
+                {isExpanded && (cMissions.length === 0
+                  ? <tr><td colSpan={5} style={{paddingLeft:40,fontSize:'0.78rem',color:'var(--muted)',fontStyle:'italic',borderBottom:'1px solid var(--lavender)'}}>Aucune mission</td></tr>
+                  : cMissions.map(m => (
+                  <tr key={m.id} style={{background:'rgba(255,50,133,0.02)',borderBottom:'1px solid var(--lavender)'}}>
+                    <td style={{paddingLeft:40}}>
+                      <span style={{fontWeight:700,color:'var(--navy)',cursor:'pointer'}} onClick={()=>setDetail(m)}>{m.nom}</span>
+                      {m.categorie && <span style={{fontSize:'0.72rem',color:'var(--muted)',marginLeft:8}}>{m.categorie}</span>}
+                    </td>
+                    <td><Badge type={isMissionActive(m)?'blue':'gray'}>{isMissionActive(m)?'En cours':'Passée'}</Badge></td>
+                    <td style={{fontSize:'0.78rem',color:'var(--muted)'}}>{fmtDate(m.date_debut)} → {fmtDate(m.date_fin)}</td>
+                    <td><div style={{display:'flex',gap:-4}}>{(m.assignments||[]).slice(0,4).map(a=>a.collaborateurs&&<Avatar key={a.id} prenom={a.collaborateurs.prenom} nom={a.collaborateurs.nom} photoUrl={a.collaborateurs.photo_url} size={22} />)}{(m.assignments||[]).length>4&&<span style={{fontSize:'0.65rem',color:'var(--muted)'}}>+{(m.assignments||[]).length-4}</span>}</div></td>
+                    <td><div style={{display:'flex',gap:4,alignItems:'center'}}>
+                      {m.budget_vendu && <span style={{fontSize:'0.78rem',fontWeight:600,color:'var(--navy)',marginRight:8}}>{m.budget_vendu.toLocaleString('fr-FR')}€</span>}
+                      <button className="btn btn-ghost btn-sm" style={{padding:'3px 8px'}} onClick={()=>openEdit(m)}>✏️</button>
+                      <button className="btn btn-ghost btn-sm" style={{padding:'3px 8px'}} onClick={()=>{setAssignModal(m.id);setAssignForm({collaborateur_id:'',role:'',taux_staffing:100,jours_par_semaine:5,tjm:'',date_debut:m.date_debut||'',date_fin:m.date_fin||''});}}>👤+</button>
+                      <button className="btn btn-danger btn-sm" style={{padding:'3px 8px'}} onClick={()=>deleteMission(m.id)}>🗑️</button>
+                    </div></td>
+                  </tr>
+                )))}
+              </React.Fragment>;
+            })}</tbody>
           </table></div>;
+
+          // Mode cartes
+          return <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:16}}>
+            {filteredClients.map(c => {
+              const cMissions = missions.filter(m => m.client_id === c.id);
+              const activeMissions = cMissions.filter(isMissionActive);
+              return (
+                <div key={c.id} className="card" style={{padding:20,borderLeft:`4px solid ${activeMissions.length>0?'var(--blue)':'var(--lavender)'}`,cursor:'pointer'}} onClick={()=>setSelectedClient(c.id)}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
+                    <div>
+                      <div style={{fontWeight:700,fontSize:'1rem',color:'var(--navy)'}}>{c.nom}</div>
+                      {c.secteur && <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>{c.secteur}</div>}
+                    </div>
+                    <div style={{display:'flex',gap:4}} onClick={e=>e.stopPropagation()}>
+                      <button className="btn btn-ghost btn-sm" style={{padding:'3px 8px'}} onClick={()=>{setClientModal(c);setClientForm({nom:c.nom,description:c.description||'',secteur:c.secteur||'',siren:c.siren||'',siret:c.siret||'',tva_intra:c.tva_intra||'',adresse:c.adresse||'',code_postal:c.code_postal||'',ville:c.ville||'',categorie_entreprise:c.categorie_entreprise||'',referent_id:c.referent_id||'',contact_signature_nom:c.contact_signature_nom||'',contact_signature_email:c.contact_signature_email||'',contact_signature_tel:c.contact_signature_tel||'',contact_facturation_nom:c.contact_facturation_nom||'',contact_facturation_email:c.contact_facturation_email||'',contact_facturation_tel:c.contact_facturation_tel||''});}}>✏️</button>
+                      <button className="btn btn-danger btn-sm" style={{padding:'3px 8px'}} onClick={()=>deleteClient(c.id)}>🗑️</button>
+                    </div>
+                  </div>
+                  {c.siren && <div style={{fontSize:'0.7rem',color:'var(--muted)',marginBottom:4}}>SIREN {c.siren}{c.ville ? ` · ${c.ville}` : ''}</div>}
+                  {(()=>{const ref=c.referent_id?collabs.find(x=>x.id===c.referent_id):null; return ref?<div style={{fontSize:'0.7rem',color:'var(--muted)',marginBottom:4}}>👔 {ref.prenom} {ref.nom}</div>:null;})()}
+                  <div style={{fontSize:'0.82rem',fontWeight:700,color:'var(--navy)'}}>{activeMissions.length} en cours · {cMissions.length} au total</div>
+                </div>
+              );
+            })}
+          </div>;
         })()}
+        </>}
       </div></FadeIn>}
 
       {/* TIMELINE / CALENDRIER GLOBAL */}
