@@ -1,10 +1,22 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useData } from '../../services/DataContext';
 import { useAuth } from '../../services/AuthContext';
 import { api } from '../../services/api';
 import { PageHeader, Badge, Avatar, Modal, FadeIn, Skeleton, fmtDate } from '../../components/UI';
 
-// Statut is now determined by dates (active = date_fin >= today or no date_fin)
+// Helpers
+const calcConsumedBudget = (assignments, now) => (assignments || []).reduce((s, a) => {
+  if (!a.date_debut || !a.tjm) return s;
+  const start = new Date(a.date_debut);
+  const end = a.date_fin ? new Date(Math.min(new Date(a.date_fin), now)) : now;
+  const weeks = Math.max(0, (end - start) / (7 * 86400000));
+  return s + (a.tjm * (a.jours_par_semaine || a.taux_staffing / 100 * 5) * weeks);
+}, 0);
+
+const calcMonthlyCA = (assignments) => (assignments || []).filter(a => a.statut === 'actif').reduce((s, a) => s + ((a.tjm || 0) * (a.jours_par_semaine || a.taux_staffing / 100 * 5) * 4.33), 0);
+
+const fmtEuro = (v) => v ? v.toLocaleString('fr-FR') + ' €' : '—';
+const tauxFromJPS = (jps) => Math.round(jps / 5 * 100);
 
 export default function Missions() {
   const { collabs, settings, showToast, loading: ctxLoading } = useData();
@@ -121,12 +133,12 @@ export default function Missions() {
   const deleteClient = async (id) => {
     const clientMissions = missions.filter(m => m.client_id === id);
     if (clientMissions.length > 0) { showToast('Impossible : ce client a des missions actives'); return; }
-    if (!confirm('Supprimer ce client ?')) return;
+    if (!window.confirm('Supprimer ce client ?')) return;
     try { await api.deleteClient(id); loadData(); showToast('Client supprimé'); } catch(e) { showToast('Erreur: ' + e.message); }
   };
 
   const deleteMission = async (id) => {
-    if (!confirm('Supprimer cette mission et toutes ses affectations ?')) return;
+    if (!window.confirm('Supprimer cette mission et toutes ses affectations ?')) return;
     try { await api.deleteMission(id); loadData(); showToast('Mission supprimée'); } catch(e) { showToast('Erreur: ' + e.message); }
   };
 
@@ -136,7 +148,7 @@ export default function Missions() {
     if (!assignForm.tjm) { showToast('Le TJM est obligatoire'); return; }
     try {
       const jps = parseFloat(assignForm.jours_par_semaine) || 5;
-      const taux = Math.round(jps / 5 * 100);
+      const taux = tauxFromJPS(jps);
       await api.createAssignment({ ...assignForm, mission_id: assignModal, taux_staffing: taux, jours_par_semaine: jps, tjm: assignForm.tjm ? parseFloat(assignForm.tjm) : null });
       setAssignModal(null);
       loadData();
@@ -151,6 +163,20 @@ export default function Missions() {
 
   const removeAssignment = async (id) => {
     try { await api.deleteAssignment(id); loadData(); showToast('Affectation retirée'); } catch(e) { showToast('Erreur: ' + e.message); }
+  };
+
+  const searchSiren = (q) => {
+    if (!q) return;
+    fetch(`https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(q)}&page=1&per_page=5`)
+      .then(r => r.json())
+      .then(d => {
+        const results = d.results || [];
+        const applySiren = (r) => setClientForm(f => ({...f, nom:r.nom_raison_sociale||r.nom_complet||'', siren:r.siren||'', siret:r.siege?.siret||'', tva_intra:r.siren?`FR${(12+3*(parseInt(r.siren)%97))%97}${r.siren}`:'', adresse:r.siege?.geo_adresse||'', code_postal:r.siege?.code_postal||'', ville:r.siege?.libelle_commune||'', categorie_entreprise:r.categorie_entreprise||'', secteur:''}));
+        if (results.length === 1) { applySiren(results[0]); setSirenResults([]); showToast('Entreprise trouvée !'); }
+        else if (results.length > 1) { setSirenResults(results); }
+        else { showToast('Aucun résultat'); setSirenResults([]); }
+      })
+      .catch(() => showToast('Erreur de recherche'));
   };
 
   if (loading || ctxLoading) return <div style={{maxWidth:600,margin:'40px auto'}}><Skeleton lines={5} /></div>;
@@ -175,19 +201,9 @@ export default function Missions() {
 
   // Financial calculations
   const now = new Date();
-  const currentMonth = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
-  const caPrevu = active.reduce((s,m) => s + (m.assignments||[]).reduce((s2,a) => s2 + ((a.tjm||0) * (a.jours_par_semaine||a.taux_staffing/100*5) * 4.33), 0), 0); // monthly
-  const budgetTotal = missions.reduce((s,m) => s + (m.budget_vendu||0), 0);
-  const budgetConsomme = missions.reduce((s,m) => {
-    return s + (m.assignments||[]).reduce((s2,a) => {
-      // Estimate consumed: TJM × days per week × weeks since start
-      if (!a.date_debut || !a.tjm) return s2;
-      const start = new Date(a.date_debut);
-      const end = a.date_fin ? new Date(Math.min(new Date(a.date_fin), now)) : now;
-      const weeks = Math.max(0, (end - start) / (7*86400000));
-      return s2 + (a.tjm * (a.jours_par_semaine||a.taux_staffing/100*5) * weeks);
-    }, 0);
-  }, 0);
+  const caPrevu = active.reduce((s, m) => s + calcMonthlyCA(m.assignments), 0);
+  const budgetTotal = missions.reduce((s, m) => s + (m.budget_vendu || 0), 0);
+  const budgetConsomme = missions.reduce((s, m) => s + calcConsumedBudget(m.assignments, now), 0);
   const staffingMoyen = collabs.length ? Math.round(Object.values(staffingMap).reduce((s,v) => s+v.taux, 0) / collabs.length) : 0;
 
   // Alerts
@@ -198,13 +214,7 @@ export default function Missions() {
       if (daysLeft >= 0 && daysLeft <= 30) alerts.push({ icon:'⏰', text:`${m.nom} termine dans ${daysLeft}j`, type:'warning' });
     }
     if (m.budget_vendu) {
-      const consumed = (m.assignments||[]).reduce((s,a) => {
-        if (!a.date_debut || !a.tjm) return s;
-        const start = new Date(a.date_debut);
-        const end = a.date_fin ? new Date(Math.min(new Date(a.date_fin), now)) : now;
-        const weeks = Math.max(0, (end - start) / (7*86400000));
-        return s + (a.tjm * (a.jours_par_semaine||a.taux_staffing/100*5) * weeks);
-      }, 0);
+      const consumed = calcConsumedBudget(m.assignments, now);
       if (consumed > m.budget_vendu * 0.9) alerts.push({ icon:'💰', text:`${m.nom} : budget à ${Math.round(consumed/m.budget_vendu*100)}%`, type:'danger' });
     }
   });
@@ -485,7 +495,7 @@ export default function Missions() {
             <div style={{fontSize:'0.75rem',fontWeight:700,color:'var(--muted)',textTransform:'uppercase',marginTop:4}}>Budget restant</div>
           </div>
         </div>
-        <FinanceByClient clients={clients} missions={missions} isMissionActive={isMissionActive} getClientName={getClientName} periodStart={periodStart} periodEnd={periodEnd} />
+        <FinanceByClient clients={clients} missions={missions} isMissionActive={isMissionActive} />
       </div></FadeIn>}
 
       {/* CREATE/EDIT MODAL */}
@@ -528,14 +538,8 @@ export default function Missions() {
       <Modal open={!!detail} onClose={()=>setDetail(null)} title={detail?`${detail.nom} — ${getClientName(detail)}`:''} size="xl">
         {detail && (()=>{
           const team = (detail.assignments||[]).filter(a=>a.statut==='actif');
-          const calcCA = (a) => {
-            if (!a.tjm || !a.date_debut) return 0;
-            const start = new Date(a.date_debut);
-            const end = a.date_fin ? new Date(a.date_fin) : new Date();
-            const weeks = Math.max(0, (end - start) / (7*86400000));
-            return a.tjm * (a.jours_par_semaine || a.taux_staffing/100*5) * weeks;
-          };
-          const calcCAMensuel = (a) => a.tjm ? a.tjm * (a.jours_par_semaine || a.taux_staffing/100*5) * 4.33 : 0;
+          const calcCA = (a) => calcConsumedBudget([a], new Date());
+          const calcCAMensuel = (a) => calcMonthlyCA([{...a, statut:'actif'}]);
           const totalCA = team.reduce((s,a)=>s+calcCA(a),0);
           const totalCAMensuel = team.reduce((s,a)=>s+calcCAMensuel(a),0);
           const totalJours = team.reduce((s,a)=>s+(a.jours_par_semaine||a.taux_staffing/100*5),0);
@@ -687,15 +691,15 @@ export default function Missions() {
         {clientModal==='create' && <div style={{marginBottom:16,padding:'12px 16px',background:'var(--offwhite)',borderRadius:10,border:'1px dashed var(--lavender)'}}>
           <div style={{fontSize:'0.78rem',fontWeight:700,color:'var(--navy)',marginBottom:6}}>🔍 Recherche par SIREN ou raison sociale</div>
           <div style={{display:'flex',gap:6}}>
-            <input id="siren-search" placeholder="SIREN ou nom d'entreprise..." style={{flex:1,border:'1.5px solid var(--lavender)',borderRadius:8,padding:'8px 12px',fontFamily:'inherit',fontSize:'0.85rem'}} onKeyDown={e=>{if(e.key==='Enter'){const q=e.target.value.trim();if(!q)return;fetch(`https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(q)}&page=1&per_page=5`).then(r=>r.json()).then(d=>{const results=d.results||[];if(results.length===1){const r=results[0];setClientForm({...clientForm,nom:r.nom_raison_sociale||r.nom_complet||'',siren:r.siren||'',siret:r.siege?.siret||'',tva_intra:r.siren?`FR${(12+3*(parseInt(r.siren)%97))%97}${r.siren}`:'',adresse:r.siege?.geo_adresse||'',code_postal:r.siege?.code_postal||'',ville:r.siege?.libelle_commune||'',categorie_entreprise:r.categorie_entreprise||'',secteur:''});setSirenResults([]);showToast('Entreprise trouvee !');}else if(results.length>1){setSirenResults(results);}else{showToast('Aucun resultat');setSirenResults([]);}}).catch(()=>showToast('Erreur de recherche'));}}} />
-            <button className="btn btn-ghost btn-sm" onClick={()=>{const q=document.getElementById('siren-search')?.value?.trim();if(!q)return;fetch(`https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(q)}&page=1&per_page=5`).then(r=>r.json()).then(d=>{const results=d.results||[];if(results.length===1){const r=results[0];setClientForm({...clientForm,nom:r.nom_raison_sociale||r.nom_complet||'',siren:r.siren||'',siret:r.siege?.siret||'',tva_intra:r.siren?`FR${(12+3*(parseInt(r.siren)%97))%97}${r.siren}`:'',adresse:r.siege?.geo_adresse||'',code_postal:r.siege?.code_postal||'',ville:r.siege?.libelle_commune||'',categorie_entreprise:r.categorie_entreprise||'',secteur:''});setSirenResults([]);showToast('Entreprise trouvee !');}else if(results.length>1){setSirenResults(results);}else{showToast('Aucun resultat');setSirenResults([]);}}).catch(()=>showToast('Erreur de recherche'))}}>Rechercher</button>
+            <input id="siren-search" placeholder="SIREN ou nom d'entreprise..." style={{flex:1,border:'1.5px solid var(--lavender)',borderRadius:8,padding:'8px 12px',fontFamily:'inherit',fontSize:'0.85rem'}} onKeyDown={e=>{if(e.key==='Enter') searchSiren(e.target.value.trim());}} />
+            <button className="btn btn-ghost btn-sm" onClick={()=>searchSiren(document.getElementById('siren-search')?.value?.trim())}>Rechercher</button>
           </div>
           {sirenResults.length > 1 && <div style={{marginTop:8,maxHeight:200,overflowY:'auto',border:'1px solid var(--lavender)',borderRadius:8}}>
             <div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--navy)',padding:'8px 10px',borderBottom:'1px solid var(--lavender)'}}>Plusieurs résultats — choisissez :</div>
             {sirenResults.map((r,i)=>(
               <div key={i} style={{padding:'8px 10px',borderBottom:'1px solid var(--lavender)',cursor:'pointer',fontSize:'0.78rem',transition:'background 0.1s'}}
                 onMouseOver={e=>e.currentTarget.style.background='var(--offwhite)'} onMouseOut={e=>e.currentTarget.style.background=''}
-                onClick={()=>{setClientForm({...clientForm,nom:r.nom_raison_sociale||r.nom_complet||'',siren:r.siren||'',siret:r.siege?.siret||'',tva_intra:r.siren?`FR${(12+3*(parseInt(r.siren)%97))%97}${r.siren}`:'',adresse:r.siege?.geo_adresse||'',code_postal:r.siege?.code_postal||'',ville:r.siege?.libelle_commune||'',categorie_entreprise:r.categorie_entreprise||'',secteur:''});setSirenResults([]);showToast('Entreprise sélectionnée !');}}>
+                onClick={()=>{setClientForm(f=>({...f,nom:r.nom_raison_sociale||r.nom_complet||'',siren:r.siren||'',siret:r.siege?.siret||'',tva_intra:r.siren?`FR${(12+3*(parseInt(r.siren)%97))%97}${r.siren}`:'',adresse:r.siege?.geo_adresse||'',code_postal:r.siege?.code_postal||'',ville:r.siege?.libelle_commune||'',categorie_entreprise:r.categorie_entreprise||'',secteur:''}));setSirenResults([]);showToast('Entreprise sélectionnée !');}}>
                 <div style={{fontWeight:700,color:'var(--navy)'}}>{r.nom_raison_sociale||r.nom_complet}</div>
                 <div style={{color:'var(--muted)',fontSize:'0.7rem'}}>SIREN {r.siren} · {r.siege?.libelle_commune||'—'} · {r.categorie_entreprise||'—'}</div>
               </div>
@@ -752,14 +756,7 @@ function MissionCard({ m, collabs, onEdit, onDelete, onAssign, onRemoveAssign, o
   const todayStr = new Date().toISOString().split('T')[0];
   const isActive = !m.date_fin || m.date_fin >= todayStr;
   const daysLeft = m.date_fin ? Math.ceil((new Date(m.date_fin) - new Date()) / 86400000) : null;
-  // Budget progress
-  const consumed = (m.assignments||[]).reduce((s,a) => {
-    if (!a.date_debut || !a.tjm) return s;
-    const start = new Date(a.date_debut);
-    const end = a.date_fin ? new Date(Math.min(new Date(a.date_fin), new Date())) : new Date();
-    const weeks = Math.max(0, (end - start) / (7*86400000));
-    return s + (a.tjm * (a.jours_par_semaine||a.taux_staffing/100*5) * weeks);
-  }, 0);
+  const consumed = calcConsumedBudget(m.assignments, new Date());
   const budgetPct = m.budget_vendu > 0 ? Math.round(consumed/m.budget_vendu*100) : null;
 
   return (
@@ -919,6 +916,8 @@ function TimelineView({ missions, collabs, staffingMap, allMissions, clients, gr
 
   const stickyStyle = {position:'sticky',left:0,background:'var(--white)',zIndex:1};
 
+  if (rows.length === 0) return <div style={{padding:32,textAlign:'center',color:'var(--muted)',fontSize:'0.85rem'}}>Aucune donnée à afficher pour cette période</div>;
+
   return (
     <div>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 18px',borderBottom:'1px solid var(--lavender)'}}>
@@ -1006,29 +1005,25 @@ function TimelineView({ missions, collabs, staffingMap, allMissions, clients, gr
   );
 }
 
-/** Finance par client — utilise la période globale */
-function FinanceByClient({ clients, missions, isMissionActive, getClientName, periodStart, periodEnd }) {
+/** Finance par client */
+function FinanceByClient({ clients, missions, isMissionActive }) {
   const activeMissions = missions.filter(isMissionActive);
 
   const clientData = clients.map(c => {
     const cMissions = activeMissions.filter(m => m.client_id === c.id);
-    const budget = cMissions.reduce((s,m) => s+(m.budget_vendu||0), 0);
-    const caMonth = cMissions.reduce((s,m) => s + (m.assignments||[]).reduce((s2,a) => {
-      if (!a.tjm) return s2;
-      return s2 + (a.tjm * (a.jours_par_semaine || a.taux_staffing/100*5) * 4.33);
-    }, 0), 0);
-    const nbCollabs = new Set(cMissions.flatMap(m => (m.assignments||[]).filter(a=>a.statut==='actif').map(a=>a.collaborateur_id))).size;
+    const budget = cMissions.reduce((s, m) => s + (m.budget_vendu || 0), 0);
+    const caMonth = cMissions.reduce((s, m) => s + calcMonthlyCA(m.assignments), 0);
+    const nbCollabs = new Set(cMissions.flatMap(m => (m.assignments || []).filter(a => a.statut === 'actif').map(a => a.collaborateur_id))).size;
     return { client: c, missions: cMissions, budget, caMonth, nbCollabs };
-  }).filter(d => d.missions.length > 0).sort((a,b) => b.caMonth - a.caMonth);
+  }).filter(d => d.missions.length > 0).sort((a, b) => b.caMonth - a.caMonth);
 
-  const totalCA = clientData.reduce((s,d) => s+d.caMonth, 0);
-
+  const totalCA = clientData.reduce((s, d) => s + d.caMonth, 0);
   const [expandedClient, setExpandedClient] = useState(null);
 
   return (
     <div>
       <div className="section-title">CA par client</div>
-      <div style={{fontSize:'0.82rem',color:'var(--muted)',marginBottom:12}}>CA mensuel estimé total : <strong style={{color:'var(--navy)',fontSize:'1rem'}}>{Math.round(totalCA).toLocaleString('fr-FR')} €</strong> · {activeMissions.length} missions sur la période</div>
+      <div style={{fontSize:'0.82rem',color:'var(--muted)',marginBottom:12}}>CA mensuel estimé total : <strong style={{color:'var(--navy)',fontSize:'1rem'}}>{fmtEuro(Math.round(totalCA))}</strong> · {activeMissions.length} missions sur la période</div>
       <div className="card" style={{overflowX:'auto'}}>
         <table>
           <thead><tr><th>Client</th><th>Missions</th><th>Collabs</th><th>Budget total</th><th>CA mensuel est.</th><th></th></tr></thead>
@@ -1038,8 +1033,8 @@ function FinanceByClient({ clients, missions, isMissionActive, getClientName, pe
                 <td style={{fontWeight:700,color:'var(--navy)'}}>{d.client.nom}</td>
                 <td>{d.missions.length}</td>
                 <td>{d.nbCollabs}</td>
-                <td style={{fontWeight:600}}>{d.budget ? d.budget.toLocaleString('fr-FR')+' €' : '—'}</td>
-                <td style={{fontWeight:700,color:'var(--blue)'}}>{Math.round(d.caMonth).toLocaleString('fr-FR')} €</td>
+                <td style={{fontWeight:600}}>{fmtEuro(d.budget)}</td>
+                <td style={{fontWeight:700,color:'var(--blue)'}}>{fmtEuro(Math.round(d.caMonth))}</td>
                 <td style={{color:'var(--muted)'}}>{expandedClient===d.client.id ? '▲' : '▼'}</td>
               </tr>
               {expandedClient===d.client.id && d.missions.map(m => (
@@ -1047,8 +1042,8 @@ function FinanceByClient({ clients, missions, isMissionActive, getClientName, pe
                   <td style={{paddingLeft:32,color:'var(--muted)'}}>{m.nom}</td>
                   <td>{(m.assignments||[]).filter(a=>a.statut==='actif').length}</td>
                   <td></td>
-                  <td style={{color:'var(--muted)'}}>{m.budget_vendu ? m.budget_vendu.toLocaleString('fr-FR')+' €' : '—'}</td>
-                  <td style={{color:'var(--muted)'}}>{Math.round((m.assignments||[]).reduce((s,a)=>s+((a.tjm||0)*(a.jours_par_semaine||a.taux_staffing/100*5)*4.33),0)).toLocaleString('fr-FR')} €</td>
+                  <td style={{color:'var(--muted)'}}>{fmtEuro(m.budget_vendu)}</td>
+                  <td style={{color:'var(--muted)'}}>{fmtEuro(Math.round(calcMonthlyCA(m.assignments)))}</td>
                   <td></td>
                 </tr>
               ))}
