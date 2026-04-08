@@ -26,6 +26,7 @@ export default function CollabAccueil() {
 
   const [loading, setLoading] = useState(true);
   const [teamPendingAbs, setTeamPendingAbs] = useState([]);
+  const [staffingGlobal, setStaffingGlobal] = useState(null);
 
   // Expose setTab for notification navigation
   useEffect(() => { window.__collabSetTab = setTab; return () => { delete window.__collabSetTab; }; }, []);
@@ -69,8 +70,7 @@ export default function CollabAccueil() {
     }).catch(() => setLoading(false));
   }, [authUser]);
 
-  // Staffing global depuis le 1er janvier ou date d'entrée (MUST be before any conditional return)
-  const [staffingGlobal, setStaffingGlobal] = useState(null);
+  // Staffing global depuis le 1er janvier ou date d'entrée
   useEffect(() => {
     if (!selectedId) return;
     const collab = collabs.find(x => x.id === selectedId);
