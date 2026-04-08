@@ -562,6 +562,8 @@ export function generateGuideCollab() {
       <li><strong>3.</strong> Entretien RH mensuel</li>
       <li><strong>4.</strong> Mes Conges</li>
       <li><strong>5.</strong> Management (si manager)</li>
+      <li><strong>6.</strong> Notifications</li>
+      <li><strong>7.</strong> Connexion</li>
     </ul>`;
 
     // ── 1. Accueil ──
@@ -787,15 +789,29 @@ export function generateGuideCollab() {
     </ul>
     <h3>Nouvelle demande</h3>
     <ul>
-      <li><strong>Types</strong> : Conge paye, RTT, Maladie, Sans solde, Autre</li>
-      <li><strong>Dates</strong> : selectionnez debut et fin, le nombre de jours ouvres est calcule automatiquement</li>
-      <li><strong>Commentaire</strong> : ajoutez un message pour votre manager (facultatif)</li>
+      <li><strong>Types</strong> : Conge paye, RTT, Maladie, Sans solde, Autre (types configurables par l'admin)</li>
+      <li><strong>Dates</strong> : selectionnez debut et fin, le nombre de jours ouvres est calcule automatiquement (weekends et jours feries exclus)</li>
+      <li><strong>Demi-journee</strong> : possibilite de poser une matinee (AM) ou un apres-midi (PM) — compte 0.5 jour</li>
+      <li><strong>Commentaire</strong> : ajoutez un message pour votre manager (obligatoire pour le type "Autre")</li>
+      <li><strong>Verifications</strong> : solde suffisant, pas de chevauchement, pas de dates dans le passe</li>
     </ul>
     <h3>Statuts</h3>
     <ul>
-      <li><span style="color:#22C55E;font-weight:700">Accepte</span> : votre demande a ete validee</li>
-      <li><span style="color:#F97316;font-weight:700">En attente</span> : votre manager n'a pas encore traite la demande</li>
-      <li><span style="color:#EF4444;font-weight:700">Refuse</span> : la demande a ete refusee (un motif est visible)</li>
+      <li><span style="color:#22C55E;font-weight:700">Approuve</span> : demande validee — lien "Ajouter a l'agenda" disponible</li>
+      <li><span style="color:#F97316;font-weight:700">En attente</span> : pas encore traitee — modifiable ou supprimable</li>
+      <li><span style="color:#EF4444;font-weight:700">Refuse</span> : refusee avec motif visible</li>
+      <li><span style="color:#8F8FBC;font-weight:700">Annule</span> : annulee suite a votre demande</li>
+    </ul>
+    <h3>Modifier ou annuler</h3>
+    <ul>
+      <li><strong>En attente</strong> : modifiez librement (✏️) ou supprimez (✕)</li>
+      <li><strong>Approuvee</strong> : demandez une annulation avec motif — validee par le manager/admin</li>
+    </ul>
+    <h3>Calendriers et export</h3>
+    <ul>
+      <li><strong>Mon calendrier</strong> : vue mensuelle avec couleurs par statut, jours feries et fermetures</li>
+      <li><strong>Calendrier d'equipe</strong> : absences des collegues de vos equipes</li>
+      <li><strong>Export ICS</strong> : telechargez vos conges au format calendrier (.ics)</li>
     </ul>`;
 
     // ── 5. Management ──
@@ -858,6 +874,29 @@ export function generateGuideCollab() {
       <li>Les entretiens suivent les objectifs et permettent un suivi individuel</li>
     </ul>
     <div class="tip">💡 <strong>Astuce :</strong> Traitez les demandes de conges rapidement — vos collaborateurs verront le statut mis a jour en temps reel.</div>`;
+
+    // ── 6. Notifications ──
+    html += `<div class="page-break"></div>`;
+    html += `<h2>6. 🔔 Notifications</h2>
+    <p>La cloche dans le header vous alerte des evenements importants.</p>
+    <h3>Types de notifications</h3>
+    <ul>
+      <li>✅ <strong>Conge approuve</strong> : avec le nom de la personne qui a valide</li>
+      <li>❌ <strong>Conge refuse</strong> : avec le motif du refus</li>
+      <li>📋 <strong>Entretien RH a remplir</strong> : rappel mensuel</li>
+      <li>🎯 <strong>Objectif modifie</strong> : quand votre manager modifie un objectif</li>
+      <li>⚠️ <strong>Solde conges faible</strong> : alerte si moins de 3 jours</li>
+      <li>🔔 <strong>Demandes equipe</strong> (managers) : conges en attente de validation</li>
+    </ul>
+    <p>Cliquez sur <strong>"Tout marquer comme lu"</strong> pour effacer le badge rouge. Cliquez sur une notification pour naviguer vers la section concernee.</p>`;
+
+    // ── 7. Connexion ──
+    html += `<h2>7. 🔐 Connexion</h2>
+    <ul>
+      <li>Connectez-vous avec votre compte Google <strong>@hello-pomelo.com</strong></li>
+      <li>Votre session est conservee entre les visites (pas besoin de se reconnecter a chaque fois)</li>
+      <li>L'application est installable sur votre telephone (PWA) : sur iPhone, utilisez Safari > Partager > "Sur l'ecran d'accueil"</li>
+    </ul>`;
 
     return html;
   });

@@ -9,7 +9,7 @@ export class CollaborateursService {
     const { data, error } = await this.supabase.db
       .from('collaborateurs')
       .select('*, points_suivi(*), objectifs(*)');
-    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+    if (error) throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     return data;
   }
 

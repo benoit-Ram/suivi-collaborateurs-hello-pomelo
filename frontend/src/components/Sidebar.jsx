@@ -11,6 +11,7 @@ export default function Sidebar() {
   const [search, setSearch] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [dark, setDark] = useState(localStorage.getItem('hp_theme')==='dark');
+  const [collapsed, setCollapsed] = useState(localStorage.getItem('hp_sidebar_collapsed')==='true');
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
   const searchRef = useRef(null);
@@ -21,6 +22,8 @@ export default function Sidebar() {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : '');
+    document.documentElement.style.setProperty('--sidebar-w', collapsed ? '0px' : '240px');
+    localStorage.setItem('hp_sidebar_collapsed', collapsed ? 'true' : 'false');
     localStorage.setItem('hp_theme', dark ? 'dark' : 'light');
   }, [dark]);
 
@@ -39,18 +42,24 @@ export default function Sidebar() {
     { to: '/admin/collaborateurs', icon: '👥', label: 'Collaborateurs' },
     { to: '/admin/organigramme', icon: '🗂️', label: 'Organigramme' },
     { to: '/admin/objectifs', icon: '🎯', label: 'Objectifs' },
+    { to: '/admin/missions', icon: '🚀', label: 'Missions' },
     { to: '/admin/absences', icon: '🏖️', label: 'Congés', badge: pendingAbs },
     { to: '/admin/settings', icon: '⚙️', label: 'Paramètres' },
   ];
 
   const sidebarContent = (
     <>
-      <NavLink to="/admin" onClick={()=>setMobileOpen(false)} style={{ textDecoration:'none', padding:'24px 20px', borderBottom:'1px solid rgba(255,255,255,0.1)' }}>
-        <div style={{ color:'white', fontWeight:700, fontSize:'1rem', textTransform:'uppercase', letterSpacing:'0.08em' }}>Hello Pomelo</div>
-        <div style={{ color:'#8F8FBC', fontSize:'0.72rem', marginTop:2, fontWeight:600 }}>Suivi Collaborateurs</div>
-      </NavLink>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding: collapsed?'16px 8px':'24px 20px', borderBottom:'1px solid rgba(255,255,255,0.1)' }}>
+        <NavLink to="/admin" onClick={()=>setMobileOpen(false)} style={{ textDecoration:'none', flex:1 }}>
+          {collapsed ? <div style={{color:'white',fontWeight:700,fontSize:'1.2rem',textAlign:'center'}}>HP</div> : <>
+            <div style={{ color:'white', fontWeight:700, fontSize:'1rem', textTransform:'uppercase', letterSpacing:'0.08em' }}>Hello Pomelo</div>
+            <div style={{ color:'#8F8FBC', fontSize:'0.72rem', marginTop:2, fontWeight:600 }}>Suivi Collaborateurs</div>
+          </>}
+        </NavLink>
+        <button onClick={()=>setCollapsed(!collapsed)} className="hide-on-mobile" style={{background:'none',border:'none',color:'#8F8FBC',cursor:'pointer',fontSize:'0.9rem',padding:4,flexShrink:0}} title={collapsed?'Ouvrir le menu':'Réduire le menu'}>{collapsed?'▶':'◀'}</button>
+      </div>
 
-      <div style={{ padding:'8px 12px', position:'relative' }}>
+      {!collapsed && <div style={{ padding:'8px 12px', position:'relative' }}>
         <input value={search} onChange={e => { setSearch(e.target.value); setShowResults(true); }}
           onFocus={() => setShowResults(true)}
           onBlur={() => setTimeout(()=>setShowResults(false), 200)}
@@ -69,22 +78,22 @@ export default function Sidebar() {
             ))}
           </div>
         )}
-      </div>
+      </div>}
 
-      <div style={{ flex:1, padding:'16px 12px', display:'flex', flexDirection:'column', gap:4 }}>
-        <span style={{ fontSize:'0.65rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.1em', color:'#8F8FBC', padding:'12px 8px 6px' }}>Navigation</span>
+      <div style={{ flex:1, padding:collapsed?'8px 4px':'16px 12px', display:'flex', flexDirection:'column', gap:4 }}>
+        {!collapsed && <span style={{ fontSize:'0.65rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.1em', color:'#8F8FBC', padding:'12px 8px 6px' }}>Navigation</span>}
         {navItems.map(item => (
-          <NavLink key={item.to} to={item.to} end={item.end} onClick={()=>setMobileOpen(false)}
-            style={({ isActive }) => ({ display:'flex', alignItems:'center', gap:10, padding:'12px 12px', borderRadius:10, cursor:'pointer', transition:'all 0.15s', color: isActive?'#FF3285':'rgba(255,255,255,0.65)', background: isActive?'rgba(255,50,133,0.2)':'transparent', fontSize:'0.88rem', fontWeight:600, textDecoration:'none', fontFamily:'inherit' })}>
-            <span style={{ fontSize:'1rem', width:20, textAlign:'center' }}>{item.icon}</span>
-            <span style={{ flex:1 }}>{item.label}</span>
-            {item.badge > 0 && <span style={{ background:'var(--pink)', color:'white', fontSize:'0.65rem', fontWeight:800, padding:'2px 7px', borderRadius:99 }}>{item.badge}</span>}
+          <NavLink key={item.to} to={item.to} end={item.end} onClick={()=>setMobileOpen(false)} title={collapsed?item.label:''}
+            style={({ isActive }) => ({ display:'flex', alignItems:'center', gap:collapsed?0:10, padding:collapsed?'10px 0':'12px 12px', justifyContent:collapsed?'center':'flex-start', borderRadius:10, cursor:'pointer', transition:'all 0.15s', color: isActive?'#FF3285':'rgba(255,255,255,0.65)', background: isActive?'rgba(255,50,133,0.2)':'transparent', fontSize:'0.88rem', fontWeight:600, textDecoration:'none', fontFamily:'inherit', position:'relative' })}>
+            <span style={{ fontSize:collapsed?'1.2rem':'1rem', width:20, textAlign:'center' }}>{item.icon}</span>
+            {!collapsed && <span style={{ flex:1 }}>{item.label}</span>}
+            {item.badge > 0 && <span style={{ background:'var(--pink)', color:'white', fontSize:'0.6rem', fontWeight:800, padding:'1px 5px', borderRadius:99, position:collapsed?'absolute':'static', top:collapsed?2:undefined, right:collapsed?2:undefined }}>{item.badge}</span>}
           </NavLink>
         ))}
       </div>
 
-      {/* User info */}
-      {user && (
+      {/* User info — hidden when collapsed */}
+      {!collapsed && user && (
         <div style={{ padding:'12px 16px', borderTop:'1px solid rgba(255,255,255,0.1)' }}>
           <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
             {user.picture ? <img src={user.picture} alt="" style={{ width:32, height:32, borderRadius:'50%', objectFit:'cover' }} />
@@ -100,8 +109,8 @@ export default function Sidebar() {
           </div>
         </div>
       )}
-      <div style={{ padding:'8px 16px', borderTop:'1px solid rgba(255,255,255,0.06)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-        <span style={{ fontSize:'0.55rem', color:'#8F8FBC', fontWeight:600 }}>© 2026 · v{APP_VERSION} · {BUILD_DATE}</span>
+      <div style={{ padding:collapsed?'8px 4px':'8px 16px', borderTop:'1px solid rgba(255,255,255,0.06)', display:'flex', justifyContent:collapsed?'center':'space-between', alignItems:'center' }}>
+        {!collapsed && <span style={{ fontSize:'0.55rem', color:'#8F8FBC', fontWeight:600 }}>© 2026 · v{APP_VERSION} · {BUILD_DATE}</span>}
         <button onClick={() => setDark(!dark)} style={{ background:'none', border:'none', fontSize:'1rem', cursor:'pointer' }}>{dark?'☀️':'🌙'}</button>
       </div>
     </>
@@ -126,7 +135,10 @@ export default function Sidebar() {
       }} />}
 
       {/* Desktop sidebar — hidden via CSS on mobile */}
-      <nav className="sidebar-desktop" style={{ width:'var(--sidebar-w)', minHeight:'100vh', background:'#05056D', display:'flex', flexDirection:'column', position:'fixed', left:0, top:0, zIndex:100 }}>
+      {/* Toggle button when collapsed */}
+      {collapsed && <button onClick={()=>setCollapsed(false)} className="sidebar-desktop" style={{ position:'fixed', top:12, left:12, zIndex:101, width:40, height:40, borderRadius:10, border:'none', background:'#05056D', color:'white', fontSize:'1.1rem', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 4px 14px rgba(5,5,109,0.3)' }}>☰</button>}
+
+      <nav className="sidebar-desktop" style={{ width:'var(--sidebar-w)', minHeight:'100vh', background:'#05056D', display:collapsed?'none':'flex', flexDirection:'column', position:'fixed', left:0, top:0, zIndex:100, transition:'width 0.2s' }}>
         {sidebarContent}
       </nav>
 

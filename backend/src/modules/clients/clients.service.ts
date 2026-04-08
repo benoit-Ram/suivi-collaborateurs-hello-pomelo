@@ -2,15 +2,15 @@ import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { SupabaseService } from '../../config/supabase.service';
 
 @Injectable()
-export class ObjectifsService {
+export class ClientsService {
   constructor(private supabase: SupabaseService) {}
 
-  private static readonly ALLOWED_FILTERS = ['collaborateur_id', 'statut', 'type'];
+  private static readonly ALLOWED_FILTERS = ['nom', 'statut'];
 
   async findAll(filters?: Record<string, string>) {
-    let query = this.supabase.db.from('objectifs').select('*').order('created_at', { ascending: false });
+    let query = this.supabase.db.from('clients').select('*, missions(id, nom, statut, date_debut, date_fin)').order('nom', { ascending: true });
     if (filters) {
-      Object.entries(filters).forEach(([key, val]) => { if (val && ObjectifsService.ALLOWED_FILTERS.includes(key)) query = query.eq(key, val); });
+      Object.entries(filters).forEach(([key, val]) => { if (val && ClientsService.ALLOWED_FILTERS.includes(key)) query = query.eq(key, val); });
     }
     const { data, error } = await query;
     if (error) throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -18,25 +18,25 @@ export class ObjectifsService {
   }
 
   async findOne(id: string) {
-    const { data, error } = await this.supabase.db.from('objectifs').select('*').eq('id', id).single();
+    const { data, error } = await this.supabase.db.from('clients').select('*, missions(*, assignments(*, collaborateurs:collaborateur_id(id, prenom, nom, photo_url, poste)))').eq('id', id).single();
     if (error) throw new HttpException(error.message, HttpStatus.NOT_FOUND);
     return data;
   }
 
   async create(dto: any) {
-    const { data, error } = await this.supabase.db.from('objectifs').insert(dto).select().single();
+    const { data, error } = await this.supabase.db.from('clients').insert(dto).select().single();
     if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
     return data;
   }
 
   async update(id: string, dto: any) {
-    const { data, error } = await this.supabase.db.from('objectifs').update(dto).eq('id', id).select().single();
+    const { data, error } = await this.supabase.db.from('clients').update(dto).eq('id', id).select().single();
     if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
     return data;
   }
 
   async delete(id: string) {
-    const { error } = await this.supabase.db.from('objectifs').delete().eq('id', id);
+    const { error } = await this.supabase.db.from('clients').delete().eq('id', id);
     if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
     return { success: true };
   }

@@ -22,10 +22,12 @@ async function request(path, options = {}) {
   });
 
   if (res.status === 401) {
-    // Token expired or invalid — clear session (no hard reload to avoid loops)
+    // Token expired or invalid — clear session and redirect via React Router
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem('hp_auth_session');
-    throw new Error('Session expirée');
+    // Dispatch event so AuthContext can handle the redirect
+    window.dispatchEvent(new Event('auth-expired'));
+    throw new Error('Session expirée, reconnectez-vous');
   }
 
   if (!res.ok) {
@@ -67,4 +69,29 @@ export const api = {
   getSettings: () => request('/settings'),
   updateSetting: (id, data) => request(`/settings/${id}`, { method: 'PUT', body: data }),
   upsertSetting: (key, value) => request('/settings/upsert', { method: 'POST', body: { key, value } }),
+
+  // Clients
+  getClients: () => request('/clients'),
+  getClient: (id) => request(`/clients/${id}`),
+  createClient: (data) => request('/clients', { method: 'POST', body: data }),
+  updateClient: (id, data) => request(`/clients/${id}`, { method: 'PUT', body: data }),
+  deleteClient: (id) => request(`/clients/${id}`, { method: 'DELETE' }),
+
+  // Missions
+  getMissions: (filters) => request('/missions?' + new URLSearchParams(filters || {})),
+  getMission: (id) => request(`/missions/${id}`),
+  createMission: (data) => request('/missions', { method: 'POST', body: data }),
+  updateMission: (id, data) => request(`/missions/${id}`, { method: 'PUT', body: data }),
+  deleteMission: (id) => request(`/missions/${id}`, { method: 'DELETE' }),
+
+  // Assignments
+  getAssignments: (filters) => request('/assignments?' + new URLSearchParams(filters || {})),
+  createAssignment: (data) => request('/assignments', { method: 'POST', body: data }),
+  updateAssignment: (id, data) => request(`/assignments/${id}`, { method: 'PUT', body: data }),
+  deleteAssignment: (id) => request(`/assignments/${id}`, { method: 'DELETE' }),
+
+  // Time Entries
+  getTimeEntries: (filters) => request('/time-entries?' + new URLSearchParams(filters || {})),
+  createTimeEntry: (data) => request('/time-entries', { method: 'POST', body: data }),
+  updateTimeEntry: (id, data) => request(`/time-entries/${id}`, { method: 'PUT', body: data }),
 };

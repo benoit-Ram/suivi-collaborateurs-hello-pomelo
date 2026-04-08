@@ -42,7 +42,9 @@ export function DataProvider({ children }) {
             contenu: 'Entretien RH ' + cm,
           }));
           for (const row of rows) {
-            try { await api.createPointSuivi(row); } catch(e) { /* ignore duplicates */ }
+            try { await api.createPointSuivi(row); } catch(e) {
+              if (!e.message?.includes('duplicate') && !e.message?.includes('unique')) console.warn('Auto-create entretien failed:', e.message);
+            }
           }
         } catch(e) { console.warn('Auto-create entretiens:', e); }
       }
@@ -54,9 +56,11 @@ export function DataProvider({ children }) {
 
   useEffect(() => { reload(); }, [reload]);
 
+  const toastTimerRef = React.useRef(null);
   const showToast = useCallback((msg) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast(msg);
-    setTimeout(() => setToast(''), 2500);
+    toastTimerRef.current = setTimeout(() => setToast(''), 2500);
   }, []);
 
   const getCollab = useCallback((id) => collabs.find(c => c.id === id), [collabs]);

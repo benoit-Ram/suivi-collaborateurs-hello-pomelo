@@ -143,3 +143,105 @@ ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS solde_rtt numeric DEFAULT 0;
 -- Cycle de congés (date de début du cycle, optionnel)
 ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS cycle_conges_debut date;
 ```
+
+## Migration v9 — Missions & Staffing
+
+```sql
+-- Missions (projets clients)
+CREATE TABLE IF NOT EXISTS missions (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  nom text NOT NULL,
+  client text NOT NULL,
+  description text,
+  categorie text,
+  statut text DEFAULT 'en_cours',
+  date_debut date,
+  date_fin date,
+  tjm numeric,
+  budget_vendu numeric,
+  methode_facturation text,
+  responsable_id uuid REFERENCES collaborateurs(id),
+  created_at timestamptz DEFAULT now()
+);
+
+-- Affectations (collaborateur ↔ mission)
+CREATE TABLE IF NOT EXISTS assignments (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  mission_id uuid REFERENCES missions(id) ON DELETE CASCADE,
+  collaborateur_id uuid REFERENCES collaborateurs(id) ON DELETE CASCADE,
+  role text,
+  taux_staffing numeric DEFAULT 100,
+  tjm numeric,
+  date_debut date,
+  date_fin date,
+  statut text DEFAULT 'actif',
+  created_at timestamptz DEFAULT now()
+);
+
+-- Feuilles de temps
+CREATE TABLE IF NOT EXISTS time_entries (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  assignment_id uuid REFERENCES assignments(id) ON DELETE CASCADE,
+  collaborateur_id uuid REFERENCES collaborateurs(id),
+  date date NOT NULL,
+  temps_prevu numeric DEFAULT 1,
+  temps_reel numeric,
+  commentaire text,
+  statut text DEFAULT 'planifie',
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(assignment_id, date)
+);
+```
+
+## Migration v10 — Clients + restructuration missions
+
+```sql
+-- Table clients
+CREATE TABLE IF NOT EXISTS clients (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  nom text NOT NULL,
+  description text,
+  secteur text,
+  contact_nom text,
+  contact_email text,
+  actif boolean DEFAULT true,
+  created_at timestamptz DEFAULT now()
+);
+
+-- Ajouter client_id FK sur missions (remplace le champ texte 'client')
+ALTER TABLE missions ADD COLUMN IF NOT EXISTS client_id uuid REFERENCES clients(id);
+
+-- Migrer les données existantes : créer un client pour chaque valeur unique de 'client'
+INSERT INTO clients (nom)
+SELECT DISTINCT client FROM missions WHERE client IS NOT NULL AND client != ''
+ON CONFLICT DO NOTHING;
+
+-- Mettre à jour client_id
+UPDATE missions SET client_id = c.id FROM clients c WHERE missions.client = c.nom AND missions.client_id IS NULL;
+
+-- Granularité fine des affectations
+ALTER TABLE assignments ADD COLUMN IF NOT EXISTS jours_par_semaine numeric DEFAULT 5;
+```
+
+## Migration v11 — Enrichissement clients
+
+```sql
+-- Renommer nom → raison_sociale (conceptuellement, on garde 'nom' en base pour compatibilité)
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS siren text;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS tva_intra text;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS adresse text;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS code_postal text;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS ville text;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS referent_id uuid REFERENCES collaborateurs(id);
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact_signature_nom text;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact_signature_email text;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact_signature_tel text;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact_facturation_nom text;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact_facturation_email text;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact_facturation_tel text;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS siret text;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS categorie_entreprise text;
+
+-- Lien proposition commerciale sur les missions
+ALTER TABLE missions ADD COLUMN IF NOT EXISTS lien_propale text;
+```

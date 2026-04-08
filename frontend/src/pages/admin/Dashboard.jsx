@@ -1,13 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../../services/DataContext';
+import { api } from '../../services/api';
 import { Avatar, StatCard, PageHeader, EmptyState, Badge, ProgressBar, Skeleton, currentMois, moisLabel, fmtDate, STATUS_LABELS, ABS_TYPES } from '../../components/UI';
 
 export default function Dashboard() {
   const { collabs, absences, loading, settings } = useData();
   const [search, setSearch] = useState('');
   const [filterEquipe, setFilterEquipe] = useState('');
+  const [staffingMoyen, setStaffingMoyen] = useState(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    api.getMissions().then(missions => {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const activeMissions = (missions||[]).filter(m => (!m.date_fin || m.date_fin >= todayStr));
+      const taux = {};
+      collabs.forEach(c => { taux[c.id] = 0; });
+      activeMissions.forEach(m => {
+        (m.assignments||[]).filter(a=>a.statut==='actif').forEach(a => {
+          if (taux[a.collaborateur_id] !== undefined) taux[a.collaborateur_id] += (a.taux_staffing||0);
+        });
+      });
+      const vals = Object.values(taux);
+      setStaffingMoyen(vals.length ? Math.round(vals.reduce((s,v)=>s+v,0)/vals.length) : 0);
+    }).catch(e => console.error('Staffing load error:', e));
+  }, [collabs]);
 
   if (loading) return <div style={{maxWidth:600,margin:'40px auto'}}><Skeleton lines={5} /></div>;
 
@@ -104,6 +122,7 @@ export default function Dashboard() {
         <StatCard value={thisMonth} label="Arrivées ce mois" color="blue" />
         <StatCard value={`${pointsComplete}/${total}`} label="Points complets" color="skyblue" />
         <StatCard value={pendingAbs} label="Congés en attente" color="orange" />
+        {staffingMoyen !== null && <StatCard value={`${staffingMoyen}%`} label="Staffing moyen" color="blue" />}
       </div>
 
       {/* Alerts — grouped by type */}

@@ -3,9 +3,11 @@ import { OAuth2Client } from 'google-auth-library';
 import * as jwt from 'jsonwebtoken';
 import { SupabaseService } from '../../config/supabase.service';
 
-const GOOGLE_CLIENT_ID = '583500042273-qg3a9puk3prhl3hbqfr2jbbtljcgorco.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+if (!GOOGLE_CLIENT_ID) throw new Error('GOOGLE_CLIENT_ID environment variable is required. Set it in backend/.env');
 const SUPER_ADMIN_EMAIL = 'benoit@hello-pomelo.com';
-const JWT_SECRET = process.env.JWT_SECRET || 'hp-suivi-collab-secret-change-me-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) throw new Error('JWT_SECRET environment variable is required. Set it in backend/.env');
 const JWT_EXPIRY = '24h';
 
 @Injectable()
@@ -38,13 +40,13 @@ export class AuthService {
     }
 
     // Find collaborateur by email (case-insensitive)
-    const { data: collab } = await this.supabase.db
+    const { data: collab, error: collabError } = await this.supabase.db
       .from('collaborateurs')
       .select('id, email, prenom, nom, is_admin, photo_url')
       .ilike('email', payload.email.toLowerCase())
       .single();
 
-    if (!collab) throw new UnauthorizedException(`Aucun collaborateur pour ${payload.email}`);
+    if (collabError || !collab) throw new UnauthorizedException(`Aucun collaborateur pour ${payload.email}`);
 
     const isSuperAdmin = payload.email.toLowerCase() === SUPER_ADMIN_EMAIL;
     const isAdmin = isSuperAdmin || collab.is_admin === true;

@@ -45,6 +45,13 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  // Listen for auth-expired events from API layer
+  useEffect(() => {
+    const handler = () => { setUser(null); setCollabs([]); };
+    window.addEventListener('auth-expired', handler);
+    return () => window.removeEventListener('auth-expired', handler);
+  }, []);
+
   /** Login with Google credential — verified server-side */
   async function login(googleCredential) {
     try {
