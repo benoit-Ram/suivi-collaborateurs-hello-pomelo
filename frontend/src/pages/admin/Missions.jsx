@@ -1011,8 +1011,10 @@ function TimelineView({ missions, collabs, staffingMap, allMissions, clients, gr
     }, 0);
   };
 
-  // Format cell value — adapt days to period: 1j/day, 5j/week, ~21.7j/month
+  // Days per period + conversion helpers
   const daysPerPeriod = viewUnit === 'day' ? 1 : viewUnit === 'month' ? 21.67 : 5;
+  const tauxToJours = (taux) => Math.round(taux / 100 * daysPerPeriod * 10) / 10;
+  const joursToTaux = (jours) => Math.round(jours / daysPerPeriod * 100);
   const fmtCell = (taux) => {
     if (taux === 0) return null;
     if (displayMode === 'jours') return `${(taux/100*daysPerPeriod).toFixed(1)}j`;
@@ -1116,7 +1118,7 @@ function TimelineView({ missions, collabs, staffingMap, allMissions, clients, gr
           <div style={{display:'flex',alignItems:'center',gap:4,padding:'2px 8px',borderRadius:8,background:paintMode?'rgba(255,50,133,0.1)':'transparent',border:paintMode?'1.5px solid var(--pink)':'1.5px solid transparent'}}>
             <button onClick={()=>setPaintMode(!paintMode)} className="btn btn-ghost btn-sm" style={{padding:'3px 8px',fontSize:'0.7rem',color:paintMode?'var(--pink)':'var(--muted)'}} title="Mode peinture : cliquer-glisser pour peindre le staffing">{paintMode?'🎨 ON':'🎨'}</button>
             {paintMode && <select value={paintValue} onChange={e=>setPaintValue(parseInt(e.target.value))} style={{border:'1px solid var(--lavender)',borderRadius:4,padding:'2px 4px',fontSize:'0.65rem',fontFamily:'inherit',background:'var(--offwhite)',color:'var(--navy)',width:52}}>
-              {[0,10,20,30,40,50,60,70,80,90,100].map(v=><option key={v} value={v}>{v}%</option>)}
+              {[0,10,20,30,40,50,60,70,80,90,100].map(v=><option key={v} value={v}>{tauxToJours(v)}j</option>)}
             </select>}
           </div>
           {offset!==0 && <button className="btn btn-ghost btn-sm" onClick={()=>setOffset(0)}>Aujourd'hui</button>}
@@ -1188,12 +1190,12 @@ function TimelineView({ missions, collabs, staffingMap, allMissions, clients, gr
                         onMouseDown={canEdit&&paintMode?(e)=>{e.preventDefault();e.stopPropagation();setIsPainting(true);paintCell(sr.assignmentId,sr.assignment,col);}:undefined}
                         onMouseEnter={canEdit&&paintMode&&isPainting?(e)=>{e.stopPropagation();paintCell(sr.assignmentId,sr.assignment,col);}:undefined}
                         onMouseUp={paintMode?()=>setIsPainting(false):undefined}
-                        onClick={canEdit&&!paintMode?(e)=>{e.stopPropagation();setEditingCell({assignmentId:sr.assignmentId,colIdx:ci,periodKey:col.periodKey,assignment:sr.assignment});setEditValue(String(taux));}:undefined}>
+                        onClick={canEdit&&!paintMode?(e)=>{e.stopPropagation();setEditingCell({assignmentId:sr.assignmentId,colIdx:ci,periodKey:col.periodKey,assignment:sr.assignment});setEditValue(String(tauxToJours(taux)));}:undefined}>
                         {isEditing2 ? (
-                          <input type="number" min="0" max="200" step="10" value={editValue} autoFocus
-                            style={{width:36,padding:'1px 2px',fontSize:'0.5rem',fontWeight:700,textAlign:'center',border:'1.5px solid var(--pink)',borderRadius:3,outline:'none',background:'white',color:'var(--navy)'}}
+                          <input type="number" min="0" max={daysPerPeriod} step="0.5" value={editValue} autoFocus
+                            style={{width:40,padding:'1px 2px',fontSize:'0.5rem',fontWeight:700,textAlign:'center',border:'1.5px solid var(--pink)',borderRadius:3,outline:'none',background:'white',color:'var(--navy)'}}
                             onChange={e=>setEditValue(e.target.value)}
-                            onBlur={()=>{const v=parseInt(editValue);if(!isNaN(v)&&v>=0&&v<=200){const a=editingCell.assignment;const key=editingCell.periodKey;const overrides={...(a.staffing_overrides||{})};if(v===(a.taux_staffing||0)){delete overrides[key];}else{overrides[key]=v;}onUpdateAssignment(sr.assignmentId,{staffing_overrides:overrides});}setEditingCell(null);}}
+                            onBlur={()=>{const j=parseFloat(editValue);if(!isNaN(j)&&j>=0&&j<=daysPerPeriod){const v=joursToTaux(j);const a=editingCell.assignment;const key=editingCell.periodKey;const overrides={...(a.staffing_overrides||{})};if(v===(a.taux_staffing||0)){delete overrides[key];}else{overrides[key]=v;}onUpdateAssignment(sr.assignmentId,{staffing_overrides:overrides});}setEditingCell(null);}}
                             onKeyDown={e=>{if(e.key==='Enter')e.target.blur();if(e.key==='Escape')setEditingCell(null);}}
                             onClick={e=>e.stopPropagation()}
                           />
@@ -1221,14 +1223,15 @@ function TimelineView({ missions, collabs, staffingMap, allMissions, clients, gr
                           onMouseDown={onUpdateAssignment&&paintMode?(e)=>{e.preventDefault();e.stopPropagation();setIsPainting(true);paintCell(ar.assignmentId,ar.assignment,col);}:undefined}
                           onMouseEnter={onUpdateAssignment&&paintMode&&isPainting?(e)=>{e.stopPropagation();paintCell(ar.assignmentId,ar.assignment,col);}:undefined}
                           onMouseUp={paintMode?()=>setIsPainting(false):undefined}
-                          onClick={onUpdateAssignment&&!paintMode?(e)=>{e.stopPropagation();setEditingCell({assignmentId:ar.assignmentId,colIdx:ci,periodKey:col.periodKey,assignment:ar.assignment});setEditValue(String(taux));}:undefined}>
+                          onClick={onUpdateAssignment&&!paintMode?(e)=>{e.stopPropagation();setEditingCell({assignmentId:ar.assignmentId,colIdx:ci,periodKey:col.periodKey,assignment:ar.assignment});setEditValue(String(tauxToJours(taux)));}:undefined}>
                           {isEditing ? (
-                            <input type="number" min="0" max="200" step="10" value={editValue} autoFocus
-                              style={{width:36,padding:'1px 2px',fontSize:'0.55rem',fontWeight:700,textAlign:'center',border:'1.5px solid var(--pink)',borderRadius:3,outline:'none',background:'white',color:'var(--navy)'}}
+                            <input type="number" min="0" max={daysPerPeriod} step="0.5" value={editValue} autoFocus
+                              style={{width:40,padding:'1px 2px',fontSize:'0.55rem',fontWeight:700,textAlign:'center',border:'1.5px solid var(--pink)',borderRadius:3,outline:'none',background:'white',color:'var(--navy)'}}
                               onChange={e=>setEditValue(e.target.value)}
                               onBlur={()=>{
-                                const v=parseInt(editValue);
-                                if(!isNaN(v)&&v>=0&&v<=200) {
+                                const j=parseFloat(editValue);
+                                if(!isNaN(j)&&j>=0&&j<=daysPerPeriod) {
+                                  const v = joursToTaux(j);
                                   const a = editingCell.assignment;
                                   const key = editingCell.periodKey;
                                   const overrides = {...(a.staffing_overrides||{})};
