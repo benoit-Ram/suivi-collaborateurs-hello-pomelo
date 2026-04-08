@@ -96,34 +96,20 @@ export default function CollabAccueil() {
     }
   }
 
-  const c = collabs.find(x => x.id === selectedId);
-  if (!c) return <div style={{textAlign:'center',padding:48,color:'var(--muted)'}}>Collaborateur non trouvé.</div>;
-
-  const objs = c.objectifs||[];
-  const enCours = objs.filter(o => o.statut==='en-cours');
-  const atteints = objs.filter(o => o.statut==='atteint');
-  const points = (c.points_suivi||[]).filter(p => p.type==='mensuel').sort((a,b)=>(b.mois||'')>(a.mois||'')?1:-1);
-  const manager = c.manager_id ? collabs.find(x=>x.id===c.manager_id) : null;
-  const managerName = manager ? `${manager.prenom} ${manager.nom}` : '—';
-  const myTeam = collabs.filter(m => m.manager_id === c.id);
-  // Calcul solde réel (utilise la fonction partagée)
-  const { solde } = calculateSolde(c, absences, settings);
-
-  const pendingCount = teamPendingAbs.length;
-  const isManager = myTeam.length > 0;
-
-  // Staffing global depuis le 1er janvier ou date d'entrée
+  // Staffing global depuis le 1er janvier ou date d'entrée (hook AVANT le return conditionnel)
   const [staffingGlobal, setStaffingGlobal] = useState(null);
   useEffect(() => {
-    if (!c) return;
+    if (!selectedId) return;
+    const collab = collabs.find(x => x.id === selectedId);
+    if (!collab) return;
     api.getMissions().then(missions => {
       const now = new Date();
       const janFirst = new Date(now.getFullYear(), 0, 1);
-      const startDate = c.date_entree && new Date(c.date_entree) > janFirst ? new Date(c.date_entree) : janFirst;
+      const startDate = collab.date_entree && new Date(collab.date_entree) > janFirst ? new Date(collab.date_entree) : janFirst;
       const totalWeeks = Math.max(1, (now - startDate) / (7 * 86400000));
       let staffedWeeks = 0;
       (missions || []).forEach(m => {
-        (m.assignments || []).filter(a => a.collaborateur_id === c.id && a.statut === 'actif').forEach(a => {
+        (m.assignments || []).filter(a => a.collaborateur_id === collab.id && a.statut === 'actif').forEach(a => {
           const aStart = a.date_debut ? new Date(Math.max(new Date(a.date_debut), startDate)) : startDate;
           const aEnd = a.date_fin ? new Date(Math.min(new Date(a.date_fin), now)) : now;
           if (aEnd >= aStart) {
@@ -134,7 +120,22 @@ export default function CollabAccueil() {
       });
       setStaffingGlobal(Math.round(staffedWeeks / totalWeeks * 100));
     }).catch(() => {});
-  }, [c?.id]);
+  }, [selectedId, collabs]);
+
+  const c = collabs.find(x => x.id === selectedId);
+  if (!c) return <div style={{textAlign:'center',padding:48,color:'var(--muted)'}}>Collaborateur non trouvé.</div>;
+
+  const objs = c.objectifs||[];
+  const enCours = objs.filter(o => o.statut==='en-cours');
+  const atteints = objs.filter(o => o.statut==='atteint');
+  const points = (c.points_suivi||[]).filter(p => p.type==='mensuel').sort((a,b)=>(b.mois||'')>(a.mois||'')?1:-1);
+  const manager = c.manager_id ? collabs.find(x=>x.id===c.manager_id) : null;
+  const managerName = manager ? `${manager.prenom} ${manager.nom}` : '—';
+  const myTeam = collabs.filter(m => m.manager_id === c.id);
+  const { solde } = calculateSolde(c, absences, settings);
+
+  const pendingCount = teamPendingAbs.length;
+  const isManager = myTeam.length > 0;
 
   const tabs = [['objectifs', isManager ? '🎯 Mes objectifs' : '🎯 Objectifs'],['missions','🚀 Missions'],['points', isManager ? '📋 Mes entretiens RH' : '📋 Entretien RH'],['conges', isManager ? '🏖️ Mes congés' : '🏖️ Congés']];
   if (isManager) tabs.splice(3, 0, ['management', pendingCount > 0 ? `👔 Management (${pendingCount})` : '👔 Management']);
