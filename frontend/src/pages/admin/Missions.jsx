@@ -42,6 +42,8 @@ export default function Missions() {
   const [sirenResults, setSirenResults] = useState([]);
   const [selectedClient, setSelectedClient] = useState(null);
   // Timeline/Staffing filters
+  const [calGroupBy, setCalGroupBy] = useState('collab');
+  const [calDisplayMode, setCalDisplayMode] = useState('pct');
   const [filterClient, setFilterClient] = useState('');
   const [filterEquipes, setFilterEquipes] = useState([]); // multi-select
   const [showEquipeDropdown, setShowEquipeDropdown] = useState(false);
@@ -369,13 +371,35 @@ export default function Missions() {
         let filteredCollabs = collabs;
         if (filterEquipes.length > 0) filteredCollabs = filteredCollabs.filter(c => filterEquipes.some(eq=>(c.equipe||'').includes(eq)));
         if (filterBureau) filteredCollabs = filteredCollabs.filter(c => c.bureau === filterBureau);
+        const selectStyle = {border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 10px',fontFamily:'inherit',fontSize:'0.78rem',background:'var(--offwhite)',color:'var(--navy)'};
+        const toggleBtnStyle = (active) => ({padding:'4px 10px',fontSize:'0.7rem',fontWeight:700,background:active?'var(--pink)':'transparent',color:active?'white':'var(--muted)',border:'none',borderRadius:6,cursor:'pointer',fontFamily:'inherit'});
         return <FadeIn><div>
+        {/* Ligne 1 : Groupement + Affichage */}
+        <div style={{display:'flex',gap:12,marginBottom:10,flexWrap:'wrap',alignItems:'center'}}>
+          <div style={{display:'flex',alignItems:'center',gap:6}}>
+            <span style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)'}}>Afficher par</span>
+            <div style={{display:'flex',gap:2,background:'var(--offwhite)',borderRadius:8,padding:2}}>
+              {[['collab','Collaborateur'],['client','Client'],['mission','Mission'],['bureau','Bureau'],['equipe','Equipe']].map(([k,l])=>(
+                <button key={k} onClick={()=>setCalGroupBy(k)} style={toggleBtnStyle(calGroupBy===k)}>{l}</button>
+              ))}
+            </div>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:6}}>
+            <span style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)'}}>Valeurs</span>
+            <div style={{display:'flex',gap:2,background:'var(--offwhite)',borderRadius:8,padding:2}}>
+              {[['pct','%'],['jours','Jours occ.'],['dispo','Jours dispo']].map(([k,l])=>(
+                <button key={k} onClick={()=>setCalDisplayMode(k)} style={toggleBtnStyle(calDisplayMode===k)}>{l}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+        {/* Ligne 2 : Filtres */}
         <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
-          <select value={filterClient} onChange={e=>setFilterClient(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 10px',fontFamily:'inherit',fontSize:'0.78rem',background:'var(--offwhite)',color:'var(--navy)'}}>
+          <select value={filterClient} onChange={e=>setFilterClient(e.target.value)} style={selectStyle}>
             <option value="">Tous les clients</option>
             {clients.map(c=><option key={c.id} value={c.id}>{c.nom}</option>)}
           </select>
-          <select value={filterBureau} onChange={e=>setFilterBureau(e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 10px',fontFamily:'inherit',fontSize:'0.78rem',background:'var(--offwhite)',color:'var(--navy)'}}>
+          <select value={filterBureau} onChange={e=>setFilterBureau(e.target.value)} style={selectStyle}>
             <option value="">Tous les bureaux</option>
             {allBureaux.map(b=><option key={b} value={b}>{b}</option>)}
           </select>
@@ -396,7 +420,7 @@ export default function Missions() {
           {(filterClient || filterBureau || filterEquipes.length > 0) && <button className="btn btn-ghost btn-sm" style={{fontSize:'0.72rem',color:'var(--muted)'}} onClick={()=>{setFilterClient('');setFilterBureau('');setFilterEquipes([]);}}>Reinitialiser</button>}
         </div>
         <div className="card" style={{padding:0,overflow:'hidden'}}>
-          <TimelineView missions={filterClient ? active.filter(m=>m.client_id===filterClient) : active} collabs={filteredCollabs} staffingMap={staffingMap} allMissions={active} />
+          <TimelineView missions={filterClient ? active.filter(m=>m.client_id===filterClient) : active} collabs={filteredCollabs} staffingMap={staffingMap} allMissions={active} clients={clients} groupBy={calGroupBy} displayMode={calDisplayMode} />
         </div>
       </div></FadeIn>})()}
 
@@ -777,149 +801,204 @@ function MissionCard({ m, collabs, onEdit, onDelete, onAssign, onRemoveAssign, o
   );
 }
 
-/** Vue timeline Gantt — collabs en lignes × semaines/mois en colonnes, barres de staffing */
-function TimelineView({ missions, collabs, staffingMap, allMissions }) {
+/** Vue timeline Gantt — configurable par groupBy, displayMode, viewUnit */
+function TimelineView({ missions, collabs, staffingMap, allMissions, clients, groupBy, displayMode }) {
   const [offset, setOffset] = useState(0);
-  const [selectedCollab, setSelectedCollab] = useState(null);
-  const [viewUnit, setViewUnit] = useState('week'); // 'week' | 'month'
-  const WEEKS = 16;
-  const MONTHS_COUNT = 6;
-  const MISSION_COLORS = ['#3B82F6','#8B5CF6','#EC4899','#F59E0B','#10B981','#6366F1'];
+  const [expanded, setExpanded] = useState(new Set());
+  const [viewUnit, setViewUnit] = useState('week');
+  const DAYS = 10; const WEEKS = 16; const MONTHS_COUNT = 6;
+  const COLORS = ['#3B82F6','#8B5CF6','#EC4899','#F59E0B','#10B981','#6366F1'];
+  const now = new Date(); const todayStr = now.toISOString().split('T')[0];
+  const toggleRow = (id) => setExpanded(prev => { const n = new Set(prev); n.has(id)?n.delete(id):n.add(id); return n; });
 
-  const now = new Date();
-  const todayStr = now.toISOString().split('T')[0];
-
-  // Build columns based on viewUnit
-  const columns = viewUnit === 'week'
+  // Build columns
+  const columns = viewUnit === 'day'
+    ? Array.from({length:DAYS},(_,i) => {
+        const d = new Date(now); d.setDate(now.getDate() - ((now.getDay()+6)%7) + offset*7 + Math.floor(i/5)*7 + (i%5));
+        d.setHours(0,0,0,0);
+        const ds = d.toISOString().split('T')[0];
+        return { label:d.toLocaleDateString('fr-FR',{weekday:'short'})+' '+d.getDate(), start:ds, end:ds, isCurrent:ds===todayStr, month:d.toLocaleDateString('fr-FR',{month:'short'}), year:d.getFullYear() };
+      })
+    : viewUnit === 'week'
     ? Array.from({length:WEEKS},(_,i) => {
-        const startMonday = new Date(now);
-        startMonday.setDate(now.getDate() - ((now.getDay()+6)%7) + (offset*WEEKS) + i*7);
-        startMonday.setHours(0,0,0,0);
-        const weekNum = Math.ceil(((startMonday - new Date(startMonday.getFullYear(),0,1)) / 86400000 + 1) / 7);
-        const end = new Date(startMonday.getTime()+4*86400000);
-        return { label:`S${weekNum}`, start:startMonday.toISOString().split('T')[0], end:end.toISOString().split('T')[0], month:startMonday.toLocaleDateString('fr-FR',{month:'short'}), year:startMonday.getFullYear(), isCurrent: todayStr >= startMonday.toISOString().split('T')[0] && todayStr <= end.toISOString().split('T')[0] };
+        const sm = new Date(now); sm.setDate(now.getDate()-((now.getDay()+6)%7)+offset*WEEKS+i*7); sm.setHours(0,0,0,0);
+        const wn = Math.ceil(((sm - new Date(sm.getFullYear(),0,1))/86400000+1)/7);
+        const end = new Date(sm.getTime()+4*86400000);
+        return { label:`S${wn}`, start:sm.toISOString().split('T')[0], end:end.toISOString().split('T')[0], month:sm.toLocaleDateString('fr-FR',{month:'short'}), year:sm.getFullYear(), isCurrent:todayStr>=sm.toISOString().split('T')[0]&&todayStr<=end.toISOString().split('T')[0] };
       })
     : Array.from({length:MONTHS_COUNT},(_,i) => {
-        const d = new Date(now.getFullYear(), now.getMonth() + offset*MONTHS_COUNT + i, 1);
-        const endD = new Date(d.getFullYear(), d.getMonth()+1, 0);
-        return { label:d.toLocaleDateString('fr-FR',{month:'short',year:'numeric'}), start:d.toISOString().split('T')[0], end:endD.toISOString().split('T')[0], isCurrent: d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear() };
+        const d = new Date(now.getFullYear(),now.getMonth()+offset*MONTHS_COUNT+i,1);
+        const endD = new Date(d.getFullYear(),d.getMonth()+1,0);
+        return { label:d.toLocaleDateString('fr-FR',{month:'short',year:'numeric'}), start:d.toISOString().split('T')[0], end:endD.toISOString().split('T')[0], isCurrent:d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear() };
       });
 
-  // Group week columns by month for header row
+  // Month headers for week/day views
   const monthHeaders = [];
-  if (viewUnit === 'week') {
+  if (viewUnit === 'week' || viewUnit === 'day') {
     let lastKey = '';
     columns.forEach((col,i) => {
-      const key = col.month + ' ' + col.year;
+      const key = (col.month||'') + ' ' + (col.year||'');
       if (key !== lastKey) { monthHeaders.push({label:key,start:i,span:1}); lastKey = key; }
       else monthHeaders[monthHeaders.length-1].span++;
     });
   }
 
-  const assignedCollabs = collabs.filter(c => staffingMap[c.id]?.missions?.length > 0).sort((a,b) => (staffingMap[b.id]?.taux||0) - (staffingMap[a.id]?.taux||0));
-  const nonStaffedCount = collabs.filter(c => !staffingMap[c.id]?.missions?.length).length;
-  const navLabel = viewUnit === 'week' ? `${WEEKS} sem.` : `${MONTHS_COUNT} mois`;
+  const navLabels = { day:'1 sem.', week:`${WEEKS} sem.`, month:`${MONTHS_COUNT} mois` };
   const colCount = columns.length + 1;
+  const minW = viewUnit==='day'?55:viewUnit==='week'?45:80;
 
-  // Get assignments for a collab across all missions
-  const getCollabAssignments = (collabId) => (allMissions||missions).flatMap(m => (m.assignments||[]).filter(a => a.collaborateur_id === collabId && a.statut === 'actif').map(a => ({...a, mission: m})));
+  // Helper: get taux for a collab in a column period
+  const getCollabTaux = (collabId, col) => {
+    return (allMissions||missions).reduce((total, m) => {
+      if (!m.date_debut || !m.date_fin || m.date_debut > col.end || m.date_fin < col.start) return total;
+      const a = (m.assignments||[]).find(x => x.collaborateur_id === collabId && x.statut === 'actif');
+      return total + (a ? (a.taux_staffing||0) : 0);
+    }, 0);
+  };
+
+  // Format cell value
+  const fmtCell = (taux) => {
+    if (taux === 0) return null;
+    if (displayMode === 'jours') return `${(taux/100*5).toFixed(1)}j`;
+    if (displayMode === 'dispo') return `${((100-taux)/100*5).toFixed(1)}j`;
+    return `${taux}%`;
+  };
+  const cellColor = (taux) => taux > 100 ? 'var(--red)' : taux >= 80 ? 'var(--blue)' : taux > 0 ? 'var(--green)' : 'transparent';
+  const cellBg = (taux) => taux > 100 ? 'rgba(255,50,50,0.15)' : taux >= 80 ? 'rgba(59,130,246,0.12)' : taux > 0 ? 'rgba(16,185,129,0.1)' : 'transparent';
+
+  // Build rows based on groupBy
+  const getCollabAssignments = (cid) => (allMissions||missions).flatMap(m => (m.assignments||[]).filter(a => a.collaborateur_id === cid && a.statut === 'actif').map(a => ({...a, mission: m})));
+
+  const rows = (() => {
+    switch (groupBy) {
+      case 'client': return (clients||[]).filter(c => missions.some(m => m.client_id === c.id)).map(c => ({
+        id:c.id, label:c.nom, sub:c.secteur||'', subRows: missions.filter(m => m.client_id === c.id).map(m => ({
+          id:m.id, label:m.nom, sub:m.categorie||'', getCellTaux:(col) => (m.assignments||[]).filter(a=>a.statut==='actif').reduce((s,a)=>s+((!m.date_debut||!m.date_fin||m.date_debut>col.end||m.date_fin<col.start)?0:(a.taux_staffing||0)),0)
+        })),
+        getCellTaux:(col) => missions.filter(m=>m.client_id===c.id).reduce((s,m)=>{if(!m.date_debut||!m.date_fin||m.date_debut>col.end||m.date_fin<col.start)return s;return s+(m.assignments||[]).filter(a=>a.statut==='actif').reduce((s2,a)=>s2+(a.taux_staffing||0),0);},0)
+      }));
+      case 'mission': return missions.map(m => ({
+        id:m.id, label:m.nom, sub:(m.clients?.nom||m.client||'')+(m.categorie?' · '+m.categorie:''),
+        subRows: (m.assignments||[]).filter(a=>a.statut==='actif').map(a => { const c=collabs.find(x=>x.id===a.collaborateur_id); return {
+          id:a.id, label:c?c.prenom+' '+c.nom:'—', sub:a.role||'', avatar:c,
+          getCellTaux:(col)=>(!m.date_debut||!m.date_fin||m.date_debut>col.end||m.date_fin<col.start)?0:(a.taux_staffing||0)
+        };}),
+        getCellTaux:(col)=>(!m.date_debut||!m.date_fin||m.date_debut>col.end||m.date_fin<col.start)?0:(m.assignments||[]).filter(a=>a.statut==='actif').reduce((s,a)=>s+(a.taux_staffing||0),0)
+      }));
+      case 'bureau': return [...new Set(collabs.map(c=>c.bureau).filter(Boolean))].sort().map(b => {
+        const bCollabs = collabs.filter(c=>c.bureau===b);
+        return { id:b, label:b, sub:`${bCollabs.length} collabs`,
+          subRows: bCollabs.filter(c=>staffingMap[c.id]?.missions?.length>0).map(c=>({
+            id:c.id, label:c.prenom+' '+c.nom[0]+'.', sub:c.poste||'', avatar:c,
+            getCellTaux:(col)=>getCollabTaux(c.id,col)
+          })),
+          getCellTaux:(col)=>bCollabs.reduce((s,c)=>s+getCollabTaux(c.id,col),0)/Math.max(bCollabs.length,1)
+        };
+      });
+      case 'equipe': return [...new Set(collabs.flatMap(c=>(c.equipe||'').split(',').map(s=>s.trim())).filter(Boolean))].sort().map(eq => {
+        const eqCollabs = collabs.filter(c=>(c.equipe||'').includes(eq));
+        return { id:eq, label:eq, sub:`${eqCollabs.length} collabs`,
+          subRows: eqCollabs.filter(c=>staffingMap[c.id]?.missions?.length>0).map(c=>({
+            id:c.id, label:c.prenom+' '+c.nom[0]+'.', sub:c.poste||'', avatar:c,
+            getCellTaux:(col)=>getCollabTaux(c.id,col)
+          })),
+          getCellTaux:(col)=>eqCollabs.reduce((s,c)=>s+getCollabTaux(c.id,col),0)/Math.max(eqCollabs.length,1)
+        };
+      });
+      default: // collab
+        return collabs.filter(c=>staffingMap[c.id]?.missions?.length>0).sort((a,b)=>(staffingMap[b.id]?.taux||0)-(staffingMap[a.id]?.taux||0)).map(c => ({
+          id:c.id, label:c.prenom+' '+c.nom[0]+'.', sub:c.poste||'', avatar:c,
+          subRows: getCollabAssignments(c.id).map(a=>({
+            id:a.id, label:a.mission.nom, sub:(a.mission.clients?.nom||'—')+' · '+(a.role||'—'),
+            getCellTaux:(col)=>(a.mission.date_debut&&a.mission.date_fin&&a.mission.date_debut<=col.end&&a.mission.date_fin>=col.start)?(a.taux_staffing||0):0
+          })),
+          getCellTaux:(col)=>getCollabTaux(c.id,col)
+        }));
+    }
+  })();
+
+  const stickyStyle = {position:'sticky',left:0,background:'var(--white)',zIndex:1};
 
   return (
     <div>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 18px',borderBottom:'1px solid var(--lavender)'}}>
-        <button className="btn btn-ghost btn-sm" onClick={()=>setOffset(offset-1)}>← {navLabel}</button>
+        <button className="btn btn-ghost btn-sm" onClick={()=>setOffset(offset-1)}>← {navLabels[viewUnit]}</button>
         <div style={{display:'flex',alignItems:'center',gap:12}}>
           <span style={{fontWeight:700,color:'var(--navy)'}}>📅 Calendrier</span>
           <div style={{display:'flex',gap:2,background:'var(--offwhite)',borderRadius:8,padding:2}}>
-            <button onClick={()=>{setViewUnit('week');setOffset(0);}} className="btn btn-sm" style={{padding:'3px 10px',fontSize:'0.68rem',fontWeight:700,background:viewUnit==='week'?'var(--pink)':'transparent',color:viewUnit==='week'?'white':'var(--muted)',border:'none',borderRadius:6}}> Semaine</button>
-            <button onClick={()=>{setViewUnit('month');setOffset(0);}} className="btn btn-sm" style={{padding:'3px 10px',fontSize:'0.68rem',fontWeight:700,background:viewUnit==='month'?'var(--pink)':'transparent',color:viewUnit==='month'?'white':'var(--muted)',border:'none',borderRadius:6}}>Mois</button>
+            {[['day','Jour'],['week','Semaine'],['month','Mois']].map(([k,l])=>(
+              <button key={k} onClick={()=>{setViewUnit(k);setOffset(0);}} className="btn btn-sm" style={{padding:'3px 10px',fontSize:'0.68rem',fontWeight:700,background:viewUnit===k?'var(--pink)':'transparent',color:viewUnit===k?'white':'var(--muted)',border:'none',borderRadius:6}}>{l}</button>
+            ))}
           </div>
         </div>
         <div style={{display:'flex',gap:6}}>
-          {offset !== 0 && <button className="btn btn-ghost btn-sm" onClick={()=>setOffset(0)}>Aujourd'hui</button>}
-          <button className="btn btn-ghost btn-sm" onClick={()=>setOffset(offset+1)}>{navLabel} →</button>
+          {offset!==0 && <button className="btn btn-ghost btn-sm" onClick={()=>setOffset(0)}>Aujourd'hui</button>}
+          <button className="btn btn-ghost btn-sm" onClick={()=>setOffset(offset+1)}>{navLabels[viewUnit]} →</button>
         </div>
       </div>
       <div style={{overflowX:'auto'}}>
         <table style={{fontSize:'0.7rem',width:'100%',borderCollapse:'collapse'}}>
           <thead>
-            {viewUnit === 'week' && <tr>
-              <th style={{minWidth:180,position:'sticky',left:0,background:'var(--white)',zIndex:2}} />
+            {(viewUnit==='week'||viewUnit==='day') && <tr>
+              <th style={{minWidth:180,...stickyStyle,zIndex:2}} />
               {monthHeaders.map((m,i)=><th key={i} colSpan={m.span} style={{textAlign:'center',padding:'6px 2px',fontWeight:700,color:'var(--navy)',textTransform:'capitalize',borderBottom:'1px solid var(--lavender)'}}>{m.label}</th>)}
             </tr>}
             <tr>
-              <th style={{textAlign:'left',padding:'6px 14px',fontWeight:700,color:'var(--navy)',minWidth:180,position:'sticky',left:0,background:'var(--white)',zIndex:2}}>Collaborateur</th>
+              <th style={{textAlign:'left',padding:'6px 14px',fontWeight:700,color:'var(--navy)',minWidth:180,...stickyStyle,zIndex:2}}>
+                {{collab:'Collaborateur',client:'Client',mission:'Mission',bureau:'Bureau',equipe:'Équipe'}[groupBy]}
+              </th>
               {columns.map((col,i)=>(
-                <th key={i} style={{textAlign:'center',padding:'4px 2px',minWidth:viewUnit==='week'?45:80,fontWeight:col.isCurrent?800:600,color:col.isCurrent?'var(--pink)':'var(--muted)',background:col.isCurrent?'rgba(255,50,133,0.05)':'transparent',textTransform:'capitalize'}}>{col.label}</th>
+                <th key={i} style={{textAlign:'center',padding:'4px 2px',minWidth:minW,fontWeight:col.isCurrent?800:600,color:col.isCurrent?'var(--pink)':'var(--muted)',background:col.isCurrent?'rgba(255,50,133,0.05)':'transparent',textTransform:'capitalize'}}>{col.label}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {assignedCollabs.map(c => {
-              const isSelected = selectedCollab === c.id;
-              const myAssignments = isSelected ? getCollabAssignments(c.id) : [];
-              return <React.Fragment key={c.id}>
-                <tr style={{borderBottom:isSelected?'none':'1px solid var(--lavender)',background:isSelected?'rgba(255,50,133,0.04)':'transparent',cursor:'pointer'}} onClick={()=>setSelectedCollab(isSelected?null:c.id)}>
-                  <td style={{padding:'8px 14px',position:'sticky',left:0,background:isSelected?'rgba(255,50,133,0.06)':'var(--white)',zIndex:1}}>
+            {rows.map(row => {
+              const isExp = expanded.has(row.id);
+              return <React.Fragment key={row.id}>
+                <tr style={{borderBottom:isExp?'none':'1px solid var(--lavender)',background:isExp?'rgba(255,50,133,0.04)':'transparent',cursor:'pointer'}} onClick={()=>toggleRow(row.id)}>
+                  <td style={{padding:'8px 14px',...stickyStyle,background:isExp?'rgba(255,50,133,0.06)':'var(--white)'}}>
                     <div style={{display:'flex',alignItems:'center',gap:8}}>
-                      <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={24} />
+                      {row.avatar && <Avatar prenom={row.avatar.prenom} nom={row.avatar.nom} photoUrl={row.avatar.photo_url} size={24} />}
                       <div>
-                        <div style={{fontWeight:700,color:isSelected?'var(--pink)':'var(--navy)',fontSize:'0.75rem'}}>{c.prenom} {c.nom[0]}.</div>
-                        <div style={{fontSize:'0.6rem',color:'var(--muted)'}}>{c.poste}</div>
+                        <div style={{fontWeight:700,color:isExp?'var(--pink)':'var(--navy)',fontSize:'0.75rem'}}>
+                          <span style={{fontSize:'0.6rem',color:'var(--muted)',marginRight:4}}>{isExp?'▼':'▶'}</span>
+                          {row.label}
+                        </div>
+                        {row.sub && <div style={{fontSize:'0.6rem',color:'var(--muted)'}}>{row.sub}</div>}
                       </div>
-                      {isSelected && <span style={{fontSize:'0.55rem',color:'var(--pink)',fontWeight:700}}>▼</span>}
                     </div>
                   </td>
                   {columns.map((col,ci) => {
-                    const colMissions = (allMissions||missions).filter(m => {
-                      if (!m.date_debut || !m.date_fin) return false;
-                      return (m.assignments||[]).some(a => a.collaborateur_id === c.id && a.statut === 'actif') && m.date_debut <= col.end && m.date_fin >= col.start;
-                    });
-                    return <td key={ci} style={{padding:1,background:col.isCurrent?'rgba(255,50,133,0.03)':'transparent'}}>
-                      {colMissions.length > 0 ? (
-                        <div style={{display:'flex',flexDirection:'column',gap:1}}>
-                          {colMissions.map(m => {
-                            const a = (m.assignments||[]).find(x=>x.collaborateur_id===c.id);
-                            const taux = a?.taux_staffing || 0;
-                            const colorIdx = missions.indexOf(m) % MISSION_COLORS.length;
-                            return <div key={m.id} title={`${m.nom} — ${m.clients?.nom||m.client||''} (${taux}%)`} style={{background:MISSION_COLORS[colorIdx],color:'white',borderRadius:3,padding:'2px 3px',fontSize:'0.55rem',fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',opacity:0.85}}>{taux}%</div>;
-                          })}
-                        </div>
-                      ) : <div style={{height:20}} />}
+                    const taux = Math.round(row.getCellTaux(col));
+                    const val = fmtCell(taux);
+                    return <td key={ci} style={{padding:1,background:col.isCurrent?'rgba(255,50,133,0.03)':'transparent',textAlign:'center'}}>
+                      {val ? <div style={{background:cellBg(taux),color:cellColor(taux),borderRadius:3,padding:'2px 3px',fontSize:'0.55rem',fontWeight:700}}>{val}</div> : <div style={{height:20}} />}
                     </td>;
                   })}
                 </tr>
-                {/* Sous-lignes inline : détail missions du collab */}
-                {isSelected && myAssignments.map(a => {
-                  const colorIdx = missions.indexOf(a.mission) % MISSION_COLORS.length;
-                  const mColor = MISSION_COLORS[colorIdx >= 0 ? colorIdx : 0];
-                  return <tr key={a.id} style={{background:'rgba(255,50,133,0.02)',borderBottom:'1px solid var(--lavender)'}}>
-                    <td style={{padding:'4px 14px 4px 46px',position:'sticky',left:0,background:'rgba(255,50,133,0.03)',zIndex:1}}>
+                {isExp && (row.subRows||[]).map(sr => (
+                  <tr key={sr.id} style={{background:'rgba(255,50,133,0.02)',borderBottom:'1px solid var(--lavender)'}}>
+                    <td style={{padding:'4px 14px 4px 40px',...stickyStyle,background:'rgba(255,50,133,0.03)'}}>
                       <div style={{display:'flex',alignItems:'center',gap:6}}>
-                        <div style={{width:8,height:8,borderRadius:2,background:mColor,flexShrink:0}} />
+                        {sr.avatar && <Avatar prenom={sr.avatar.prenom} nom={sr.avatar.nom} photoUrl={sr.avatar.photo_url} size={20} />}
                         <div style={{fontSize:'0.68rem'}}>
-                          <span style={{fontWeight:700,color:'var(--navy)'}}>{a.mission.nom}</span>
-                          <span style={{color:'var(--muted)'}}> · {a.mission.clients?.nom || '—'} · {a.role||'—'} · </span>
-                          <span style={{fontWeight:700,color:mColor}}>{a.taux_staffing}%</span>
-                          <span style={{color:'var(--muted)'}}> · {fmtDate(a.date_debut)} → {fmtDate(a.date_fin)}</span>
+                          <span style={{fontWeight:700,color:'var(--navy)'}}>{sr.label}</span>
+                          {sr.sub && <span style={{color:'var(--muted)'}}> · {sr.sub}</span>}
                         </div>
                       </div>
                     </td>
                     {columns.map((col,ci) => {
-                      const isActive = a.mission.date_debut && a.mission.date_fin && a.mission.date_debut <= col.end && a.mission.date_fin >= col.start;
-                      return <td key={ci} style={{padding:1,background:col.isCurrent?'rgba(255,50,133,0.03)':'transparent'}}>
-                        {isActive ? <div style={{background:mColor,opacity:0.3,borderRadius:2,height:10,margin:'0 1px'}} /> : <div style={{height:10}} />}
+                      const taux = Math.round(sr.getCellTaux(col));
+                      const val = fmtCell(taux);
+                      return <td key={ci} style={{padding:1,background:col.isCurrent?'rgba(255,50,133,0.03)':'transparent',textAlign:'center'}}>
+                        {val ? <div style={{background:cellBg(taux),color:cellColor(taux),borderRadius:3,padding:'2px 2px',fontSize:'0.5rem',fontWeight:700,opacity:0.8}}>{val}</div> : <div style={{height:14}} />}
                       </td>;
                     })}
-                  </tr>;
-                })}
+                  </tr>
+                ))}
               </React.Fragment>;
             })}
-            {nonStaffedCount > 0 && (
-              <tr><td colSpan={colCount} style={{padding:'8px 14px',fontSize:'0.75rem',color:'var(--muted)',fontStyle:'italic'}}>
-                + {nonStaffedCount} collaborateurs non staffés
-              </td></tr>
-            )}
           </tbody>
         </table>
       </div>
