@@ -61,7 +61,7 @@ export class AuthService {
       {
         sub: collab.id,
         email: payload.email.toLowerCase(),
-        name: payload.name || `${collab.prenom} ${collab.nom}`,
+        name: `${collab.prenom} ${collab.nom}`,
         picture: payload.picture || collab.photo_url,
         isAdmin,
         isSuperAdmin,
@@ -74,7 +74,7 @@ export class AuthService {
       token: appToken,
       user: {
         email: payload.email,
-        name: payload.name || `${collab.prenom} ${collab.nom}`,
+        name: `${collab.prenom} ${collab.nom}`,
         picture: payload.picture || collab.photo_url,
         collabId: collab.id,
         isAdmin,
