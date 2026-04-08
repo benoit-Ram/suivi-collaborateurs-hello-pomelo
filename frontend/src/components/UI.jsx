@@ -76,7 +76,7 @@ export function ProgressBar({ value, color }) {
 }
 
 // ── MODAL with Escape key ──
-export function Modal({ open, onClose, title, children, wide }) {
+export function Modal({ open, onClose, title, children, wide, size }) {
   useEffect(() => {
     if (!open) return;
     const handler = e => { if (e.key === 'Escape') onClose(); };
