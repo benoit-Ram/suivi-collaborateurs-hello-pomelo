@@ -501,7 +501,7 @@ export default function Missions() {
       </Modal>
 
       {/* DETAIL MODAL — vue complète mission */}
-      <Modal open={!!detail} onClose={()=>setDetail(null)} title={detail?`${detail.nom} — ${getClientName(detail)}`:''}>
+      <Modal open={!!detail} onClose={()=>setDetail(null)} title={detail?`${detail.nom} — ${getClientName(detail)}`:''} size="xl">
         {detail && (()=>{
           const team = (detail.assignments||[]).filter(a=>a.statut==='actif');
           const calcCA = (a) => {

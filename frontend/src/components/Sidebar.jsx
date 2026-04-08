@@ -22,10 +22,13 @@ export default function Sidebar() {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : '');
-    document.documentElement.style.setProperty('--sidebar-w', collapsed ? '0px' : '240px');
-    localStorage.setItem('hp_sidebar_collapsed', collapsed ? 'true' : 'false');
     localStorage.setItem('hp_theme', dark ? 'dark' : 'light');
   }, [dark]);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--sidebar-w', collapsed ? '0px' : '240px');
+    localStorage.setItem('hp_sidebar_collapsed', collapsed ? 'true' : 'false');
+  }, [collapsed]);
 
   // Close sidebar on navigation (mobile)
   const handleNav = (to) => {

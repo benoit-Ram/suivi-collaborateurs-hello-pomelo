@@ -87,7 +87,7 @@ export function Modal({ open, onClose, title, children, wide }) {
   if (!open) return null;
   return (
     <div className="modal-overlay-react" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal-content-react" style={{ maxWidth: wide ? 620 : 560 }}>
+      <div className="modal-content-react" style={{ maxWidth: size==='xl' ? 900 : size==='lg' ? 720 : wide ? 620 : 560 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
           <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--navy)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{title}</h2>
           <button onClick={onClose} aria-label="Fermer" style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}>✕</button>
