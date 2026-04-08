@@ -98,6 +98,9 @@ export default function CollabProfile() {
             {c.date_fin_essai && <span>⏰ Fin PE: {fmtDate(c.date_fin_essai)}</span>}
             {c.google_drive && <a href={c.google_drive} target="_blank" rel="noreferrer" style={{color:'var(--blue)'}}>📁 Drive</a>}
           </div>
+          {(c.competences||[]).length > 0 && <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:10}}>
+            {c.competences.map(comp => <span key={comp} style={{padding:'3px 8px',borderRadius:6,fontSize:'0.68rem',fontWeight:700,background:'var(--bg-info)',color:'var(--text-info)'}}>{comp}</span>)}
+          </div>}
           {c.notes && <div style={{ marginTop:10, padding:'8px 12px', background:'var(--bg-warning)', borderRadius:8, borderLeft:'3px solid var(--border-warning)', fontSize:'0.82rem', color:'var(--text-warning)' }}>Notes: {c.notes}</div>}
         </div>
         <div style={{ display:'flex', flexDirection:'column', gap:6 }}>

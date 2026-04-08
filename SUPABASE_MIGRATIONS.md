@@ -253,3 +253,12 @@ ALTER TABLE missions ADD COLUMN IF NOT EXISTS lien_propale text;
 -- Le taux_staffing reste le défaut ; les overrides le remplacent pour des semaines spécifiques
 ALTER TABLE assignments ADD COLUMN IF NOT EXISTS staffing_overrides jsonb DEFAULT '{}';
 ```
+
+## Migration v13 — Compétences collaborateurs
+
+```sql
+-- Compétences des collaborateurs (array de strings, ex: ["React", "Node.js", "DevOps"])
+ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS competences jsonb DEFAULT '[]';
+```
+
+La liste des compétences disponibles est gérée dans `settings` avec la clé `competences_list` (array JSON).

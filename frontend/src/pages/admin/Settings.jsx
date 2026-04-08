@@ -30,6 +30,7 @@ const SETTINGS_KEYS = [
   { key: 'contrats', label: 'Types de contrat', placeholder: 'Nouveau type...' },
   { key: 'typePostes', label: 'Types de poste', placeholder: 'Ex : Senior, Lead...' },
   { key: 'mission_categories', label: 'Catégories de mission', placeholder: 'Ex : Web, Mobile, TMA...' },
+  { key: 'competences_list', label: 'Compétences', placeholder: 'Ex : React, Node.js, DevOps...' },
 ];
 
 export default function Settings() {

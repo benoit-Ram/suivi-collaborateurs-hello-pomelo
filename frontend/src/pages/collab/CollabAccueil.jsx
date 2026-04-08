@@ -114,11 +114,36 @@ export default function CollabAccueil() {
     <div>
       {/* Profile card */}
 
-      <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:24,background:'var(--bg-highlight)',borderRadius:16,padding:'clamp(14px, 3vw, 24px)',border:'1.5px solid var(--border-highlight)',flexWrap:'wrap'}}>
+      <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:16,background:'var(--bg-highlight)',borderRadius:16,padding:'clamp(14px, 3vw, 24px)',border:'1.5px solid var(--border-highlight)',flexWrap:'wrap'}}>
         <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={64} />
-        <div>
+        <div style={{flex:1,minWidth:0}}>
           <div style={{fontSize:'1.2rem',fontWeight:700,color:'var(--navy)'}}>{c.prenom} {c.nom}</div>
           <div style={{fontSize:'0.85rem',color:'var(--muted)',marginTop:2}}>{c.poste}{c.equipe ? ` · ${c.equipe}` : ''}</div>
+          {/* Compétences self-tag */}
+          <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:8}}>
+            {(c.competences||[]).map(comp => (
+              <span key={comp} style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:6,fontSize:'0.68rem',fontWeight:700,background:'var(--bg-info)',color:'var(--text-info)'}}>
+                {comp}
+                <button onClick={async()=>{
+                  const next = (c.competences||[]).filter(x=>x!==comp);
+                  try { await api.updateCollaborateur(c.id,{competences:next}); const data=await api.getCollaborateurs(); setCollabs(data||[]); } catch(e) { alert('Erreur: '+e.message); }
+                }} style={{background:'none',border:'none',cursor:'pointer',color:'var(--text-info)',fontSize:'0.7rem',padding:0,lineHeight:1}}>×</button>
+              </span>
+            ))}
+            {(()=>{
+              const available = (settings.competences_list||[]).filter(comp => !(c.competences||[]).includes(comp));
+              if (available.length === 0) return null;
+              return <select onChange={async(e)=>{
+                const val = e.target.value; if (!val) return;
+                const next = [...(c.competences||[]), val];
+                try { await api.updateCollaborateur(c.id,{competences:next}); const data=await api.getCollaborateurs(); setCollabs(data||[]); } catch(err) { alert('Erreur: '+err.message); }
+                e.target.value = '';
+              }} style={{padding:'2px 6px',borderRadius:6,fontSize:'0.68rem',border:'1px dashed var(--lavender)',background:'transparent',color:'var(--muted)',cursor:'pointer'}}>
+                <option value="">+ Compétence</option>
+                {available.sort().map(comp => <option key={comp} value={comp}>{comp}</option>)}
+              </select>;
+            })()}
+          </div>
         </div>
       </div>
 
