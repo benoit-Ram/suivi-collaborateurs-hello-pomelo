@@ -28,8 +28,8 @@ export function Badge({ type, team, children }) {
 export function StatCard({ value, label, color }) {
   return (
     <div className="stat-card" style={{ borderColor: `var(--${color})` }}>
-      <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--navy)', lineHeight: 1 }}>{value}</div>
-      <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--muted)', marginTop: 4 }}>{label}</div>
+      <div className="stat-num" style={{ fontSize: 'clamp(1.4rem, 5vw, 2rem)', fontWeight: 700, color: 'var(--navy)', lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 'clamp(0.65rem, 2vw, 0.75rem)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--muted)', marginTop: 4 }}>{label}</div>
     </div>
   );
 }
@@ -48,7 +48,7 @@ export function PageHeader({ title, subtitle, breadcrumbs }) {
           ))}
         </div>
       )}
-      <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--navy)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{title}</h1>
+      <h1 style={{ fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', fontWeight: 700, color: 'var(--navy)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{title}</h1>
       {subtitle && <p style={{ color: 'var(--muted)', fontSize: '0.88rem', marginTop: 4 }}>{subtitle}</p>}
       <div className="divider" />
     </div>

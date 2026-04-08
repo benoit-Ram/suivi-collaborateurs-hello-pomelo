@@ -258,17 +258,17 @@ export default function Missions() {
           setPeriod(periodType, base);
         };
 
-        return <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
-          <div style={{display:'flex',alignItems:'center',gap:4}}>
-            <span style={{fontSize:'0.78rem',fontWeight:700,color:'var(--muted)'}}>Période :</span>
+        return <div className="period-filter" style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
+          <div className="period-dates" style={{display:'flex',alignItems:'center',gap:4,flexWrap:'wrap'}}>
+            <span className="hide-mobile" style={{fontSize:'0.78rem',fontWeight:700,color:'var(--muted)'}}>Période :</span>
             {periodType && <button className="btn btn-ghost btn-sm" style={arrowStyle} onClick={()=>shiftPeriod(-1)}>←</button>}
             <input type="date" value={missionDateDebut} onChange={e=>{setMissionDateDebut(e.target.value);setPeriodType('');}} style={dateStyle} />
             <span style={{color:'var(--muted)',fontSize:'0.75rem'}}>→</span>
             <input type="date" value={missionDateFin} onChange={e=>{setMissionDateFin(e.target.value);setPeriodType('');}} style={dateStyle} />
             {periodType && <button className="btn btn-ghost btn-sm" style={arrowStyle} onClick={()=>shiftPeriod(1)}>→</button>}
           </div>
-          <div style={{display:'flex',gap:3}}>
-            {[['','Tout'],['week','Semaine'],['month','Mois'],['q','Trimestre'],['year','Année']].map(([k,l])=>(
+          <div className="period-presets" style={{display:'flex',gap:3,flexWrap:'wrap'}}>
+            {[['','Tout'],['week','Sem.'],['month','Mois'],['q','Trim.'],['year','Année']].map(([k,l])=>(
               <button key={k} onClick={()=>setPeriod(k)} className="btn btn-ghost btn-sm" style={btnStyle(periodType===k)}>{l}</button>
             ))}
           </div>

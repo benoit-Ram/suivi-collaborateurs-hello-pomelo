@@ -148,7 +148,7 @@ export default function Sidebar() {
       {/* Mobile sidebar (slide-in) — only rendered when open */}
       {mobileOpen && (
         <nav style={{
-          width:280, minHeight:'100vh', background:'#05056D',
+          width:'min(280px, 85vw)', minHeight:'100vh', background:'#05056D',
           display:'flex', flexDirection:'column',
           position:'fixed', left:0, top:0, zIndex:300,
           boxShadow:'4px 0 24px rgba(0,0,0,0.3)', overflowY:'auto'

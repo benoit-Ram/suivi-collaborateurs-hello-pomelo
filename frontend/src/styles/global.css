@@ -129,23 +129,44 @@ tr:hover td { background: var(--hover-row, #F0F0FF); }
   :root { --sidebar-w: 0px; }
   .form-grid { grid-template-columns: 1fr; }
   .stat-card { padding: 14px; }
-  .card { padding: 16px; }
-  .btn { padding: 10px 16px; font-size: 0.8rem; }
-  .btn-sm { padding: 8px 12px; }
-  .modal-overlay-react { padding: 10px; }
-  .modal-content-react { padding: 20px; border-radius: 14px; max-width: 100% !important; }
+  .stat-card .stat-num { font-size: clamp(1.4rem, 5vw, 2rem); }
+  .card { padding: 14px; overflow-x: auto; }
+  .btn { padding: 10px 16px; font-size: 0.8rem; min-height: 40px; }
+  .btn-sm { padding: 8px 12px; min-height: 36px; }
+  .modal-overlay-react { padding: 8px; }
+  .modal-content-react { padding: 16px; border-radius: 14px; max-width: 100% !important; max-height: 95vh; }
   .form-field input, .form-field select, .form-field textarea { font-size: 16px; padding: 12px 14px; }
-  th { padding: 8px 10px; font-size: 0.65rem; }
-  td { padding: 10px; font-size: 0.8rem; }
+  th { padding: 6px 8px; font-size: 0.6rem; white-space: nowrap; }
+  td { padding: 8px; font-size: 0.78rem; }
+  table { font-size: 0.78rem; }
   .section-title { font-size: 0.7rem; margin: 18px 0 10px; }
   .divider { margin: 12px 0 20px; }
   /* Hide elements on mobile */
   .hide-mobile { display: none !important; }
+  /* Show elements only on mobile */
+  .show-mobile { display: flex !important; }
   /* Sidebar mobile */
   .sidebar-desktop { display: none !important; }
   .sidebar-mobile-toggle { display: flex !important; }
   /* Admin layout mobile padding */
-  main { padding: 16px !important; padding-top: 64px !important; }
+  main { padding: 12px !important; padding-top: 56px !important; }
+  /* Tabs: smaller on mobile */
+  .tabs-scroll button { padding: 8px 10px !important; font-size: 0.7rem !important; }
+  /* Period filter: stack vertically */
+  .period-filter { flex-direction: column; gap: 6px !important; }
+  .period-filter .period-dates { width: 100%; }
+  .period-filter .period-presets { flex-wrap: wrap; }
+  /* Safe area for notch devices */
+  body { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+}
+
+@media (max-width: 400px) {
+  .card { padding: 10px; }
+  .btn { padding: 8px 12px; font-size: 0.75rem; }
+  .btn-sm { padding: 6px 10px; font-size: 0.68rem; }
+  th { padding: 4px 6px; font-size: 0.55rem; }
+  td { padding: 6px; font-size: 0.72rem; }
+  main { padding: 8px !important; padding-top: 52px !important; }
 }
 
 @media (min-width: 769px) {

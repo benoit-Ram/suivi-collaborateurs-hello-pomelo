@@ -151,10 +151,10 @@ export default function CollabAccueil() {
             <span style={{fontWeight:700,color:'var(--text-warning)',fontSize:'0.82rem'}}>Valider →</span>
           </div>
         )}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:14,marginBottom:24}}>
-          <div className="card" style={{textAlign:'center',padding:18}}><div style={{fontSize:'2rem',fontWeight:700,color:'var(--pink)'}}>{enCours.length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>En cours</div></div>
-          <div className="card" style={{textAlign:'center',padding:18}}><div style={{fontSize:'2rem',fontWeight:700,color:'var(--green)'}}>{atteints.length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Atteints</div></div>
-          <div className="card" style={{textAlign:'center',padding:18}}><div style={{fontSize:'2rem',fontWeight:700,color:'var(--navy)'}}>{solde.toFixed(2)}j</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Congés</div></div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(100px,1fr))',gap:10,marginBottom:24}}>
+          <div className="card" style={{textAlign:'center',padding:14}}><div style={{fontSize:'clamp(1.4rem,5vw,2rem)',fontWeight:700,color:'var(--pink)'}}>{enCours.length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>En cours</div></div>
+          <div className="card" style={{textAlign:'center',padding:14}}><div style={{fontSize:'clamp(1.4rem,5vw,2rem)',fontWeight:700,color:'var(--green)'}}>{atteints.length}</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Atteints</div></div>
+          <div className="card" style={{textAlign:'center',padding:14}}><div style={{fontSize:'clamp(1.4rem,5vw,2rem)',fontWeight:700,color:'var(--navy)'}}>{solde.toFixed(2)}j</div><div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Congés</div></div>
         </div>
         <div className="card">
           {/* Team objectives */}

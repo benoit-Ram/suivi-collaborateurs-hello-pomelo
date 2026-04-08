@@ -117,7 +117,7 @@ export default function Dashboard() {
     <div>
       <PageHeader title="Tableau de bord" subtitle="Vue d'ensemble de vos collaborateurs" />
 
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))', gap:16, marginBottom:24 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))', gap:12, marginBottom:24 }}>
         <StatCard value={total} label="Collaborateurs" color="pink" />
         <StatCard value={thisMonth} label="Arrivées ce mois" color="blue" />
         <StatCard value={`${pointsComplete}/${total}`} label="Points complets" color="skyblue" />
@@ -201,7 +201,7 @@ export default function Dashboard() {
       {/* Collaborateurs */}
       <div className="section-title">Collaborateurs</div>
       <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
-        <input type="text" placeholder="🔍 Rechercher..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex:1, minWidth:200, border:'1.5px solid var(--lavender)', borderRadius:10, padding:'10px 16px', fontFamily:'inherit', fontSize:'0.9rem', outline:'none', background:'var(--offwhite)', color:'var(--navy)' }} />
+        <input type="text" placeholder="🔍 Rechercher..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex:1, minWidth:0, border:'1.5px solid var(--lavender)', borderRadius:10, padding:'10px 16px', fontFamily:'inherit', fontSize:'0.9rem', outline:'none', background:'var(--offwhite)', color:'var(--navy)' }} />
         <select value={filterEquipe} onChange={e => setFilterEquipe(e.target.value)} style={{ border:'1.5px solid var(--lavender)', borderRadius:10, padding:'8px 12px', fontFamily:'inherit', fontSize:'0.82rem', background:'var(--offwhite)', color:'var(--navy)' }}>
           <option value="">Toutes équipes</option>
           {equipes.map(e => <option key={e} value={e}>{e}</option>)}
