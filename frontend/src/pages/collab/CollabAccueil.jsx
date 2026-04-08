@@ -69,6 +69,32 @@ export default function CollabAccueil() {
     }).catch(() => setLoading(false));
   }, [authUser]);
 
+  // Staffing global depuis le 1er janvier ou date d'entrée (MUST be before any conditional return)
+  const [staffingGlobal, setStaffingGlobal] = useState(null);
+  useEffect(() => {
+    if (!selectedId) return;
+    const collab = collabs.find(x => x.id === selectedId);
+    if (!collab) return;
+    api.getMissions().then(missions => {
+      const now = new Date();
+      const janFirst = new Date(now.getFullYear(), 0, 1);
+      const startDate = collab.date_entree && new Date(collab.date_entree) > janFirst ? new Date(collab.date_entree) : janFirst;
+      const totalWeeks = Math.max(1, (now - startDate) / (7 * 86400000));
+      let staffedWeeks = 0;
+      (missions || []).forEach(m => {
+        (m.assignments || []).filter(a => a.collaborateur_id === collab.id && a.statut === 'actif').forEach(a => {
+          const aStart = a.date_debut ? new Date(Math.max(new Date(a.date_debut), startDate)) : startDate;
+          const aEnd = a.date_fin ? new Date(Math.min(new Date(a.date_fin), now)) : now;
+          if (aEnd >= aStart) {
+            const weeks = (aEnd - aStart) / (7 * 86400000);
+            staffedWeeks += weeks * (a.taux_staffing || 0) / 100;
+          }
+        });
+      });
+      setStaffingGlobal(Math.round(staffedWeeks / totalWeeks * 100));
+    }).catch(() => {});
+  }, [selectedId, collabs]);
+
   if (loading) return <div style={{maxWidth:600,margin:'40px auto'}}><Skeleton lines={5} /></div>;
 
   /** Charge les absences d'un collaborateur */
@@ -95,32 +121,6 @@ export default function CollabAccueil() {
       setTeamPendingAbs([]);
     }
   }
-
-  // Staffing global depuis le 1er janvier ou date d'entrée (hook AVANT le return conditionnel)
-  const [staffingGlobal, setStaffingGlobal] = useState(null);
-  useEffect(() => {
-    if (!selectedId) return;
-    const collab = collabs.find(x => x.id === selectedId);
-    if (!collab) return;
-    api.getMissions().then(missions => {
-      const now = new Date();
-      const janFirst = new Date(now.getFullYear(), 0, 1);
-      const startDate = collab.date_entree && new Date(collab.date_entree) > janFirst ? new Date(collab.date_entree) : janFirst;
-      const totalWeeks = Math.max(1, (now - startDate) / (7 * 86400000));
-      let staffedWeeks = 0;
-      (missions || []).forEach(m => {
-        (m.assignments || []).filter(a => a.collaborateur_id === collab.id && a.statut === 'actif').forEach(a => {
-          const aStart = a.date_debut ? new Date(Math.max(new Date(a.date_debut), startDate)) : startDate;
-          const aEnd = a.date_fin ? new Date(Math.min(new Date(a.date_fin), now)) : now;
-          if (aEnd >= aStart) {
-            const weeks = (aEnd - aStart) / (7 * 86400000);
-            staffedWeeks += weeks * (a.taux_staffing || 0) / 100;
-          }
-        });
-      });
-      setStaffingGlobal(Math.round(staffedWeeks / totalWeeks * 100));
-    }).catch(() => {});
-  }, [selectedId, collabs]);
 
   const c = collabs.find(x => x.id === selectedId);
   if (!c) return <div style={{textAlign:'center',padding:48,color:'var(--muted)'}}>Collaborateur non trouvé.</div>;
