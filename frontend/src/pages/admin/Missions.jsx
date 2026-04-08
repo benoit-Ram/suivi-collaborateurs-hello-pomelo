@@ -441,13 +441,6 @@ export default function Missions() {
               <option value="equipe">🏷️ Equipe</option>
             </optgroup>
           </select>
-          <select value={calDisplayMode} onChange={e=>setCalDisplayMode(e.target.value)} style={selectStyle}>
-            <optgroup label="Valeurs">
-              <option value="pct">% Occupation</option>
-              <option value="jours">Jours occupés</option>
-              <option value="dispo">Jours disponibles</option>
-            </optgroup>
-          </select>
           <select value={filterClient} onChange={e=>setFilterClient(e.target.value)} style={selectStyle}>
             <option value="">Tous les clients</option>
             {clients.map(c=><option key={c.id} value={c.id}>{c.nom}</option>)}
@@ -473,7 +466,7 @@ export default function Missions() {
           {(filterClient || filterBureau || filterEquipes.length > 0) && <button className="btn btn-ghost btn-sm" style={{fontSize:'0.72rem',color:'var(--muted)'}} onClick={()=>{setFilterClient('');setFilterBureau('');setFilterEquipes([]);}}>Reinitialiser</button>}
         </div>
         <div className="card" style={{padding:0,overflow:'hidden'}}>
-          <TimelineView missions={filterClient ? active.filter(m=>m.client_id===filterClient) : active} collabs={filteredCollabs} staffingMap={staffingMap} allMissions={active} clients={clients} groupBy={calGroupBy} displayMode={calDisplayMode} onUpdateAssignment={async(id,data)=>{try{await api.updateAssignment(id,data);await loadData();showToast('Staffing mis à jour');}catch(e){showToast('Erreur: '+e.message);}}} />
+          <TimelineView missions={filterClient ? active.filter(m=>m.client_id===filterClient) : active} collabs={filteredCollabs} staffingMap={staffingMap} allMissions={active} clients={clients} groupBy={calGroupBy} displayMode={'jours'} onUpdateAssignment={async(id,data)=>{try{await api.updateAssignment(id,data);await loadData();showToast('Staffing mis à jour');}catch(e){showToast('Erreur: '+e.message);}}} />
         </div>
       </div></FadeIn>})()}
 
