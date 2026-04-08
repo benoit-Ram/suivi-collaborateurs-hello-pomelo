@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useData } from '../services/DataContext';
 import { useAuth } from '../services/AuthContext';
+import { api } from '../services/api';
 import { Avatar, useKeyboard } from './UI';
 import { APP_VERSION, BUILD_DATE } from '../version';
 
@@ -36,9 +37,22 @@ export default function Sidebar() {
     navigate(to);
   };
 
-  const searchResults = search.length >= 2
-    ? collabs.filter(c => (c.prenom+' '+c.nom+' '+c.poste+' '+(c.email||'')).toLowerCase().includes(search.toLowerCase())).slice(0,8)
-    : [];
+  const [searchExtra, setSearchExtra] = useState({missions:[],clients:[]});
+  useEffect(() => {
+    if (search.length < 2) { setSearchExtra({missions:[],clients:[]}); return; }
+    const timer = setTimeout(() => {
+      Promise.all([api.getMissions(), api.getClients()])
+        .then(([m,c]) => setSearchExtra({missions:m||[], clients:c||[]}))
+        .catch(() => {});
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const q = search.toLowerCase();
+  const collabResults = search.length >= 2 ? collabs.filter(c => (c.prenom+' '+c.nom+' '+c.poste+' '+(c.email||'')).toLowerCase().includes(q)).slice(0,5) : [];
+  const missionResults = search.length >= 2 ? searchExtra.missions.filter(m => (m.nom+(m.clients?.nom||m.client||'')+(m.categorie||'')).toLowerCase().includes(q)).slice(0,3) : [];
+  const clientResults = search.length >= 2 ? searchExtra.clients.filter(c => (c.nom+(c.secteur||'')).toLowerCase().includes(q)).slice(0,3) : [];
+  const hasResults = collabResults.length > 0 || missionResults.length > 0 || clientResults.length > 0;
 
   const navItems = [
     { to: '/admin', icon: '🏠', label: 'Tableau de bord', end: true },
@@ -69,16 +83,41 @@ export default function Sidebar() {
           ref={searchRef}
           placeholder="🔍 Rechercher... (Ctrl+K)"
           style={{ width:'100%', padding:'10px 12px', borderRadius:8, border:'none', fontFamily:'inherit', fontSize:'0.85rem', background:'rgba(255,255,255,0.12)', color:'white', outline:'none' }} />
-        {showResults && searchResults.length > 0 && (
-          <div style={{ position:'absolute', top:'100%', left:12, right:12, background:'var(--white)', borderRadius:10, boxShadow:'var(--shadow-lg)', zIndex:200, maxHeight:300, overflowY:'auto', marginTop:4 }}>
-            {searchResults.map(c => (
-              <div key={c.id} onMouseDown={() => { handleNav(`/admin/collaborateurs/${c.id}`); setSearch(''); }}
-                style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', cursor:'pointer', transition:'background 0.15s' }}
-                onMouseOver={e=>e.currentTarget.style.background='var(--hover-surface, #F0F0FF)'} onMouseOut={e=>e.currentTarget.style.background='transparent'}>
-                <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={28} />
-                <div><div style={{fontWeight:700,fontSize:'0.85rem',color:'var(--navy)'}}>{c.prenom} {c.nom}</div><div style={{fontSize:'0.72rem',color:'var(--muted)'}}>{c.poste}</div></div>
-              </div>
-            ))}
+        {showResults && hasResults && (
+          <div style={{ position:'absolute', top:'100%', left:12, right:12, background:'var(--white)', borderRadius:10, boxShadow:'var(--shadow-lg)', zIndex:200, maxHeight:350, overflowY:'auto', marginTop:4 }}>
+            {collabResults.length > 0 && <>
+              <div style={{padding:'6px 14px',fontSize:'0.6rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',borderBottom:'1px solid var(--lavender)'}}>👤 Collaborateurs</div>
+              {collabResults.map(c => (
+                <div key={c.id} onMouseDown={() => { handleNav(`/admin/collaborateurs/${c.id}`); setSearch(''); }}
+                  style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 14px', cursor:'pointer', transition:'background 0.15s' }}
+                  onMouseOver={e=>e.currentTarget.style.background='var(--hover-surface, #F0F0FF)'} onMouseOut={e=>e.currentTarget.style.background='transparent'}>
+                  <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={24} />
+                  <div><div style={{fontWeight:700,fontSize:'0.82rem',color:'var(--navy)'}}>{c.prenom} {c.nom}</div><div style={{fontSize:'0.68rem',color:'var(--muted)'}}>{c.poste}</div></div>
+                </div>
+              ))}
+            </>}
+            {clientResults.length > 0 && <>
+              <div style={{padding:'6px 14px',fontSize:'0.6rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',borderBottom:'1px solid var(--lavender)'}}>🏢 Clients</div>
+              {clientResults.map(c => (
+                <div key={c.id} onMouseDown={() => { handleNav('/admin/missions'); setSearch(''); }}
+                  style={{ padding:'8px 14px', cursor:'pointer', transition:'background 0.15s' }}
+                  onMouseOver={e=>e.currentTarget.style.background='var(--hover-surface, #F0F0FF)'} onMouseOut={e=>e.currentTarget.style.background='transparent'}>
+                  <div style={{fontWeight:700,fontSize:'0.82rem',color:'var(--navy)'}}>{c.nom}</div>
+                  {c.secteur && <div style={{fontSize:'0.68rem',color:'var(--muted)'}}>{c.secteur}</div>}
+                </div>
+              ))}
+            </>}
+            {missionResults.length > 0 && <>
+              <div style={{padding:'6px 14px',fontSize:'0.6rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',borderBottom:'1px solid var(--lavender)'}}>🚀 Missions</div>
+              {missionResults.map(m => (
+                <div key={m.id} onMouseDown={() => { handleNav('/admin/missions'); setSearch(''); }}
+                  style={{ padding:'8px 14px', cursor:'pointer', transition:'background 0.15s' }}
+                  onMouseOver={e=>e.currentTarget.style.background='var(--hover-surface, #F0F0FF)'} onMouseOut={e=>e.currentTarget.style.background='transparent'}>
+                  <div style={{fontWeight:700,fontSize:'0.82rem',color:'var(--navy)'}}>{m.nom}</div>
+                  <div style={{fontSize:'0.68rem',color:'var(--muted)'}}>{m.clients?.nom||m.client||'—'}{m.categorie?' · '+m.categorie:''}</div>
+                </div>
+              ))}
+            </>}
           </div>
         )}
       </div>}

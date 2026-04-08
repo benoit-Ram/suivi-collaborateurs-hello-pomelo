@@ -9,11 +9,14 @@ export default function Dashboard() {
   const [search, setSearch] = useState('');
   const [filterEquipe, setFilterEquipe] = useState('');
   const [staffingMoyen, setStaffingMoyen] = useState(null);
+  const [missionAlerts, setMissionAlerts] = useState([]);
+  const [missionStats, setMissionStats] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     api.getMissions().then(missions => {
       const todayStr = new Date().toISOString().split('T')[0];
+      const now = new Date();
       const activeMissions = (missions||[]).filter(m => (!m.date_fin || m.date_fin >= todayStr));
       const taux = {};
       collabs.forEach(c => { taux[c.id] = 0; });
@@ -24,6 +27,22 @@ export default function Dashboard() {
       });
       const vals = Object.values(taux);
       setStaffingMoyen(vals.length ? Math.round(vals.reduce((s,v)=>s+v,0)/vals.length) : 0);
+
+      // Mission alerts
+      const alerts = [];
+      activeMissions.forEach(m => {
+        if (m.date_fin) {
+          const days = Math.ceil((new Date(m.date_fin) - now) / 86400000);
+          if (days >= 0 && days <= 30) alerts.push({icon:'⏰',text:`${m.nom} termine dans ${days}j`,type:'warning',id:m.id});
+        }
+        if (m.budget_vendu) {
+          const consumed = (m.assignments||[]).reduce((s,a) => { if (!a.date_debut||!a.tjm) return s; const w=Math.max(0,(Math.min(a.date_fin?new Date(a.date_fin):now,now)-new Date(a.date_debut))/(7*86400000)); return s+(a.tjm*(a.jours_par_semaine||a.taux_staffing/100*5)*w); },0);
+          if (consumed > m.budget_vendu*0.9) alerts.push({icon:'💰',text:`${m.nom} : budget ${Math.round(consumed/m.budget_vendu*100)}%`,type:'danger',id:m.id});
+        }
+      });
+      const nonStaffed = collabs.filter(c => !taux[c.id] || taux[c.id]===0);
+      setMissionAlerts(alerts);
+      setMissionStats({ active: activeMissions.length, total: (missions||[]).length, nonStaffed: nonStaffed.length });
     }).catch(e => console.error('Staffing load error:', e));
   }, [collabs]);
 
@@ -156,6 +175,27 @@ export default function Dashboard() {
             ))}
             {alerts.length > 10 && <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>+ {alerts.length-10} autres alertes</div>}
           </>}
+        </div>
+      )}
+
+      {/* Missions summary */}
+      {missionStats && (missionAlerts.length > 0 || missionStats.nonStaffed > 0) && (
+        <div className="card" style={{marginBottom:24,borderLeft:'4px solid var(--blue)',padding:'20px 24px'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+            <h3 style={{fontSize:'0.85rem',fontWeight:700,color:'var(--navy)',textTransform:'uppercase'}}>🚀 Missions ({missionStats.active} en cours)</h3>
+            <button className="btn btn-ghost btn-sm" onClick={()=>navigate('/admin/missions')}>Voir tout →</button>
+          </div>
+          {missionStats.nonStaffed > 0 && (
+            <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',borderRadius:10,marginBottom:6,background:'var(--bg-info)',cursor:'pointer'}} onClick={()=>navigate('/admin/missions')}>
+              <span>👤</span>
+              <span style={{flex:1,fontSize:'0.82rem',fontWeight:600,color:'var(--text-info)'}}>{missionStats.nonStaffed} collaborateur{missionStats.nonStaffed>1?'s':''} non staffé{missionStats.nonStaffed>1?'s':''}</span>
+            </div>
+          )}
+          {missionAlerts.map((a,i) => (
+            <div key={i} onClick={()=>navigate('/admin/missions')} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',borderRadius:10,marginBottom:6,fontSize:'0.82rem',fontWeight:600,cursor:'pointer',background:a.type==='danger'?'var(--bg-danger)':'var(--bg-warning)',color:a.type==='danger'?'var(--text-danger)':'var(--text-warning)'}}>
+              <span>{a.icon}</span><span style={{flex:1}}>{a.text}</span><span style={{fontSize:'0.72rem',fontWeight:700}}>Voir →</span>
+            </div>
+          ))}
         </div>
       )}
 
