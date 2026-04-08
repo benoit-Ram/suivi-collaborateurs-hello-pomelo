@@ -34,6 +34,8 @@ export default function Missions() {
   const [assignForm, setAssignForm] = useState({ collaborateur_id:'', role:'', taux_staffing:100, jours_par_semaine:5, tjm:'', date_debut:'', date_fin:'' });
   // Detail modal
   const [detail, setDetail] = useState(null);
+  const [detailForm, setDetailForm] = useState({});
+  const [detailAssignForm, setDetailAssignForm] = useState({ collaborateur_id:'', role:'', taux_staffing:100, jours_par_semaine:5, tjm:'', date_debut:'', date_fin:'' });
   // Client modal + detail
   const [clientModal, setClientModal] = useState(null);
   const [clientForm, setClientForm] = useState({});
@@ -59,6 +61,12 @@ export default function Missions() {
   const [missionDateFin, setMissionDateFin] = useState('');
 
   useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    if (detail) {
+      setDetailForm({ nom:detail.nom, client_id:detail.client_id||'', description:detail.description||'', categorie:detail.categorie||'', date_debut:detail.date_debut||'', date_fin:detail.date_fin||'', budget_vendu:detail.budget_vendu||'', methode_facturation:detail.methode_facturation||'regie', responsable_id:detail.responsable_id||'', lien_propale:detail.lien_propale||'' });
+      setDetailAssignForm({ collaborateur_id:'', role:'', taux_staffing:100, jours_par_semaine:5, tjm:'', date_debut:detail.date_debut||'', date_fin:detail.date_fin||'' });
+    }
+  }, [detail]);
 
   async function loadData() {
     try {
@@ -492,30 +500,161 @@ export default function Missions() {
         </div>
       </Modal>
 
-      {/* DETAIL MODAL */}
+      {/* DETAIL MODAL — vue complète mission */}
       <Modal open={!!detail} onClose={()=>setDetail(null)} title={detail?`${detail.nom} — ${getClientName(detail)}`:''}>
-        {detail && <>
-          <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:16}}>
+        {detail && (()=>{
+          const team = (detail.assignments||[]).filter(a=>a.statut==='actif');
+          const calcCA = (a) => {
+            if (!a.tjm || !a.date_debut) return 0;
+            const start = new Date(a.date_debut);
+            const end = a.date_fin ? new Date(a.date_fin) : new Date();
+            const weeks = Math.max(0, (end - start) / (7*86400000));
+            return a.tjm * (a.jours_par_semaine || a.taux_staffing/100*5) * weeks;
+          };
+          const calcCAMensuel = (a) => a.tjm ? a.tjm * (a.jours_par_semaine || a.taux_staffing/100*5) * 4.33 : 0;
+          const totalCA = team.reduce((s,a)=>s+calcCA(a),0);
+          const totalCAMensuel = team.reduce((s,a)=>s+calcCAMensuel(a),0);
+          const totalJours = team.reduce((s,a)=>s+(a.jours_par_semaine||a.taux_staffing/100*5),0);
+          const budgetPct = detail.budget_vendu > 0 ? Math.round(totalCA/detail.budget_vendu*100) : null;
+
+          const saveDetail = async () => {
+            try {
+              const clientObj = clients.find(c=>c.id===detailForm.client_id);
+              const row = { ...detailForm, client: clientObj?.nom||'', budget_vendu: detailForm.budget_vendu ? parseFloat(detailForm.budget_vendu) : null, responsable_id: detailForm.responsable_id||null, lien_propale: detailForm.lien_propale||null };
+              await api.updateMission(detail.id, row);
+              await loadData();
+              const updated = (await api.getMissions()).find(m=>m.id===detail.id);
+              if (updated) setDetail(updated);
+              showToast('Mission mise à jour');
+            } catch(e) { showToast('Erreur: '+e.message); }
+          };
+
+          const addAssignInline = async () => {
+            if (!detailAssignForm.collaborateur_id || !detailAssignForm.role || !detailAssignForm.tjm) { showToast('Collaborateur, rôle et TJM requis'); return; }
+            try {
+              await api.createAssignment({ ...detailAssignForm, mission_id: detail.id, tjm: parseFloat(detailAssignForm.tjm), statut:'actif' });
+              await loadData();
+              const updated = (await api.getMissions()).find(m=>m.id===detail.id);
+              if (updated) setDetail(updated);
+              setDetailAssignForm({ collaborateur_id:'', role:'', taux_staffing:100, jours_par_semaine:5, tjm:'', date_debut:detail.date_debut||'', date_fin:detail.date_fin||'' });
+              showToast('Collaborateur affecté');
+            } catch(e) { showToast('Erreur: '+e.message); }
+          };
+
+          return <>
+          {/* Section 1 : Infos mission */}
+          <div style={{fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--pink)',marginBottom:8}}>Informations</div>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}>
             <Badge type={isMissionActive(detail)?'blue':'gray'}>{isMissionActive(detail)?'En cours':'Passée'}</Badge>
             {detail.categorie && <Badge type="blue">{detail.categorie}</Badge>}
             {detail.methode_facturation && <Badge type="gray">{detail.methode_facturation==='forfait'?'Forfait':'Régie'}</Badge>}
           </div>
-          {detail.description && <p style={{color:'var(--muted)',fontSize:'0.85rem',marginBottom:12}}>{detail.description}</p>}
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
-            <div><div style={{fontSize:'0.7rem',fontWeight:700,color:'var(--muted)',textTransform:'uppercase'}}>Dates</div><div style={{fontWeight:600}}>{fmtDate(detail.date_debut)} → {fmtDate(detail.date_fin)}</div></div>
-            <div><div style={{fontSize:'0.7rem',fontWeight:700,color:'var(--muted)',textTransform:'uppercase'}}>Budget vendu</div><div style={{fontWeight:700,color:'var(--navy)'}}>{detail.budget_vendu?detail.budget_vendu.toLocaleString('fr-FR')+' €':'—'}</div></div>
-            <div><div style={{fontSize:'0.7rem',fontWeight:700,color:'var(--muted)',textTransform:'uppercase'}}>Propale</div><div style={{fontWeight:600}}>{detail.lien_propale?<a href={detail.lien_propale} target="_blank" rel="noopener noreferrer" style={{color:'var(--blue)',textDecoration:'none'}}>📄 Voir</a>:'—'}</div></div>
-            <div><div style={{fontSize:'0.7rem',fontWeight:700,color:'var(--muted)',textTransform:'uppercase'}}>Responsable</div><div style={{fontWeight:600}}>{(()=>{const r=collabs.find(c=>c.id===detail.responsable_id);return r?r.prenom+' '+r.nom:'—';})()}</div></div>
+          <div className="form-grid">
+            <div className="form-field"><label>Nom</label><input value={detailForm.nom||''} onChange={e=>setDetailForm({...detailForm,nom:e.target.value})} /></div>
+            <div className="form-field"><label>Client</label><select value={detailForm.client_id||''} onChange={e=>setDetailForm({...detailForm,client_id:e.target.value})}><option value="">—</option>{clients.map(c=><option key={c.id} value={c.id}>{c.nom}</option>)}</select></div>
+            <div className="form-field"><label>Catégorie</label><select value={detailForm.categorie||''} onChange={e=>setDetailForm({...detailForm,categorie:e.target.value})}><option value="">—</option>{missionCategories.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
+            <div className="form-field"><label>Facturation</label><select value={detailForm.methode_facturation||'regie'} onChange={e=>setDetailForm({...detailForm,methode_facturation:e.target.value})}><option value="regie">Régie</option><option value="forfait">Forfait</option></select></div>
+            <div className="form-field"><label>Date début</label><input type="date" value={detailForm.date_debut||''} onChange={e=>setDetailForm({...detailForm,date_debut:e.target.value})} /></div>
+            <div className="form-field"><label>Date fin</label><input type="date" value={detailForm.date_fin||''} onChange={e=>setDetailForm({...detailForm,date_fin:e.target.value})} /></div>
+            <div className="form-field"><label>Budget vendu (€)</label><input type="number" value={detailForm.budget_vendu||''} onChange={e=>setDetailForm({...detailForm,budget_vendu:e.target.value})} /></div>
+            <div className="form-field"><label>Responsable</label><select value={detailForm.responsable_id||''} onChange={e=>setDetailForm({...detailForm,responsable_id:e.target.value})}><option value="">Aucun</option>{collabs.map(c=><option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>)}</select></div>
+            <div className="form-field"><label>Lien propale</label><input type="url" value={detailForm.lien_propale||''} onChange={e=>setDetailForm({...detailForm,lien_propale:e.target.value})} placeholder="https://..." /></div>
           </div>
-          <div style={{fontSize:'0.78rem',fontWeight:700,textTransform:'uppercase',color:'var(--pink)',marginBottom:8}}>Équipe ({(detail.assignments||[]).length})</div>
-          {(detail.assignments||[]).map(a=>(
+          <div className="form-field" style={{marginTop:8}}><label>Description</label><textarea value={detailForm.description||''} onChange={e=>setDetailForm({...detailForm,description:e.target.value})} style={{minHeight:50}} /></div>
+          <div style={{display:'flex',justifyContent:'flex-end',marginTop:8}}><button className="btn btn-primary btn-sm" onClick={saveDetail}>💾 Enregistrer</button></div>
+
+          <div style={{height:1,background:'var(--lavender)',margin:'16px 0'}} />
+
+          {/* Section 2 : Équipe */}
+          <div style={{fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--pink)',marginBottom:8}}>Équipe ({team.length})</div>
+          {team.length === 0 ? <p style={{color:'var(--muted)',fontSize:'0.82rem',fontStyle:'italic',marginBottom:12}}>Aucun collaborateur affecté</p> :
+          team.map(a=>(
             <div key={a.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',border:'1px solid var(--lavender)',borderRadius:10,marginBottom:6}}>
               {a.collaborateurs && <Avatar prenom={a.collaborateurs.prenom} nom={a.collaborateurs.nom} photoUrl={a.collaborateurs.photo_url} size={28} />}
-              <div style={{flex:1}}><div style={{fontWeight:700,fontSize:'0.85rem',color:'var(--navy)'}}>{a.collaborateurs?a.collaborateurs.prenom+' '+a.collaborateurs.nom:'—'}</div><div style={{fontSize:'0.72rem',color:'var(--muted)'}}>{a.role||'—'} · {a.taux_staffing}%</div></div>
-              <button className="btn btn-danger btn-sm" style={{padding:'2px 6px',fontSize:'0.65rem'}} onClick={()=>removeAssignment(a.id)}>✕</button>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:700,fontSize:'0.85rem',color:'var(--navy)'}}>{a.collaborateurs?a.collaborateurs.prenom+' '+a.collaborateurs.nom:'—'}</div>
+                <div style={{fontSize:'0.72rem',color:'var(--muted)'}}>{a.role||'—'} · {a.jours_par_semaine||Math.round(a.taux_staffing/100*5*10)/10}j/sem · {a.taux_staffing}% · {a.tjm?a.tjm+'€/j':'—'}</div>
+              </div>
+              <div style={{textAlign:'right',minWidth:80}}>
+                <div style={{fontSize:'0.78rem',fontWeight:700,color:'var(--blue)'}}>{Math.round(calcCA(a)).toLocaleString('fr-FR')} €</div>
+                <div style={{fontSize:'0.65rem',color:'var(--muted)'}}>{fmtDate(a.date_debut)} → {fmtDate(a.date_fin)}</div>
+              </div>
+              <button className="btn btn-danger btn-sm" style={{padding:'2px 6px',fontSize:'0.65rem'}} onClick={async()=>{await removeAssignment(a.id);const updated=(await api.getMissions()).find(m=>m.id===detail.id);if(updated)setDetail(updated);}}>✕</button>
             </div>
           ))}
-        </>}
+
+          {/* Formulaire ajout inline */}
+          <div style={{padding:'10px 12px',border:'1.5px dashed var(--lavender)',borderRadius:10,marginTop:8}}>
+            <div style={{fontSize:'0.7rem',fontWeight:700,color:'var(--muted)',marginBottom:6}}>+ Ajouter un collaborateur</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+              <select value={detailAssignForm.collaborateur_id} onChange={e=>setDetailAssignForm({...detailAssignForm,collaborateur_id:e.target.value})} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)'}}>
+                <option value="">Collaborateur...</option>
+                {collabs.map(c=><option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>)}
+              </select>
+              <select value={detailAssignForm.role} onChange={e=>{const role=missionRoles.find(r=>r.label===e.target.value);setDetailAssignForm({...detailAssignForm,role:e.target.value,tjm:role?String(role.tjm):detailAssignForm.tjm});}} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)'}}>
+                <option value="">Rôle...</option>
+                {missionRoles.map(r=><option key={r.label} value={r.label}>{r.label} ({r.tjm}€)</option>)}
+              </select>
+              <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                <input type="number" step="0.5" min="0.5" max="5" value={detailAssignForm.jours_par_semaine} onChange={e=>{const jps=parseFloat(e.target.value)||0;setDetailAssignForm({...detailAssignForm,jours_par_semaine:jps,taux_staffing:Math.round(jps/5*100)});}} style={{width:60,border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)'}} />
+                <span style={{fontSize:'0.68rem',color:'var(--muted)'}}>j/sem</span>
+              </div>
+              <input type="number" placeholder="TJM €" value={detailAssignForm.tjm} onChange={e=>setDetailAssignForm({...detailAssignForm,tjm:e.target.value})} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)'}} />
+              <input type="date" value={detailAssignForm.date_debut} onChange={e=>setDetailAssignForm({...detailAssignForm,date_debut:e.target.value})} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)'}} />
+              <input type="date" value={detailAssignForm.date_fin} onChange={e=>setDetailAssignForm({...detailAssignForm,date_fin:e.target.value})} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)'}} />
+            </div>
+            <div style={{display:'flex',justifyContent:'flex-end',marginTop:8}}><button className="btn btn-primary btn-sm" onClick={addAssignInline}>+ Affecter</button></div>
+          </div>
+
+          <div style={{height:1,background:'var(--lavender)',margin:'16px 0'}} />
+
+          {/* Section 3 : Planning & Finance */}
+          <div style={{fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--pink)',marginBottom:8}}>Planning & Finance</div>
+          {team.length > 0 && <>
+            <div className="card" style={{overflowX:'auto',marginBottom:12}}>
+              <table style={{fontSize:'0.78rem'}}>
+                <thead><tr><th>Collaborateur</th><th>Rôle</th><th>Jours/sem</th><th>TJM</th><th>Période</th><th style={{textAlign:'right'}}>CA estimé</th><th style={{textAlign:'right'}}>CA/mois</th></tr></thead>
+                <tbody>
+                  {team.map(a=>(
+                    <tr key={a.id}>
+                      <td style={{fontWeight:700,color:'var(--navy)'}}>{a.collaborateurs?a.collaborateurs.prenom+' '+a.collaborateurs.nom:'—'}</td>
+                      <td style={{color:'var(--muted)'}}>{a.role||'—'}</td>
+                      <td style={{fontWeight:600}}>{a.jours_par_semaine||Math.round(a.taux_staffing/100*5*10)/10}j</td>
+                      <td style={{fontWeight:600}}>{a.tjm?a.tjm+'€':'—'}</td>
+                      <td style={{color:'var(--muted)'}}>{fmtDate(a.date_debut)} → {fmtDate(a.date_fin)}</td>
+                      <td style={{textAlign:'right',fontWeight:700,color:'var(--navy)'}}>{Math.round(calcCA(a)).toLocaleString('fr-FR')} €</td>
+                      <td style={{textAlign:'right',fontWeight:600,color:'var(--blue)'}}>{Math.round(calcCAMensuel(a)).toLocaleString('fr-FR')} €</td>
+                    </tr>
+                  ))}
+                  <tr style={{borderTop:'2px solid var(--lavender)',fontWeight:700}}>
+                    <td>Total</td><td></td>
+                    <td>{Math.round(totalJours*10)/10}j/sem</td>
+                    <td></td><td></td>
+                    <td style={{textAlign:'right',color:'var(--navy)'}}>{Math.round(totalCA).toLocaleString('fr-FR')} €</td>
+                    <td style={{textAlign:'right',color:'var(--blue)'}}>{Math.round(totalCAMensuel).toLocaleString('fr-FR')} €</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </>}
+
+          {/* Budget progress */}
+          {budgetPct !== null && <div style={{marginBottom:8}}>
+            <div style={{display:'flex',justifyContent:'space-between',fontSize:'0.75rem',marginBottom:4}}>
+              <span style={{color:'var(--muted)'}}>Budget consommé (est.)</span>
+              <span style={{fontWeight:700,color:budgetPct>90?'var(--red)':'var(--navy)'}}>{Math.round(totalCA).toLocaleString('fr-FR')} € / {detail.budget_vendu?.toLocaleString('fr-FR')} € ({budgetPct}%)</span>
+            </div>
+            <div style={{height:8,background:'var(--offwhite)',borderRadius:4,overflow:'hidden'}}>
+              <div style={{height:'100%',width:`${Math.min(budgetPct,100)}%`,background:budgetPct>90?'var(--red)':budgetPct>70?'var(--orange)':'var(--green)',borderRadius:4}} />
+            </div>
+          </div>}
+
+          <div style={{display:'flex',gap:16,fontSize:'0.82rem',color:'var(--muted)',marginTop:8}}>
+            <span>CA mensuel estimé : <strong style={{color:'var(--blue)'}}>{Math.round(totalCAMensuel).toLocaleString('fr-FR')} €</strong></span>
+            {detail.lien_propale && <a href={detail.lien_propale} target="_blank" rel="noopener noreferrer" style={{color:'var(--blue)',textDecoration:'none'}}>📄 Propale signée</a>}
+          </div>
+        </>;
+        })()}
       </Modal>
 
       {/* CLIENT MODAL */}
