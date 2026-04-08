@@ -944,6 +944,9 @@ function TimelineView({ missions, collabs, staffingMap, allMissions, clients, gr
   const [expandedSub, setExpandedSub] = useState(new Set());
   const [editingCell, setEditingCell] = useState(null); // {assignmentId, colIdx}
   const [editValue, setEditValue] = useState('');
+  const [paintMode, setPaintMode] = useState(false);
+  const [paintValue, setPaintValue] = useState(100);
+  const [isPainting, setIsPainting] = useState(false);
   const [viewUnit, setViewUnit] = useState('week');
   const toggleSub = (id) => setExpandedSub(prev => { const n = new Set(prev); n.has(id)?n.delete(id):n.add(id); return n; });
   const DAYS = 10; const WEEKS = 16; const MONTHS_COUNT = 6;
@@ -1081,6 +1084,23 @@ function TimelineView({ missions, collabs, staffingMap, allMissions, clients, gr
     }
   })();
 
+  // Stop painting on global mouseup
+  useEffect(() => {
+    if (!paintMode) return;
+    const stop = () => setIsPainting(false);
+    window.addEventListener('mouseup', stop);
+    return () => window.removeEventListener('mouseup', stop);
+  }, [paintMode]);
+
+  // Paint mode: apply taux to a cell
+  const paintCell = (assignmentId, assignment, col) => {
+    if (!onUpdateAssignment || !assignment) return;
+    const key = col.periodKey;
+    const overrides = {...(assignment.staffing_overrides||{})};
+    if (paintValue === (assignment.taux_staffing||0)) { delete overrides[key]; } else { overrides[key] = paintValue; }
+    onUpdateAssignment(assignmentId, { staffing_overrides: overrides });
+  };
+
   const stickyStyle = {position:'sticky',left:0,background:'var(--white)',zIndex:1};
 
   if (rows.length === 0) return <div style={{padding:32,textAlign:'center',color:'var(--muted)',fontSize:'0.85rem'}}>Aucune donnée à afficher pour cette période</div>;
@@ -1097,7 +1117,14 @@ function TimelineView({ missions, collabs, staffingMap, allMissions, clients, gr
             ))}
           </div>
         </div>
-        <div style={{display:'flex',gap:6}}>
+        <div style={{display:'flex',gap:6,alignItems:'center'}}>
+          {/* Paint mode toggle */}
+          <div style={{display:'flex',alignItems:'center',gap:4,padding:'2px 8px',borderRadius:8,background:paintMode?'rgba(255,50,133,0.1)':'transparent',border:paintMode?'1.5px solid var(--pink)':'1.5px solid transparent'}}>
+            <button onClick={()=>setPaintMode(!paintMode)} className="btn btn-ghost btn-sm" style={{padding:'3px 8px',fontSize:'0.7rem',color:paintMode?'var(--pink)':'var(--muted)'}} title="Mode peinture : cliquer-glisser pour peindre le staffing">{paintMode?'🎨 ON':'🎨'}</button>
+            {paintMode && <select value={paintValue} onChange={e=>setPaintValue(parseInt(e.target.value))} style={{border:'1px solid var(--lavender)',borderRadius:4,padding:'2px 4px',fontSize:'0.65rem',fontFamily:'inherit',background:'var(--offwhite)',color:'var(--navy)',width:52}}>
+              {[0,10,20,30,40,50,60,70,80,90,100].map(v=><option key={v} value={v}>{v}%</option>)}
+            </select>}
+          </div>
           {offset!==0 && <button className="btn btn-ghost btn-sm" onClick={()=>setOffset(0)}>Aujourd'hui</button>}
           <button className="btn btn-ghost btn-sm" onClick={()=>setOffset(offset+1)}>{navLabels[viewUnit]} →</button>
         </div>
@@ -1163,7 +1190,11 @@ function TimelineView({ missions, collabs, staffingMap, allMissions, clients, gr
                       const val = fmtCell(taux);
                       const canEdit = sr.assignmentId && onUpdateAssignment;
                       const isEditing2 = editingCell && editingCell.assignmentId === sr.assignmentId && editingCell.colIdx === ci;
-                      return <td key={ci} style={{padding:1,background:col.isCurrent?'rgba(255,50,133,0.03)':'transparent',textAlign:'center',cursor:canEdit?'pointer':'default'}} onClick={canEdit?(e)=>{e.stopPropagation();setEditingCell({assignmentId:sr.assignmentId,colIdx:ci,periodKey:col.periodKey,assignment:sr.assignment});setEditValue(String(taux));}:undefined}>
+                      return <td key={ci} style={{padding:1,background:col.isCurrent?'rgba(255,50,133,0.03)':'transparent',textAlign:'center',cursor:canEdit?'pointer':'default'}}
+                        onMouseDown={canEdit&&paintMode?(e)=>{e.preventDefault();e.stopPropagation();setIsPainting(true);paintCell(sr.assignmentId,sr.assignment,col);}:undefined}
+                        onMouseEnter={canEdit&&paintMode&&isPainting?(e)=>{e.stopPropagation();paintCell(sr.assignmentId,sr.assignment,col);}:undefined}
+                        onMouseUp={paintMode?()=>setIsPainting(false):undefined}
+                        onClick={canEdit&&!paintMode?(e)=>{e.stopPropagation();setEditingCell({assignmentId:sr.assignmentId,colIdx:ci,periodKey:col.periodKey,assignment:sr.assignment});setEditValue(String(taux));}:undefined}>
                         {isEditing2 ? (
                           <input type="number" min="0" max="200" step="10" value={editValue} autoFocus
                             style={{width:36,padding:'1px 2px',fontSize:'0.5rem',fontWeight:700,textAlign:'center',border:'1.5px solid var(--pink)',borderRadius:3,outline:'none',background:'white',color:'var(--navy)'}}
@@ -1192,10 +1223,11 @@ function TimelineView({ missions, collabs, staffingMap, allMissions, clients, gr
                         const taux = Math.round(ar.getCellTaux(col));
                         const val = fmtCell(taux);
                         const isEditing = editingCell && editingCell.assignmentId === ar.assignmentId && editingCell.colIdx === ci;
-                        return <td key={ci} style={{padding:1,background:col.isCurrent?'rgba(255,50,133,0.03)':'transparent',textAlign:'center',cursor:onUpdateAssignment?'pointer':'default'}} onClick={(e)=>{
-                          e.stopPropagation();
-                          if (onUpdateAssignment) { setEditingCell({assignmentId:ar.assignmentId, colIdx:ci, periodKey:col.periodKey, assignment:ar.assignment}); setEditValue(String(taux)); }
-                        }}>
+                        return <td key={ci} style={{padding:1,background:col.isCurrent?'rgba(255,50,133,0.03)':'transparent',textAlign:'center',cursor:onUpdateAssignment?'pointer':'default'}}
+                          onMouseDown={onUpdateAssignment&&paintMode?(e)=>{e.preventDefault();e.stopPropagation();setIsPainting(true);paintCell(ar.assignmentId,ar.assignment,col);}:undefined}
+                          onMouseEnter={onUpdateAssignment&&paintMode&&isPainting?(e)=>{e.stopPropagation();paintCell(ar.assignmentId,ar.assignment,col);}:undefined}
+                          onMouseUp={paintMode?()=>setIsPainting(false):undefined}
+                          onClick={onUpdateAssignment&&!paintMode?(e)=>{e.stopPropagation();setEditingCell({assignmentId:ar.assignmentId,colIdx:ci,periodKey:col.periodKey,assignment:ar.assignment});setEditValue(String(taux));}:undefined}>
                           {isEditing ? (
                             <input type="number" min="0" max="200" step="10" value={editValue} autoFocus
                               style={{width:36,padding:'1px 2px',fontSize:'0.55rem',fontWeight:700,textAlign:'center',border:'1.5px solid var(--pink)',borderRadius:3,outline:'none',background:'white',color:'var(--navy)'}}
