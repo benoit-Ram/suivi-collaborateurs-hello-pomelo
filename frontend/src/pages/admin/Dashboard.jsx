@@ -18,12 +18,18 @@ export default function Dashboard() {
     api.getMissions().then(missions => {
       const todayStr = new Date().toISOString().split('T')[0];
       const now = new Date();
+      // Current week key for override lookup
+      const mon = new Date(now); mon.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+      const wn = Math.ceil(((mon - new Date(mon.getFullYear(), 0, 1)) / 86400000 + 1) / 7);
+      const weekKey = `${mon.getFullYear()}-W${String(wn).padStart(2, '0')}`;
+      const getEffTaux = (a) => { const ov = a.staffing_overrides || {}; return ov[weekKey] !== undefined ? ov[weekKey] : (a.taux_staffing || 0); };
+
       const activeMissions = (missions||[]).filter(m => (!m.date_fin || m.date_fin >= todayStr));
       const taux = {};
       collabs.forEach(c => { taux[c.id] = 0; });
       activeMissions.forEach(m => {
         (m.assignments||[]).filter(a=>a.statut==='actif').forEach(a => {
-          if (taux[a.collaborateur_id] !== undefined) taux[a.collaborateur_id] += (a.taux_staffing||0);
+          if (taux[a.collaborateur_id] !== undefined) taux[a.collaborateur_id] += getEffTaux(a);
         });
       });
       const vals = Object.values(taux);

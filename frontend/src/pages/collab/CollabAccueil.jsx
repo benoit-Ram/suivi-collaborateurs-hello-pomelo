@@ -70,24 +70,32 @@ export default function CollabAccueil() {
     }).catch(() => setLoading(false));
   }, [authUser]);
 
-  // Staffing actuel : somme des taux_staffing des missions actives aujourd'hui
+  // Staffing actuel : taux effectif cette semaine (overrides > taux_staffing)
   useEffect(() => {
     if (!selectedId) return;
     api.getMissions().then(missions => {
-      const todayStr = new Date().toISOString().split('T')[0];
+      const now = new Date();
+      const todayStr = now.toISOString().split('T')[0];
+      // Current week key: "2026-W14"
+      const mon = new Date(now); mon.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+      const wn = Math.ceil(((mon - new Date(mon.getFullYear(), 0, 1)) / 86400000 + 1) / 7);
+      const weekKey = `${mon.getFullYear()}-W${String(wn).padStart(2, '0')}`;
+
       let totalTaux = 0;
       (missions || []).forEach(m => {
         if (m.date_debut && m.date_debut > todayStr) return;
         if (m.date_fin && m.date_fin < todayStr) return;
         (m.assignments || []).forEach(a => {
           if (a.collaborateur_id !== selectedId) return;
-          if (a.statut && a.statut !== 'actif') return; // skip only if explicitly non-actif
-          totalTaux += (a.taux_staffing || 0);
+          if (a.statut && a.statut !== 'actif') return;
+          // Check override for this week, fallback to default taux
+          const overrides = a.staffing_overrides || {};
+          const taux = overrides[weekKey] !== undefined ? overrides[weekKey] : (a.taux_staffing || 0);
+          totalTaux += taux;
         });
       });
-      console.log('[Staffing]', selectedId, 'missions:', (missions||[]).length, 'taux:', totalTaux);
       setStaffingGlobal(totalTaux);
-    }).catch(e => console.error('[Staffing] error:', e));
+    }).catch(() => {});
   }, [selectedId, collabs]);
 
   if (loading) return <div style={{maxWidth:600,margin:'40px auto'}}><Skeleton lines={5} /></div>;

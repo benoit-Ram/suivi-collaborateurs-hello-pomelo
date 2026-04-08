@@ -208,6 +208,13 @@ export default function Missions() {
   const todayStr = new Date().toISOString().split('T')[0];
   const periodStart = missionDateDebut || todayStr;
   const periodEnd = missionDateFin || todayStr;
+
+  // Current week key for override lookup
+  const nowDate = new Date();
+  const monDate = new Date(nowDate); monDate.setDate(nowDate.getDate() - ((nowDate.getDay() + 6) % 7));
+  const currentWeekNum = Math.ceil(((monDate - new Date(monDate.getFullYear(), 0, 1)) / 86400000 + 1) / 7);
+  const currentWeekKey = `${monDate.getFullYear()}-W${String(currentWeekNum).padStart(2, '0')}`;
+  const getEffectiveTaux = (a) => { const ov = a.staffing_overrides || {}; return ov[currentWeekKey] !== undefined ? ov[currentWeekKey] : (a.taux_staffing || 0); };
   const isMissionActive = (m) => (!m.date_fin || m.date_fin >= periodStart) && (!m.date_debut || m.date_debut <= periodEnd);
   const active = missions.filter(isMissionActive);
 
@@ -217,8 +224,9 @@ export default function Missions() {
   active.forEach(m => {
     (m.assignments || []).filter(a => a.statut === 'actif').forEach(a => {
       if (staffingMap[a.collaborateur_id]) {
-        staffingMap[a.collaborateur_id].taux += (a.taux_staffing || 0);
-        staffingMap[a.collaborateur_id].missions.push({ nom: m.nom, client: getClientName(m), taux: a.taux_staffing, role: a.role });
+        const effectiveTaux = getEffectiveTaux(a);
+        staffingMap[a.collaborateur_id].taux += effectiveTaux;
+        staffingMap[a.collaborateur_id].missions.push({ nom: m.nom, client: getClientName(m), taux: effectiveTaux, role: a.role });
       }
     });
   });
