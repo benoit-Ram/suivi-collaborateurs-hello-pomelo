@@ -408,27 +408,23 @@ export default function Missions() {
         const selectStyle = {border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 10px',fontFamily:'inherit',fontSize:'0.78rem',background:'var(--offwhite)',color:'var(--navy)'};
         const toggleBtnStyle = (active) => ({padding:'4px 10px',fontSize:'0.7rem',fontWeight:700,background:active?'var(--pink)':'transparent',color:active?'white':'var(--muted)',border:'none',borderRadius:6,cursor:'pointer',fontFamily:'inherit'});
         return <FadeIn><div>
-        {/* Ligne 1 : Groupement + Affichage */}
-        <div style={{display:'flex',gap:12,marginBottom:10,flexWrap:'wrap',alignItems:'center'}}>
-          <div style={{display:'flex',alignItems:'center',gap:6}}>
-            <span style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)'}}>Afficher par</span>
-            <div style={{display:'flex',gap:2,background:'var(--offwhite)',borderRadius:8,padding:2}}>
-              {[['collab','Collaborateur'],['client','Client'],['mission','Mission'],['bureau','Bureau'],['equipe','Equipe']].map(([k,l])=>(
-                <button key={k} onClick={()=>setCalGroupBy(k)} style={toggleBtnStyle(calGroupBy===k)}>{l}</button>
-              ))}
-            </div>
-          </div>
-          <div style={{display:'flex',alignItems:'center',gap:6}}>
-            <span style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)'}}>Valeurs</span>
-            <div style={{display:'flex',gap:2,background:'var(--offwhite)',borderRadius:8,padding:2}}>
-              {[['pct','%'],['jours','Jours occ.'],['dispo','Jours dispo']].map(([k,l])=>(
-                <button key={k} onClick={()=>setCalDisplayMode(k)} style={toggleBtnStyle(calDisplayMode===k)}>{l}</button>
-              ))}
-            </div>
-          </div>
-        </div>
-        {/* Ligne 2 : Filtres */}
         <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
+          <select value={calGroupBy} onChange={e=>setCalGroupBy(e.target.value)} style={selectStyle}>
+            <optgroup label="Afficher par">
+              <option value="collab">👤 Collaborateur</option>
+              <option value="client">🏢 Client</option>
+              <option value="mission">🚀 Mission</option>
+              <option value="bureau">📍 Bureau</option>
+              <option value="equipe">🏷️ Equipe</option>
+            </optgroup>
+          </select>
+          <select value={calDisplayMode} onChange={e=>setCalDisplayMode(e.target.value)} style={selectStyle}>
+            <optgroup label="Valeurs">
+              <option value="pct">% Occupation</option>
+              <option value="jours">Jours occupés</option>
+              <option value="dispo">Jours disponibles</option>
+            </optgroup>
+          </select>
           <select value={filterClient} onChange={e=>setFilterClient(e.target.value)} style={selectStyle}>
             <option value="">Tous les clients</option>
             {clients.map(c=><option key={c.id} value={c.id}>{c.nom}</option>)}
