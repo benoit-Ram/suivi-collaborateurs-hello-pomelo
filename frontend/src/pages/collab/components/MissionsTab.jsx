@@ -31,10 +31,12 @@ function getWeekLabel(monday) {
   return `S${weekNum} — ${monday.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})} au ${end.toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'})}`;
 }
 
-export default function MissionsTab({ collabId }) {
+export default function MissionsTab({ collabId, collabs: allCollabs }) {
   const [assignments, setAssignments] = useState([]);
   const [timeEntries, setTimeEntries] = useState([]);
+  const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [expandedMission, setExpandedMission] = useState(null);
   const [weekOffset, setWeekOffset] = useState(0);
   // Validation popup
   const [validateDate, setValidateDate] = useState(null); // date string to validate
@@ -48,11 +50,13 @@ export default function MissionsTab({ collabId }) {
 
   async function loadData() {
     try {
-      const [a, t, m] = await Promise.all([
+      const [a, t, m, c] = await Promise.all([
         api.getAssignments({ collaborateur_id: collabId }),
         api.getTimeEntries({ collaborateur_id: collabId }),
-        api.getMissions()
+        api.getMissions(),
+        api.getClients()
       ]);
+      setClients(c || []);
       // Enrich assignments with full mission data (including team)
       const enriched = (a||[]).map(assign => {
         const fullMission = (m||[]).find(mi => mi.id === assign.mission_id);
@@ -307,34 +311,73 @@ export default function MissionsTab({ collabId }) {
       {/* Missions actives */}
       {active.length > 0 && <>
         <div className="section-title">Mes missions ({active.length})</div>
-        {active.map(a => (
-          <div key={a.id} className="card" style={{marginBottom:10,padding:16,borderLeft:'4px solid var(--blue)'}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-              <div>
-                <div style={{fontWeight:700,color:'var(--navy)',fontSize:'0.95rem'}}>{a.missions?.nom || '—'}</div>
-                <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>{a.missions?.clients?.nom || a.missions?.client || '—'} · {a.role || 'Non défini'}</div>
-              </div>
-              <div style={{textAlign:'right'}}>
-                <Badge type={STATUT_BADGE[a.missions?.statut]||'gray'}>{STATUT_LABEL[a.missions?.statut]||'—'}</Badge>
-                <div style={{fontWeight:700,color:'var(--blue)',fontSize:'1rem',marginTop:4}}>{a.taux_staffing}%</div>
-              </div>
-            </div>
-            <div style={{fontSize:'0.75rem',color:'var(--muted)',marginTop:6}}>📅 {fmtDate(a.date_debut)} → {fmtDate(a.date_fin)}</div>
-            {/* Team members on same mission */}
-            {a.missions?.assignments?.filter(x=>x.collaborateur_id!==collabId&&x.statut==='actif').length > 0 && (
-              <div style={{marginTop:8,paddingTop:8,borderTop:'1px dashed var(--lavender)'}}>
-                <div style={{fontSize:'0.68rem',fontWeight:700,color:'var(--muted)',marginBottom:4}}>👥 Équipe mission</div>
-                <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                  {a.missions.assignments.filter(x=>x.collaborateur_id!==collabId&&x.statut==='actif').map(x => (
-                    <span key={x.id} style={{fontSize:'0.7rem',color:'var(--navy)',background:'var(--offwhite)',padding:'3px 8px',borderRadius:6,fontWeight:600}}>
-                      {x.collaborateurs ? `${x.collaborateurs.prenom} ${x.collaborateurs.nom[0]}.` : '—'} · {x.role||'—'}
-                    </span>
-                  ))}
+        {active.map(a => {
+          const client = clients.find(c => c.id === a.missions?.client_id);
+          const isExpanded = expandedMission === a.id;
+          const teammates = (a.missions?.assignments||[]).filter(x=>x.collaborateur_id!==collabId&&x.statut==='actif');
+          return (
+          <div key={a.id} className="card" style={{marginBottom:12,padding:0,borderLeft:'4px solid var(--blue)',overflow:'hidden'}}>
+            {/* Header — cliquable */}
+            <div style={{padding:16,cursor:'pointer'}} onClick={()=>setExpandedMission(isExpanded?null:a.id)}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                <div>
+                  <div style={{fontWeight:700,color:'var(--navy)',fontSize:'0.95rem'}}>{a.missions?.nom || '—'} <span style={{fontSize:'0.6rem',color:'var(--muted)'}}>{isExpanded?'▲':'▼'}</span></div>
+                  <div style={{fontSize:'0.78rem',color:'var(--muted)',marginTop:2}}>{client?.nom || a.missions?.clients?.nom || '—'} · {a.role || 'Non défini'}</div>
+                </div>
+                <div style={{textAlign:'right'}}>
+                  <Badge type={STATUT_BADGE[a.missions?.statut]||'gray'}>{STATUT_LABEL[a.missions?.statut]||'—'}</Badge>
+                  <div style={{fontWeight:700,color:'var(--blue)',fontSize:'1rem',marginTop:4}}>{a.taux_staffing}%</div>
                 </div>
               </div>
-            )}
-          </div>
-        ))}
+              <div style={{display:'flex',gap:12,fontSize:'0.75rem',color:'var(--muted)',marginTop:6,flexWrap:'wrap'}}>
+                <span>📅 {fmtDate(a.date_debut)} → {fmtDate(a.date_fin)}</span>
+                {a.missions?.categorie && <span>🏷️ {a.missions.categorie}</span>}
+                {teammates.length > 0 && <span>👥 {teammates.length} collab{teammates.length>1?'s':''}</span>}
+              </div>
+            </div>
+
+            {/* Détails expandés */}
+            {isExpanded && <div style={{borderTop:'1px solid var(--lavender)'}}>
+              {/* Infos client */}
+              {client && <div style={{padding:'12px 16px',background:'var(--offwhite)'}}>
+                <div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--pink)',marginBottom:8}}>🏢 Client</div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,fontSize:'0.78rem'}}>
+                  <div><span style={{color:'var(--muted)'}}>Raison sociale : </span><span style={{fontWeight:700,color:'var(--navy)'}}>{client.nom}</span></div>
+                  {client.secteur && <div><span style={{color:'var(--muted)'}}>Secteur : </span><span style={{fontWeight:600,color:'var(--navy)'}}>{client.secteur}</span></div>}
+                  {client.ville && <div><span style={{color:'var(--muted)'}}>Ville : </span><span style={{fontWeight:600,color:'var(--navy)'}}>{client.ville}</span></div>}
+                  {client.contact_signature_nom && <div><span style={{color:'var(--muted)'}}>Contact : </span><span style={{fontWeight:600,color:'var(--navy)'}}>{client.contact_signature_nom}{client.contact_signature_email?` · ${client.contact_signature_email}`:''}</span></div>}
+                  {client.siren && <div><span style={{color:'var(--muted)'}}>SIREN : </span><span style={{fontWeight:600,color:'var(--navy)'}}>{client.siren}</span></div>}
+                  {client.categorie_entreprise && <div><span style={{color:'var(--muted)'}}>Catégorie : </span><span style={{fontWeight:600,color:'var(--navy)'}}>{client.categorie_entreprise}</span></div>}
+                </div>
+                {client.description && <div style={{marginTop:6,fontSize:'0.75rem',color:'var(--muted)',fontStyle:'italic'}}>{client.description}</div>}
+              </div>}
+
+              {/* Mission details */}
+              <div style={{padding:'12px 16px'}}>
+                {a.missions?.description && <div style={{fontSize:'0.78rem',color:'var(--muted)',marginBottom:10}}>{a.missions.description}</div>}
+                {a.missions?.methode_facturation && <div style={{fontSize:'0.75rem',color:'var(--muted)',marginBottom:4}}>{a.missions.methode_facturation==='forfait'?'📦 Forfait':'⏱️ Régie'}</div>}
+                {a.missions?.lien_propale && <a href={a.missions.lien_propale} target="_blank" rel="noopener noreferrer" style={{fontSize:'0.75rem',color:'var(--blue)',textDecoration:'none'}}>📄 Proposition commerciale</a>}
+              </div>
+
+              {/* Équipe mission */}
+              {teammates.length > 0 && <div style={{padding:'12px 16px',borderTop:'1px solid var(--lavender)'}}>
+                <div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--pink)',marginBottom:8}}>👥 Équipe ({teammates.length + 1})</div>
+                {teammates.map(x => {
+                  const collab = allCollabs?.find(c=>c.id===x.collaborateur_id) || x.collaborateurs;
+                  return <div key={x.id} style={{display:'flex',alignItems:'center',gap:10,padding:'6px 0',borderBottom:'1px solid var(--lavender)'}}>
+                    <div style={{width:28,height:28,borderRadius:'50%',background:'linear-gradient(135deg, var(--pink), var(--blue))',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:'0.6rem',fontWeight:700,flexShrink:0}}>
+                      {collab ? (collab.prenom||'')[0]+(collab.nom||'')[0] : '?'}
+                    </div>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:700,fontSize:'0.82rem',color:'var(--navy)'}}>{collab ? `${collab.prenom} ${collab.nom}` : '—'}</div>
+                      <div style={{fontSize:'0.7rem',color:'var(--muted)'}}>{x.role||'—'} · {x.taux_staffing||0}% · {fmtDate(x.date_debut)} → {fmtDate(x.date_fin)}</div>
+                    </div>
+                  </div>;
+                })}
+              </div>}
+            </div>}
+          </div>);
+        })}
       </>}
 
       {active.length === 0 && <div className="card" style={{textAlign:'center',padding:32,color:'var(--muted)'}}>🚀 Aucune mission en cours</div>}

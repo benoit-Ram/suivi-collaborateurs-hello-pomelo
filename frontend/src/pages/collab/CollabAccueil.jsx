@@ -235,7 +235,7 @@ export default function CollabAccueil() {
       </div></FadeIn>}
 
       {/* CONGÉS */}
-      {tab==='missions' && <FadeIn><MissionsTab collabId={c.id} isResponsable={false} /></FadeIn>}
+      {tab==='missions' && <FadeIn><MissionsTab collabId={c.id} isResponsable={false} collabs={collabs} /></FadeIn>}
       {tab==='conges' && <FadeIn><CongesTab c={c} absences={absences} solde={solde} settings={settings} onReload={() => loadAbsences(c.id)} api={api} /></FadeIn>}
 
       {/* MANAGEMENT */}
