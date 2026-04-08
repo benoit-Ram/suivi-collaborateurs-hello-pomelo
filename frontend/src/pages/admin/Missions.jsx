@@ -899,11 +899,12 @@ function TimelineView({ missions, collabs, staffingMap, allMissions, clients, gr
     }, 0);
   };
 
-  // Format cell value
+  // Format cell value — adapt days to period: 1j/day, 5j/week, ~21.7j/month
+  const daysPerPeriod = viewUnit === 'day' ? 1 : viewUnit === 'month' ? 21.67 : 5;
   const fmtCell = (taux) => {
     if (taux === 0) return null;
-    if (displayMode === 'jours') return `${(taux/100*5).toFixed(1)}j`;
-    if (displayMode === 'dispo') return `${((100-taux)/100*5).toFixed(1)}j`;
+    if (displayMode === 'jours') return `${(taux/100*daysPerPeriod).toFixed(1)}j`;
+    if (displayMode === 'dispo') return `${((100-taux)/100*daysPerPeriod).toFixed(1)}j`;
     return `${taux}%`;
   };
   const cellColor = (taux) => taux > 100 ? 'var(--red)' : taux >= 80 ? 'var(--blue)' : taux > 0 ? 'var(--green)' : 'transparent';
