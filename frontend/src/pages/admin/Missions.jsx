@@ -528,7 +528,7 @@ export default function Missions() {
 
       {/* FINANCE */}
       {tab==='finance' && <FadeIn><div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:16,marginBottom:24}}>
+        <div className="mobile-grid-2" style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:12,marginBottom:24}}>
           <div className="card" style={{textAlign:'center',padding:20}}>
             <div style={{fontSize:'2rem',fontWeight:700,color:'var(--navy)'}}>{Math.round(budgetTotal/1000)}k€</div>
             <div style={{fontSize:'0.75rem',fontWeight:700,color:'var(--muted)',textTransform:'uppercase',marginTop:4}}>Budget total vendu</div>
@@ -575,7 +575,7 @@ export default function Missions() {
 
         return <FadeIn><div>
         {/* Stats */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:12,marginBottom:20}}>
+        <div className="mobile-grid-2" style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:10,marginBottom:20}}>
           <div className="stat-card" style={{borderColor:'var(--orange)'}}>
             <div className="stat-num" style={{fontSize:'clamp(1.4rem,5vw,2rem)',fontWeight:700,color:'var(--orange)',lineHeight:1}}>{interContrat.length}</div>
             <div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Inter-contrat</div>

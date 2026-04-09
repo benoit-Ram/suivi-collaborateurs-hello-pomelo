@@ -360,7 +360,7 @@ export default function MissionDetail() {
 
       {/* TAB: FINANCE */}
       {tab==='finance' && <FadeIn><div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:12,marginBottom:24}}>
+        <div className="mobile-grid-2" style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:10,marginBottom:24}}>
           <div className="card" style={{textAlign:'center',padding:16}}>
             <div style={{fontSize:'clamp(1.4rem,5vw,2rem)',fontWeight:700,color:'var(--navy)'}}>{fmtEuro(Math.round((mission.budget_vendu||0)/1000)*1000)}</div>
             <div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginTop:4}}>Budget vendu</div>

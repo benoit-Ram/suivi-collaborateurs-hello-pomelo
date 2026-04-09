@@ -147,7 +147,7 @@ export default function Dashboard() {
     <div>
       <PageHeader title="Tableau de bord" subtitle="Vue d'ensemble de vos collaborateurs" />
 
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))', gap:12, marginBottom:24 }}>
+      <div className="mobile-grid-2" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))', gap:12, marginBottom:24 }}>
         <StatCard value={total} label="Collaborateurs" color="pink" />
         <StatCard value={thisMonth} label="Arrivées ce mois" color="blue" />
         <StatCard value={`${pointsComplete}/${total}`} label="Points complets" color="skyblue" />
@@ -211,12 +211,12 @@ export default function Dashboard() {
       )}
 
       {/* Analytics */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))', gap:16, marginBottom:24 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))', gap:12, marginBottom:24 }}>
         <div className="card">
           <div className="section-title" style={{marginTop:0}}>Objectifs par statut</div>
           {Object.entries(objByStatus).map(([k,v]) => (
             <div key={k} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:8 }}>
-              <span style={{ fontSize:'0.75rem', fontWeight:600, color:'var(--navy)', minWidth:90, textAlign:'right' }}>{STATUS_LABELS[k]}</span>
+              <span style={{ fontSize:'0.75rem', fontWeight:600, color:'var(--navy)', minWidth:70, textAlign:'right' }}>{STATUS_LABELS[k]}</span>
               <div style={{ flex:1, height:22, background:'var(--offwhite)', borderRadius:6, overflow:'hidden' }}>
                 <div style={{ height:'100%', width:`${Math.round(v/maxObj*100)}%`, background:objColors[k], borderRadius:6, display:'flex', alignItems:'center', paddingLeft:8, fontSize:'0.7rem', fontWeight:700, color:'white', minWidth: v?24:0 }}>{v||''}</div>
               </div>
@@ -227,7 +227,7 @@ export default function Dashboard() {
           <div className="section-title" style={{marginTop:0}}>Répartition par équipe</div>
           {Object.entries(teamCounts).sort((a,b)=>b[1]-a[1]).map(([k,v],i) => (
             <div key={k} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:8 }}>
-              <span style={{ fontSize:'0.75rem', fontWeight:600, color:'var(--navy)', minWidth:90, textAlign:'right' }}>{k}</span>
+              <span style={{ fontSize:'0.75rem', fontWeight:600, color:'var(--navy)', minWidth:70, textAlign:'right' }}>{k}</span>
               <div style={{ flex:1, height:22, background:'var(--offwhite)', borderRadius:6, overflow:'hidden' }}>
                 <div style={{ height:'100%', width:`${Math.round(v/maxTeam*100)}%`, background:teamColors[i%teamColors.length], borderRadius:6, display:'flex', alignItems:'center', paddingLeft:8, fontSize:'0.7rem', fontWeight:700, color:'white', minWidth:24 }}>{v}</div>
               </div>
@@ -241,7 +241,7 @@ export default function Dashboard() {
         <div className="section-title" style={{marginTop:0}}>📊 Complétion points mensuels (6 mois)</div>
         {trendData.map(d => (
           <div key={d.month} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:8 }}>
-            <span style={{ fontSize:'0.75rem', fontWeight:600, color:'var(--navy)', minWidth:100, textAlign:'right', textTransform:'capitalize' }}>{d.month}</span>
+            <span style={{ fontSize:'0.75rem', fontWeight:600, color:'var(--navy)', minWidth:70, textAlign:'right', textTransform:'capitalize' }}>{d.month}</span>
             <div style={{ flex:1, height:22, background:'var(--offwhite)', borderRadius:6, overflow:'hidden' }}>
               <div style={{ height:'100%', width:`${d.pct}%`, background: d.pct>=80?'var(--green)':d.pct>=50?'var(--orange)':'var(--pink)', borderRadius:6, display:'flex', alignItems:'center', paddingLeft:8, fontSize:'0.7rem', fontWeight:700, color:'white', minWidth:d.pct?30:0 }}>{d.pct}%</div>
             </div>

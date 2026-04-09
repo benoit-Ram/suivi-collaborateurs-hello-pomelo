@@ -111,9 +111,9 @@ export default function CollabProfile() {
         </div>
       </div>
 
-      <div style={{ display:'flex', gap:6, marginBottom:24, background:'var(--offwhite)', padding:6, borderRadius:12 }}>
+      <div className="tabs-scroll" style={{ display:'flex', gap:6, marginBottom:24, background:'var(--offwhite)', padding:6, borderRadius:12, overflowX:'auto' }}>
         {tabs.map(([k,l]) => (
-          <button key={k} onClick={()=>setTab(k)} style={{ flex:1, padding:'10px 16px', borderRadius:10, border:tab===k?'2px solid var(--pink)':'2px solid var(--lavender)', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor:'pointer', background:tab===k?'var(--pink)':'transparent', color:tab===k?'white':'var(--muted)', boxShadow:tab===k?'0 4px 14px rgba(255,50,133,0.3)':'none', transition:'all 0.15s' }}>{l}</button>
+          <button key={k} onClick={()=>setTab(k)} style={{ flex:'1 0 auto', padding:'10px 14px', borderRadius:10, border:tab===k?'2px solid var(--pink)':'2px solid var(--lavender)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', whiteSpace:'nowrap', background:tab===k?'var(--pink)':'transparent', color:tab===k?'white':'var(--muted)', boxShadow:tab===k?'0 4px 14px rgba(255,50,133,0.3)':'none', transition:'all 0.15s' }}>{l}</button>
         ))}
       </div>
 
