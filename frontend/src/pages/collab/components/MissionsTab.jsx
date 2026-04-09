@@ -161,6 +161,73 @@ export default function MissionsTab({ collabId, collabs: allCollabs }) {
         </div>
       </div>
 
+      {/* Planning Gantt personnel */}
+      {active.length > 0 && <div className="card" style={{marginBottom:20,padding:0,overflow:'hidden'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 14px',borderBottom:'1px solid var(--lavender)'}}>
+          <button className="btn btn-ghost btn-sm" style={{padding:'3px 6px',fontSize:'0.65rem'}} onClick={()=>setWeekOffset(weekOffset-1)}>← 16 sem.</button>
+          <span style={{fontWeight:700,color:'var(--navy)',fontSize:'0.82rem'}}>📅 Mon planning</span>
+          <div style={{display:'flex',gap:4}}>
+            {weekOffset !== 0 && <button className="btn btn-ghost btn-sm" style={{padding:'3px 6px',fontSize:'0.65rem'}} onClick={()=>setWeekOffset(0)}>Auj.</button>}
+            <button className="btn btn-ghost btn-sm" style={{padding:'3px 6px',fontSize:'0.65rem'}} onClick={()=>setWeekOffset(weekOffset+1)}>16 sem. →</button>
+          </div>
+        </div>
+        <div style={{overflowX:'auto'}}>
+          {(()=>{
+            const GANTT_WEEKS = 16;
+            const now2 = new Date();
+            const ganttMon = new Date(now2); ganttMon.setDate(now2.getDate() - ((now2.getDay()+6)%7) + weekOffset*GANTT_WEEKS); ganttMon.setHours(0,0,0,0);
+            const ganttWeeks = Array.from({length:GANTT_WEEKS},(_,i) => {
+              const d = new Date(ganttMon); d.setDate(ganttMon.getDate()+i*7);
+              const wn = Math.ceil(((d - new Date(d.getFullYear(),0,1))/86400000+1)/7);
+              const end = new Date(d.getTime()+4*86400000);
+              return { label:`S${wn}`, start:d.toISOString().split('T')[0], end:end.toISOString().split('T')[0], isCurrent:today>=d.toISOString().split('T')[0]&&today<=end.toISOString().split('T')[0] };
+            });
+            const ganttColors = ['#3B82F6','#8B5CF6','#EC4899','#F59E0B','#10B981','#6366F1'];
+            return <table style={{fontSize:'0.6rem',width:'100%',borderCollapse:'collapse'}}>
+              <thead><tr>
+                <th style={{textAlign:'left',padding:'6px 10px',minWidth:100,position:'sticky',left:0,background:'var(--white)',zIndex:1,fontWeight:700,color:'var(--navy)',fontSize:'0.6rem'}}>Mission</th>
+                {ganttWeeks.map((w,i)=><th key={i} style={{textAlign:'center',padding:'3px 2px',minWidth:38,fontWeight:w.isCurrent?800:600,color:w.isCurrent?'var(--pink)':'var(--muted)',fontSize:'0.55rem'}}>{w.label}</th>)}
+              </tr></thead>
+              <tbody>
+                {active.map((a,idx) => {
+                  const mName = a.missions?.nom || '—';
+                  const jps = a.jours_par_semaine || (a.taux_staffing||0)/100*5;
+                  return <tr key={a.id} style={{borderBottom:'1px solid var(--lavender)'}}>
+                    <td style={{padding:'5px 10px',position:'sticky',left:0,background:'var(--white)',zIndex:1}}>
+                      <div style={{fontWeight:700,color:'var(--navy)',fontSize:'0.65rem'}}>{mName}</div>
+                      <div style={{fontSize:'0.5rem',color:'var(--muted)'}}>{a.missions?.clients?.nom||a.missions?.client||''} · {Math.round(jps*10)/10}j/sem</div>
+                    </td>
+                    {ganttWeeks.map((w,wi) => {
+                      const mStart = a.missions?.date_debut; const mEnd = a.missions?.date_fin;
+                      const aStart = a.date_debut; const aEnd = a.date_fin;
+                      const inMission = (!mStart||mStart<=w.end)&&(!mEnd||mEnd>=w.start);
+                      const inAssign = (!aStart||aStart<=w.end)&&(!aEnd||aEnd>=w.start);
+                      const isActive = inMission && inAssign;
+                      return <td key={wi} style={{padding:1,background:w.isCurrent?'rgba(255,50,133,0.04)':'transparent',textAlign:'center'}}>
+                        {isActive ? <div style={{background:ganttColors[idx%ganttColors.length],color:'white',borderRadius:3,padding:'2px 1px',fontSize:'0.45rem',fontWeight:700,opacity:0.85,height:16,lineHeight:'16px'}}>{Math.round(jps*10)/10}j</div> : <div style={{height:16}} />}
+                      </td>;
+                    })}
+                  </tr>;
+                })}
+                {/* Total row */}
+                <tr style={{borderTop:'2px solid var(--lavender)',background:'var(--offwhite)'}}>
+                  <td style={{padding:'4px 10px',position:'sticky',left:0,background:'var(--offwhite)',zIndex:1,fontWeight:700,fontSize:'0.58rem',color:'var(--navy)'}}>Total</td>
+                  {ganttWeeks.map((w,wi) => {
+                    const total = active.reduce((s,a) => {
+                      const mStart=a.missions?.date_debut; const mEnd=a.missions?.date_fin;
+                      const aStart=a.date_debut; const aEnd=a.date_fin;
+                      const ok = (!mStart||mStart<=w.end)&&(!mEnd||mEnd>=w.start)&&(!aStart||aStart<=w.end)&&(!aEnd||aEnd>=w.start);
+                      return s + (ok ? (a.jours_par_semaine||(a.taux_staffing||0)/100*5) : 0);
+                    }, 0);
+                    return <td key={wi} style={{textAlign:'center',padding:2,fontSize:'0.5rem',fontWeight:700,color:total>0?'var(--navy)':'var(--muted)',background:w.isCurrent?'rgba(255,50,133,0.06)':'transparent'}}>{total>0?`${Math.round(total*10)/10}j`:''}</td>;
+                  })}
+                </tr>
+              </tbody>
+            </table>;
+          })()}
+        </div>
+      </div>}
+
       {/* Feuille de temps */}
       <div className="card" style={{marginBottom:20,padding:0,overflow:'hidden'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'14px 18px',borderBottom:'1px solid var(--lavender)'}}>
