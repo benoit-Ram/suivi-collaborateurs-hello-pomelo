@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useData } from '../../services/DataContext';
 import { useAuth } from '../../services/AuthContext';
 import { api } from '../../services/api';
@@ -28,6 +29,7 @@ function exportCSV(filename, headers, rows) {
 }
 
 export default function Missions() {
+  const navigate = useNavigate();
   const { collabs, settings, showToast, loading: ctxLoading } = useData();
   const missionCategories = settings?.mission_categories || ['Web','Mobile','ERP','DevOps','Design','Data','Conseil','TMA'];
   const missionRoles = settings?.mission_roles || [
@@ -53,10 +55,6 @@ export default function Missions() {
   // Assignment modal
   const [assignModal, setAssignModal] = useState(null);
   const [assignForm, setAssignForm] = useState({ collaborateur_id:'', role:'', taux_staffing:100, jours_par_semaine:5, tjm:'', date_debut:'', date_fin:'' });
-  // Detail modal
-  const [detail, setDetail] = useState(null);
-  const [detailForm, setDetailForm] = useState({});
-  const [detailAssignForm, setDetailAssignForm] = useState({ collaborateur_id:'', role:'', taux_staffing:100, jours_par_semaine:5, tjm:'', date_debut:'', date_fin:'' });
   // Client modal + detail
   const [clientModal, setClientModal] = useState(null);
   const [clientForm, setClientForm] = useState({});
@@ -90,12 +88,6 @@ export default function Missions() {
   const [periodType, setPeriodType] = useState(''); // '', 'week', 'month', 'q', 'year'
 
   useEffect(() => { loadData(); }, []);
-  useEffect(() => {
-    if (detail) {
-      setDetailForm({ nom:detail.nom, client_id:detail.client_id||'', description:detail.description||'', categorie:detail.categorie||'', date_debut:detail.date_debut||'', date_fin:detail.date_fin||'', budget_vendu:detail.budget_vendu||'', methode_facturation:detail.methode_facturation||'regie', responsable_id:detail.responsable_id||'', lien_propale:detail.lien_propale||'' });
-      setDetailAssignForm({ collaborateur_id:'', role:'', taux_staffing:100, jours_par_semaine:5, tjm:'', date_debut:detail.date_debut||'', date_fin:detail.date_fin||'' });
-    }
-  }, [detail]);
 
   async function loadData() {
     try {
@@ -337,7 +329,7 @@ export default function Missions() {
             </div>
             {cMissions.length === 0 ? <div className="card" style={{textAlign:'center',padding:24,color:'var(--muted)'}}>Aucune mission</div> :
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(320px,1fr))',gap:16}}>
-              {cMissions.map(m => <MissionCard key={m.id} m={m} collabs={collabs} onEdit={openEdit} onDelete={deleteMission} onAssign={()=>{setAssignModal(m.id);setAssignForm({collaborateur_id:'',role:'',taux_staffing:100,jours_par_semaine:5,tjm:'',date_debut:m.date_debut||'',date_fin:m.date_fin||''});}} onRemoveAssign={removeAssignment} onDetail={setDetail} onDuplicate={duplicateMission} />)}
+              {cMissions.map(m => <MissionCard key={m.id} m={m} collabs={collabs} onEdit={openEdit} onDelete={deleteMission} onAssign={()=>{setAssignModal(m.id);setAssignForm({collaborateur_id:'',role:'',taux_staffing:100,jours_par_semaine:5,tjm:'',date_debut:m.date_debut||'',date_fin:m.date_fin||''});}} onRemoveAssign={removeAssignment} onDetail={(m)=>navigate(`/admin/missions/${m.id}`)} onDuplicate={duplicateMission} />)}
             </div>}
           </div>;
         })() : <>
@@ -382,7 +374,7 @@ export default function Missions() {
                   : cMissions.map(m => (
                   <tr key={m.id} style={{background:'rgba(255,50,133,0.02)',borderBottom:'1px solid var(--lavender)'}}>
                     <td style={{paddingLeft:40}}>
-                      <span style={{fontWeight:700,color:'var(--navy)',cursor:'pointer'}} onClick={()=>setDetail(m)}>{m.nom}</span>
+                      <span style={{fontWeight:700,color:'var(--navy)',cursor:'pointer'}} onClick={()=>navigate(`/admin/missions/${m.id}`)}>{m.nom}</span>
                       {m.categorie && <span style={{fontSize:'0.72rem',color:'var(--muted)',marginLeft:8}}>{m.categorie}</span>}
                     </td>
                     <td><Badge type={isMissionActive(m)?'blue':'gray'}>{isMissionActive(m)?'En cours':'Passée'}</Badge></td>
@@ -674,172 +666,6 @@ export default function Missions() {
         </div>
       </Modal>
 
-      {/* DETAIL MODAL — vue complète mission */}
-      <Modal open={!!detail} onClose={()=>setDetail(null)} title={detail?`${detail.nom} — ${getClientName(detail)}`:''} size="xl">
-        {detail && (()=>{
-          const team = (detail.assignments||[]).filter(a=>a.statut==='actif');
-          const calcCA = (a) => calcConsumedBudget([a], new Date());
-          const calcCAMensuel = (a) => calcMonthlyCA([{...a, statut:'actif'}]);
-          const totalCA = team.reduce((s,a)=>s+calcCA(a),0);
-          const totalCAMensuel = team.reduce((s,a)=>s+calcCAMensuel(a),0);
-          const totalJours = team.reduce((s,a)=>s+(a.jours_par_semaine||a.taux_staffing/100*5),0);
-          const budgetPct = detail.budget_vendu > 0 ? Math.round(totalCA/detail.budget_vendu*100) : null;
-
-          const saveDetail = async () => {
-            try {
-              const clientObj = clients.find(c=>c.id===detailForm.client_id);
-              const row = { ...detailForm, client: clientObj?.nom||'', budget_vendu: detailForm.budget_vendu ? parseFloat(detailForm.budget_vendu) : null, responsable_id: detailForm.responsable_id||null, lien_propale: detailForm.lien_propale||null, description: detailForm.description||null, categorie: detailForm.categorie||null, date_debut: detailForm.date_debut||null, date_fin: detailForm.date_fin||null };
-              await api.updateMission(detail.id, row);
-              const [newMissions] = await Promise.all([api.getMissions(), loadData()]);
-              const updated = (newMissions||[]).find(m=>m.id===detail.id);
-              if (updated) setDetail(updated);
-              showToast('Mission mise à jour');
-            } catch(e) { showToast('Erreur: '+e.message); }
-          };
-
-          const addAssignInline = async () => {
-            if (!detailAssignForm.collaborateur_id || !detailAssignForm.role || !detailAssignForm.tjm) { showToast('Collaborateur, rôle et TJM requis'); return; }
-            try {
-              const jps = parseFloat(detailAssignForm.jours_par_semaine)||5;
-              await api.createAssignment({ ...detailAssignForm, mission_id: detail.id, tjm: parseFloat(detailAssignForm.tjm), taux_staffing: tauxFromJPS(jps), jours_par_semaine: jps, statut:'actif', date_debut: detailAssignForm.date_debut||null, date_fin: detailAssignForm.date_fin||null });
-              const [newMissions] = await Promise.all([api.getMissions(), loadData()]);
-              const updated = (newMissions||[]).find(m=>m.id===detail.id);
-              if (updated) setDetail(updated);
-              setDetailAssignForm({ collaborateur_id:'', role:'', taux_staffing:100, jours_par_semaine:5, tjm:'', date_debut:detail.date_debut||'', date_fin:detail.date_fin||'' });
-              showToast('Collaborateur affecté');
-            } catch(e) { showToast('Erreur: '+e.message); }
-          };
-
-          return <>
-          {/* Section 1 : Infos mission */}
-          <div style={{fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--pink)',marginBottom:8}}>Informations</div>
-          <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}>
-            <Badge type={isMissionActive(detail)?'blue':'gray'}>{isMissionActive(detail)?'En cours':'Passée'}</Badge>
-            {detail.categorie && <Badge type="blue">{detail.categorie}</Badge>}
-            {detail.methode_facturation && <Badge type="gray">{detail.methode_facturation==='forfait'?'Forfait':'Régie'}</Badge>}
-          </div>
-          <div className="form-grid">
-            <div className="form-field"><label>Nom</label><input value={detailForm.nom||''} onChange={e=>setDetailForm({...detailForm,nom:e.target.value})} /></div>
-            <div className="form-field"><label>Client</label><select value={detailForm.client_id||''} onChange={e=>setDetailForm({...detailForm,client_id:e.target.value})}><option value="">—</option>{clients.map(c=><option key={c.id} value={c.id}>{c.nom}</option>)}</select></div>
-            <div className="form-field"><label>Catégorie</label><select value={detailForm.categorie||''} onChange={e=>setDetailForm({...detailForm,categorie:e.target.value})}><option value="">—</option>{missionCategories.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
-            <div className="form-field"><label>Facturation</label><select value={detailForm.methode_facturation||'regie'} onChange={e=>setDetailForm({...detailForm,methode_facturation:e.target.value})}><option value="regie">Régie</option><option value="forfait">Forfait</option></select></div>
-            <div className="form-field"><label>Date début</label><input type="date" value={detailForm.date_debut||''} onChange={e=>setDetailForm({...detailForm,date_debut:e.target.value})} /></div>
-            <div className="form-field"><label>Date fin</label><input type="date" value={detailForm.date_fin||''} onChange={e=>setDetailForm({...detailForm,date_fin:e.target.value})} /></div>
-            <div className="form-field"><label>Budget vendu (€)</label><input type="number" value={detailForm.budget_vendu||''} onChange={e=>setDetailForm({...detailForm,budget_vendu:e.target.value})} /></div>
-            <div className="form-field"><label>Responsable</label><select value={detailForm.responsable_id||''} onChange={e=>setDetailForm({...detailForm,responsable_id:e.target.value})}><option value="">Aucun</option>{collabs.map(c=><option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>)}</select></div>
-            <div className="form-field"><label>Lien propale</label><input type="url" value={detailForm.lien_propale||''} onChange={e=>setDetailForm({...detailForm,lien_propale:e.target.value})} placeholder="https://..." /></div>
-          </div>
-          <div className="form-field" style={{marginTop:8}}><label>Description</label><textarea value={detailForm.description||''} onChange={e=>setDetailForm({...detailForm,description:e.target.value})} style={{minHeight:50}} /></div>
-          <div style={{display:'flex',justifyContent:'flex-end',marginTop:8}}><button className="btn btn-primary btn-sm" onClick={saveDetail}>💾 Enregistrer</button></div>
-
-          <div style={{height:1,background:'var(--lavender)',margin:'16px 0'}} />
-
-          {/* Section 2 : Équipe — éditable inline */}
-          <div style={{fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--pink)',marginBottom:8}}>Équipe ({team.length})</div>
-          {team.length === 0 ? <p style={{color:'var(--muted)',fontSize:'0.82rem',fontStyle:'italic',marginBottom:12}}>Aucun collaborateur affecté</p> :
-          <div className="card" style={{overflowX:'auto',marginBottom:8,padding:0}}>
-            <table style={{fontSize:'0.78rem'}}>
-              <thead><tr><th>Collab</th><th>Rôle</th><th>Jours/sem</th><th>TJM</th><th>Du</th><th>Au</th><th>CA est.</th><th></th></tr></thead>
-              <tbody>{team.map(a=>{
-                const updateAssign = async (field, value) => {
-                  try {
-                    const data = { [field]: value };
-                    if (field === 'jours_par_semaine') { data.taux_staffing = tauxFromJPS(parseFloat(value)||0); }
-                    await api.updateAssignment(a.id, data);
-                    const [newMissions] = await Promise.all([api.getMissions(), loadData()]);
-                    const updated = (newMissions||[]).find(m=>m.id===detail.id);
-                    if (updated) setDetail(updated);
-                    showToast('Mis à jour');
-                  } catch(e) { showToast('Erreur: '+e.message); }
-                };
-                const inputStyle = {border:'1px solid var(--lavender)',borderRadius:6,padding:'4px 6px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)',width:'100%'};
-                return <tr key={a.id}>
-                  <td style={{minWidth:100}}><div style={{display:'flex',alignItems:'center',gap:6}}>
-                    {a.collaborateurs && <Avatar prenom={a.collaborateurs.prenom} nom={a.collaborateurs.nom} photoUrl={a.collaborateurs.photo_url} size={24} />}
-                    <span style={{fontWeight:700,color:'var(--navy)',fontSize:'0.78rem'}}>{a.collaborateurs?a.collaborateurs.prenom+' '+a.collaborateurs.nom:'—'}</span>
-                  </div></td>
-                  <td><select defaultValue={a.role||''} onBlur={e=>{if(e.target.value!==a.role)updateAssign('role',e.target.value);}} style={{...inputStyle,width:120}}>
-                    <option value="">—</option>{missionRoles.map(r=><option key={r.label} value={r.label}>{r.label}</option>)}
-                  </select></td>
-                  <td style={{minWidth:60}}><input type="number" step="0.5" min="0" max="5" defaultValue={a.jours_par_semaine||Math.round(a.taux_staffing/100*5*10)/10} onBlur={e=>{const v=parseFloat(e.target.value);if(!isNaN(v))updateAssign('jours_par_semaine',v);}} style={{...inputStyle,width:55}} /></td>
-                  <td style={{minWidth:60}}><input type="number" defaultValue={a.tjm||''} onBlur={e=>{const v=parseFloat(e.target.value);if(!isNaN(v))updateAssign('tjm',v);}} style={{...inputStyle,width:60}} /></td>
-                  <td><input type="date" defaultValue={a.date_debut||''} onBlur={e=>updateAssign('date_debut',e.target.value||null)} style={{...inputStyle,width:110}} /></td>
-                  <td><input type="date" defaultValue={a.date_fin||''} onBlur={e=>updateAssign('date_fin',e.target.value||null)} style={{...inputStyle,width:110}} /></td>
-                  <td style={{fontWeight:700,color:'var(--blue)',whiteSpace:'nowrap',textAlign:'right'}}>{fmtEuro(Math.round(calcCA(a)))}</td>
-                  <td><button className="btn btn-danger btn-sm" style={{padding:'2px 6px',fontSize:'0.65rem'}} onClick={async()=>{await removeAssignment(a.id);const updated=(await api.getMissions()).find(m=>m.id===detail.id);if(updated)setDetail(updated);}}>✕</button></td>
-                </tr>;
-              })}</tbody>
-            </table>
-          </div>}
-
-          {/* Ajout simplifié */}
-          <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap',padding:'8px 0'}}>
-            <select value={detailAssignForm.collaborateur_id} onChange={e=>setDetailAssignForm({...detailAssignForm,collaborateur_id:e.target.value})} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)',flex:1,minWidth:120}}>
-              <option value="">+ Collaborateur...</option>
-              {collabs.filter(c=>!team.some(a=>a.collaborateur_id===c.id)).map(c=><option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>)}
-            </select>
-            <select value={detailAssignForm.role} onChange={e=>{const role=missionRoles.find(r=>r.label===e.target.value);setDetailAssignForm({...detailAssignForm,role:e.target.value,tjm:role?String(role.tjm):detailAssignForm.tjm});}} style={{border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)',flex:1,minWidth:120}}>
-              <option value="">Rôle...</option>
-              {missionRoles.map(r=><option key={r.label} value={r.label}>{r.label}</option>)}
-            </select>
-            <div style={{display:'flex',alignItems:'center',gap:3}}>
-              <input type="number" step="0.5" min="0.5" max="5" value={detailAssignForm.jours_par_semaine} onChange={e=>{const jps=parseFloat(e.target.value)||0;setDetailAssignForm({...detailAssignForm,jours_par_semaine:jps,taux_staffing:Math.round(jps/5*100)});}} style={{width:50,border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 8px',fontFamily:'inherit',fontSize:'0.75rem',background:'var(--offwhite)',color:'var(--navy)'}} />
-              <span style={{fontSize:'0.68rem',color:'var(--muted)'}}>j/sem</span>
-            </div>
-            <button className="btn btn-primary btn-sm" onClick={addAssignInline} disabled={!detailAssignForm.collaborateur_id||!detailAssignForm.role}>+ Ajouter</button>
-          </div>
-
-          <div style={{height:1,background:'var(--lavender)',margin:'16px 0'}} />
-
-          {/* Section 3 : Planning & Finance */}
-          <div style={{fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--pink)',marginBottom:8}}>Planning & Finance</div>
-          {team.length > 0 && <>
-            <div className="card" style={{overflowX:'auto',marginBottom:12}}>
-              <table style={{fontSize:'0.78rem'}}>
-                <thead><tr><th>Collaborateur</th><th>Rôle</th><th>Jours/sem</th><th>TJM</th><th>Période</th><th style={{textAlign:'right'}}>CA estimé</th><th style={{textAlign:'right'}}>CA/mois</th></tr></thead>
-                <tbody>
-                  {team.map(a=>(
-                    <tr key={a.id}>
-                      <td style={{fontWeight:700,color:'var(--navy)'}}>{a.collaborateurs?a.collaborateurs.prenom+' '+a.collaborateurs.nom:'—'}</td>
-                      <td style={{color:'var(--muted)'}}>{a.role||'—'}</td>
-                      <td style={{fontWeight:600}}>{a.jours_par_semaine||Math.round(a.taux_staffing/100*5*10)/10}j</td>
-                      <td style={{fontWeight:600}}>{a.tjm?a.tjm+'€':'—'}</td>
-                      <td style={{color:'var(--muted)'}}>{fmtDate(a.date_debut)} → {fmtDate(a.date_fin)}</td>
-                      <td style={{textAlign:'right',fontWeight:700,color:'var(--navy)'}}>{Math.round(calcCA(a)).toLocaleString('fr-FR')} €</td>
-                      <td style={{textAlign:'right',fontWeight:600,color:'var(--blue)'}}>{Math.round(calcCAMensuel(a)).toLocaleString('fr-FR')} €</td>
-                    </tr>
-                  ))}
-                  <tr style={{borderTop:'2px solid var(--lavender)',fontWeight:700}}>
-                    <td>Total</td><td></td>
-                    <td>{Math.round(totalJours*10)/10}j/sem</td>
-                    <td></td><td></td>
-                    <td style={{textAlign:'right',color:'var(--navy)'}}>{Math.round(totalCA).toLocaleString('fr-FR')} €</td>
-                    <td style={{textAlign:'right',color:'var(--blue)'}}>{Math.round(totalCAMensuel).toLocaleString('fr-FR')} €</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </>}
-
-          {/* Budget progress */}
-          {budgetPct !== null && <div style={{marginBottom:8}}>
-            <div style={{display:'flex',justifyContent:'space-between',fontSize:'0.75rem',marginBottom:4}}>
-              <span style={{color:'var(--muted)'}}>Budget consommé (est.)</span>
-              <span style={{fontWeight:700,color:budgetPct>90?'var(--red)':'var(--navy)'}}>{Math.round(totalCA).toLocaleString('fr-FR')} € / {detail.budget_vendu?.toLocaleString('fr-FR')} € ({budgetPct}%)</span>
-            </div>
-            <div style={{height:8,background:'var(--offwhite)',borderRadius:4,overflow:'hidden'}}>
-              <div style={{height:'100%',width:`${Math.min(budgetPct,100)}%`,background:budgetPct>90?'var(--red)':budgetPct>70?'var(--orange)':'var(--green)',borderRadius:4}} />
-            </div>
-          </div>}
-
-          <div style={{display:'flex',gap:16,fontSize:'0.82rem',color:'var(--muted)',marginTop:8}}>
-            <span>CA mensuel estimé : <strong style={{color:'var(--blue)'}}>{Math.round(totalCAMensuel).toLocaleString('fr-FR')} €</strong></span>
-            {detail.lien_propale && <a href={detail.lien_propale} target="_blank" rel="noopener noreferrer" style={{color:'var(--blue)',textDecoration:'none'}}>📄 Propale signée</a>}
-          </div>
-        </>;
-        })()}
-      </Modal>
-
       {/* CLIENT MODAL */}
       <Modal open={!!clientModal} onClose={()=>setClientModal(null)} title={clientModal==='create'?'Nouveau client':'Modifier le client'}>
         {/* SIREN lookup */}
@@ -960,9 +786,6 @@ function TimelineView({ missions, collabs, staffingMap, allMissions, clients, gr
   const [expandedSub, setExpandedSub] = useState(new Set());
   const [editingCell, setEditingCell] = useState(null); // {assignmentId, colIdx}
   const [editValue, setEditValue] = useState('');
-  const [paintMode, setPaintMode] = useState(false);
-  const [paintValue, setPaintValue] = useState(100);
-  const [isPainting, setIsPainting] = useState(false);
   const [viewUnit, setViewUnit] = useState('week');
   const toggleSub = (id) => setExpandedSub(prev => { const n = new Set(prev); n.has(id)?n.delete(id):n.add(id); return n; });
   const DAYS = 10; const WEEKS = 16; const MONTHS_COUNT = 6;
@@ -1102,23 +925,6 @@ function TimelineView({ missions, collabs, staffingMap, allMissions, clients, gr
     }
   })();
 
-  // Stop painting on global mouseup
-  useEffect(() => {
-    if (!paintMode) return;
-    const stop = () => setIsPainting(false);
-    window.addEventListener('mouseup', stop);
-    return () => window.removeEventListener('mouseup', stop);
-  }, [paintMode]);
-
-  // Paint mode: apply taux to a cell
-  const paintCell = (assignmentId, assignment, col) => {
-    if (!onUpdateAssignment || !assignment) return;
-    const key = col.periodKey;
-    const overrides = {...(assignment.staffing_overrides||{})};
-    if (paintValue === (assignment.taux_staffing||0)) { delete overrides[key]; } else { overrides[key] = paintValue; }
-    onUpdateAssignment(assignmentId, { staffing_overrides: overrides });
-  };
-
   const stickyStyle = {position:'sticky',left:0,background:'var(--white)',zIndex:1};
 
   if (rows.length === 0) return <div style={{padding:32,textAlign:'center',color:'var(--muted)',fontSize:'0.85rem'}}>Aucune donnée à afficher pour cette période</div>;
@@ -1136,13 +942,6 @@ function TimelineView({ missions, collabs, staffingMap, allMissions, clients, gr
           </div>
         </div>
         <div style={{display:'flex',gap:6,alignItems:'center'}}>
-          {/* Paint mode toggle */}
-          <div style={{display:'flex',alignItems:'center',gap:4,padding:'2px 8px',borderRadius:8,background:paintMode?'rgba(255,50,133,0.1)':'transparent',border:paintMode?'1.5px solid var(--pink)':'1.5px solid transparent'}}>
-            <button onClick={()=>setPaintMode(!paintMode)} className="btn btn-ghost btn-sm" style={{padding:'3px 8px',fontSize:'0.7rem',color:paintMode?'var(--pink)':'var(--muted)'}} title="Mode peinture : cliquer-glisser pour peindre le staffing">{paintMode?'🎨 ON':'🎨'}</button>
-            {paintMode && <select value={paintValue} onChange={e=>setPaintValue(parseInt(e.target.value))} style={{border:'1px solid var(--lavender)',borderRadius:4,padding:'2px 4px',fontSize:'0.65rem',fontFamily:'inherit',background:'var(--offwhite)',color:'var(--navy)',width:52}}>
-              {[0,10,20,30,40,50,60,70,80,90,100].map(v=><option key={v} value={v}>{tauxToJours(v)}j</option>)}
-            </select>}
-          </div>
           {offset!==0 && <button className="btn btn-ghost btn-sm" onClick={()=>setOffset(0)}>Aujourd'hui</button>}
           <button className="btn btn-ghost btn-sm" onClick={()=>setOffset(offset+1)}>{navLabels[viewUnit]} →</button>
         </div>
@@ -1166,12 +965,17 @@ function TimelineView({ missions, collabs, staffingMap, allMissions, clients, gr
           <tbody>
             {rows.map(row => {
               const isExp = expanded.has(row.id);
+              // Charge indicator: current week taux
+              const currentCol = columns.find(c => c.isCurrent) || columns[0];
+              const chargeTaux = currentCol ? Math.round(row.getCellTaux(currentCol)) : 0;
+              const chargeColor = chargeTaux > 100 ? 'var(--red)' : chargeTaux >= 80 ? 'var(--orange)' : chargeTaux > 0 ? 'var(--green)' : 'var(--lavender)';
               return <React.Fragment key={row.id}>
                 <tr style={{borderBottom:isExp?'none':'1px solid var(--lavender)',background:isExp?'rgba(255,50,133,0.04)':'transparent',cursor:'pointer'}} onClick={()=>toggleRow(row.id)}>
                   <td style={{padding:'8px 14px',...stickyStyle,background:isExp?'rgba(255,50,133,0.06)':'var(--white)'}}>
                     <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <div style={{width:3,height:28,borderRadius:2,background:chargeColor,flexShrink:0}} />
                       {row.avatar && <Avatar prenom={row.avatar.prenom} nom={row.avatar.nom} photoUrl={row.avatar.photo_url} size={24} />}
-                      <div>
+                      <div style={{flex:1,minWidth:0}}>
                         <div style={{fontWeight:700,color:isExp?'var(--pink)':'var(--navy)',fontSize:'0.75rem'}}>
                           <span style={{fontSize:'0.6rem',color:'var(--muted)',marginRight:4}}>{isExp?'▼':'▶'}</span>
                           {row.label}
@@ -1209,10 +1013,7 @@ function TimelineView({ missions, collabs, staffingMap, allMissions, clients, gr
                       const canEdit = sr.assignmentId && onUpdateAssignment;
                       const isEditing2 = editingCell && editingCell.assignmentId === sr.assignmentId && editingCell.colIdx === ci;
                       return <td key={ci} style={{padding:1,background:col.isCurrent?'rgba(255,50,133,0.03)':'transparent',textAlign:'center',cursor:canEdit?'pointer':'default'}}
-                        onMouseDown={canEdit&&paintMode?(e)=>{e.preventDefault();e.stopPropagation();setIsPainting(true);paintCell(sr.assignmentId,sr.assignment,col);}:undefined}
-                        onMouseEnter={canEdit&&paintMode&&isPainting?(e)=>{e.stopPropagation();paintCell(sr.assignmentId,sr.assignment,col);}:undefined}
-                        onMouseUp={paintMode?()=>setIsPainting(false):undefined}
-                        onClick={canEdit&&!paintMode?(e)=>{e.stopPropagation();setEditingCell({assignmentId:sr.assignmentId,colIdx:ci,periodKey:col.periodKey,assignment:sr.assignment});setEditValue(String(tauxToJours(taux)));}:undefined}>
+                        onClick={canEdit?(e)=>{e.stopPropagation();setEditingCell({assignmentId:sr.assignmentId,colIdx:ci,periodKey:col.periodKey,assignment:sr.assignment});setEditValue(String(tauxToJours(taux)));}:undefined}>
                         {isEditing2 ? (
                           <input type="number" min="0" max={daysPerPeriod} step="0.5" value={editValue} autoFocus
                             style={{width:40,padding:'1px 2px',fontSize:'0.5rem',fontWeight:700,textAlign:'center',border:'1.5px solid var(--pink)',borderRadius:3,outline:'none',background:'white',color:'var(--navy)'}}
@@ -1242,10 +1043,7 @@ function TimelineView({ missions, collabs, staffingMap, allMissions, clients, gr
                         const val = fmtCell(taux);
                         const isEditing = editingCell && editingCell.assignmentId === ar.assignmentId && editingCell.colIdx === ci;
                         return <td key={ci} style={{padding:1,background:col.isCurrent?'rgba(255,50,133,0.03)':'transparent',textAlign:'center',cursor:onUpdateAssignment?'pointer':'default'}}
-                          onMouseDown={onUpdateAssignment&&paintMode?(e)=>{e.preventDefault();e.stopPropagation();setIsPainting(true);paintCell(ar.assignmentId,ar.assignment,col);}:undefined}
-                          onMouseEnter={onUpdateAssignment&&paintMode&&isPainting?(e)=>{e.stopPropagation();paintCell(ar.assignmentId,ar.assignment,col);}:undefined}
-                          onMouseUp={paintMode?()=>setIsPainting(false):undefined}
-                          onClick={onUpdateAssignment&&!paintMode?(e)=>{e.stopPropagation();setEditingCell({assignmentId:ar.assignmentId,colIdx:ci,periodKey:col.periodKey,assignment:ar.assignment});setEditValue(String(tauxToJours(taux)));}:undefined}>
+                          onClick={onUpdateAssignment?(e)=>{e.stopPropagation();setEditingCell({assignmentId:ar.assignmentId,colIdx:ci,periodKey:col.periodKey,assignment:ar.assignment});setEditValue(String(tauxToJours(taux)));}:undefined}>
                           {isEditing ? (
                             <input type="number" min="0" max={daysPerPeriod} step="0.5" value={editValue} autoFocus
                               style={{width:40,padding:'1px 2px',fontSize:'0.55rem',fontWeight:700,textAlign:'center',border:'1.5px solid var(--pink)',borderRadius:3,outline:'none',background:'white',color:'var(--navy)'}}

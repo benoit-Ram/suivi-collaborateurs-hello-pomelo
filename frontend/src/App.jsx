@@ -12,6 +12,7 @@ import Objectifs from './pages/admin/Objectifs';
 import Organigramme from './pages/admin/Organigramme';
 import Absences from './pages/admin/Absences';
 import Missions from './pages/admin/Missions';
+import MissionDetail from './pages/admin/MissionDetail';
 import Settings from './pages/admin/Settings';
 import CollabLayout from './pages/collab/CollabLayout';
 import CollabAccueil from './pages/collab/CollabAccueil';
@@ -57,6 +58,7 @@ function AppContent() {
           <Route path="objectifs" element={<Objectifs />} />
           <Route path="absences" element={<Absences />} />
           <Route path="missions" element={<Missions />} />
+          <Route path="missions/:id" element={<MissionDetail />} />
           <Route path="settings" element={<Settings />} />
         </Route>
         <Route path="/collab" element={<RequireAuth><CollabLayout /></RequireAuth>}>
