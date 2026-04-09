@@ -262,3 +262,9 @@ ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS competences jsonb DEFAULT '[
 ```
 
 La liste des compétences disponibles est gérée dans `settings` avec la clé `competences_list` (array JSON).
+
+## Migration v14 — Notes sur les assignments
+
+```sql
+ALTER TABLE assignments ADD COLUMN IF NOT EXISTS notes text;
+```

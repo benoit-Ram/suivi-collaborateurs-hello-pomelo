@@ -186,7 +186,7 @@ export default function MissionDetail() {
         {/* Editable team table */}
         <div className="card" style={{overflowX:'auto',marginBottom:16,padding:0}}>
           <table style={{fontSize:'0.78rem'}}>
-            <thead><tr><th style={{minWidth:140}}>Collaborateur</th><th style={{minWidth:110}}>Rôle</th><th style={{width:65}}>J/sem</th><th style={{width:65}}>TJM</th><th style={{width:110}}>Du</th><th style={{width:110}}>Au</th><th style={{textAlign:'right',width:80}}>CA est.</th><th style={{width:40}}></th></tr></thead>
+            <thead><tr><th style={{minWidth:140}}>Collaborateur</th><th style={{minWidth:110}}>Rôle</th><th style={{width:65}}>J/sem</th><th style={{width:65}}>TJM</th><th style={{width:110}}>Du</th><th style={{width:110}}>Au</th><th style={{minWidth:100}}>Notes</th><th style={{textAlign:'right',width:80}}>CA est.</th><th style={{width:50}}></th></tr></thead>
             <tbody>
               {team.map((a, idx) => {
                 const c = a.collaborateurs;
@@ -203,11 +203,15 @@ export default function MissionDetail() {
                   <td><input type="number" defaultValue={a.tjm||''} onBlur={e=>{const v=parseFloat(e.target.value);if(!isNaN(v))updateAssign(a.id,'tjm',v);}} style={{...inputStyle,width:60}} /></td>
                   <td><input type="date" defaultValue={a.date_debut||''} onBlur={e=>updateAssign(a.id,'date_debut',e.target.value||null)} style={{...inputStyle,width:110}} /></td>
                   <td><input type="date" defaultValue={a.date_fin||''} onBlur={e=>updateAssign(a.id,'date_fin',e.target.value||null)} style={{...inputStyle,width:110}} /></td>
+                  <td><input defaultValue={a.notes||''} placeholder="..." onBlur={e=>updateAssign(a.id,'notes',e.target.value||null)} style={{...inputStyle,width:100,fontSize:'0.68rem'}} /></td>
                   <td style={{textAlign:'right',fontWeight:700,color:'var(--blue)',whiteSpace:'nowrap'}}>{fmtEuro(Math.round(ca))}</td>
-                  <td><button className="btn btn-danger btn-sm" style={{padding:'2px 6px',fontSize:'0.65rem'}} onClick={()=>removeAssign(a.id)}>✕</button></td>
+                  <td style={{whiteSpace:'nowrap'}}><div style={{display:'flex',gap:2}}>
+                    <button className="btn btn-ghost btn-sm" style={{padding:'2px 5px',fontSize:'0.6rem'}} title="Dupliquer" onClick={()=>{setAddForm({collaborateur_id:a.collaborateur_id,role:a.role||'',jours_par_semaine:a.jours_par_semaine||5,tjm:String(a.tjm||'')});}}>📋</button>
+                    <button className="btn btn-danger btn-sm" style={{padding:'2px 5px',fontSize:'0.6rem'}} onClick={()=>removeAssign(a.id)}>✕</button>
+                  </div></td>
                 </tr>;
               })}
-              {team.length === 0 && <tr><td colSpan={8} style={{textAlign:'center',color:'var(--muted)',padding:24}}>Aucun collaborateur affecté</td></tr>}
+              {team.length === 0 && <tr><td colSpan={9} style={{textAlign:'center',color:'var(--muted)',padding:24}}>Aucun collaborateur affecté</td></tr>}
             </tbody>
           </table>
         </div>
@@ -252,7 +256,10 @@ export default function MissionDetail() {
                   <td style={{padding:'6px 10px',position:'sticky',left:0,background:'var(--white)',zIndex:1}}>
                     <div style={{display:'flex',alignItems:'center',gap:4}}>
                       {c && <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={18} />}
-                      <span style={{fontWeight:700,color:'var(--navy)',fontSize:'0.68rem'}}>{c?c.prenom+' '+c.nom[0]+'.':'—'}</span>
+                      <div>
+                        <span style={{fontWeight:700,color:'var(--navy)',fontSize:'0.68rem'}}>{c?c.prenom+' '+c.nom[0]+'.':'—'}</span>
+                        <div style={{fontSize:'0.55rem',color:'var(--muted)'}}>{a.role||''}{a.notes?` · ${a.notes}`:''}</div>
+                      </div>
                     </div>
                   </td>
                   {weeks.map((w,wi) => {
@@ -264,8 +271,9 @@ export default function MissionDetail() {
                     const defaultJps = tauxToJours(a.taux_staffing || 0);
                     const isOverridden = (a.staffing_overrides||{})[w.weekKey] !== undefined;
                     const isEditing = editingCell && editingCell.assignId === a.id && editingCell.weekIdx === wi;
+                    const barPct = Math.min(jps/5*100, 100);
 
-                    return <td key={wi} style={{padding:1,background:w.isCurrent?'rgba(255,50,133,0.04)':'transparent',textAlign:'center',cursor:inRange?'pointer':'default'}}
+                    return <td key={wi} style={{padding:1,background:w.isCurrent?'rgba(255,50,133,0.04)':'transparent',textAlign:'center',cursor:inRange?'pointer':'default',verticalAlign:'bottom'}}
                       onClick={inRange && !isEditing ? ()=>{setEditingCell({assignId:a.id,weekIdx:wi}); setEditCellValue(String(jps));} : undefined}>
                       {isEditing ? (
                         <input type="number" step="0.5" min="0" max="5" value={editCellValue} autoFocus
@@ -276,12 +284,38 @@ export default function MissionDetail() {
                           onClick={e=>e.stopPropagation()}
                         />
                       ) : inRange ? (
-                        <div style={{background:jps>0?COLORS[idx%COLORS.length]:'var(--offwhite)',color:jps>0?'white':'var(--muted)',borderRadius:3,padding:'2px 2px',fontSize:'0.5rem',fontWeight:700,opacity:jps>0?0.85:0.4,border:isOverridden?'1px dashed rgba(255,255,255,0.6)':'none'}} title={isOverridden?`Override: ${jps}j (défaut: ${defaultJps}j)`:''}>{jps}j</div>
-                      ) : <div style={{height:18}} />}
+                        <div style={{position:'relative',height:22,borderRadius:3,overflow:'hidden',background:'var(--offwhite)'}}>
+                          <div style={{position:'absolute',bottom:0,left:0,right:0,height:`${barPct}%`,background:COLORS[idx%COLORS.length],opacity:jps>0?0.8:0,borderRadius:3,transition:'height 0.15s',border:isOverridden?'1px dashed rgba(255,255,255,0.7)':'none'}} />
+                          <div style={{position:'relative',zIndex:1,fontSize:'0.48rem',fontWeight:700,color:jps>0?'white':'var(--muted)',lineHeight:'22px'}} title={isOverridden?`Override: ${jps}j (défaut: ${defaultJps}j)`:''}>{jps>0?jps+'j':''}</div>
+                        </div>
+                      ) : <div style={{height:22}} />}
                     </td>;
                   })}
                 </tr>;
               })}
+              {/* Total row */}
+              {team.length > 0 && <tr style={{borderTop:'2px solid var(--lavender)',background:'var(--offwhite)'}}>
+                <td style={{padding:'6px 10px',position:'sticky',left:0,background:'var(--offwhite)',zIndex:1,fontWeight:700,fontSize:'0.65rem',color:'var(--navy)'}}>Total jours</td>
+                {weeks.map((w,wi) => {
+                  const total = team.reduce((s,a) => {
+                    const inRange = (!a.date_debut||a.date_debut<=w.end)&&(!a.date_fin||a.date_fin>=w.start)&&(!mission.date_debut||mission.date_debut<=w.end)&&(!mission.date_fin||mission.date_fin>=w.start);
+                    return s + (inRange ? tauxToJours(getEffectiveTaux(a, w.weekKey)) : 0);
+                  }, 0);
+                  return <td key={wi} style={{textAlign:'center',padding:2,fontSize:'0.55rem',fontWeight:700,color:total>0?'var(--navy)':'var(--muted)',background:w.isCurrent?'rgba(255,50,133,0.06)':'transparent'}}>{total>0?`${Math.round(total*10)/10}j`:''}</td>;
+                })}
+              </tr>}
+              {/* Cost row */}
+              {team.length > 0 && <tr style={{background:'var(--offwhite)'}}>
+                <td style={{padding:'4px 10px',position:'sticky',left:0,background:'var(--offwhite)',zIndex:1,fontWeight:700,fontSize:'0.55rem',color:'var(--muted)'}}>Coût €/sem</td>
+                {weeks.map((w,wi) => {
+                  const cost = team.reduce((s,a) => {
+                    const inRange = (!a.date_debut||a.date_debut<=w.end)&&(!a.date_fin||a.date_fin>=w.start)&&(!mission.date_debut||mission.date_debut<=w.end)&&(!mission.date_fin||mission.date_fin>=w.start);
+                    if (!inRange || !a.tjm) return s;
+                    return s + (a.tjm * tauxToJours(getEffectiveTaux(a, w.weekKey)));
+                  }, 0);
+                  return <td key={wi} style={{textAlign:'center',padding:2,fontSize:'0.48rem',fontWeight:600,color:cost>0?'var(--blue)':'transparent',background:w.isCurrent?'rgba(255,50,133,0.06)':'transparent'}}>{cost>0?`${Math.round(cost/100)/10}k`:''}</td>;
+                })}
+              </tr>}
             </tbody>
           </table>
         </div>
