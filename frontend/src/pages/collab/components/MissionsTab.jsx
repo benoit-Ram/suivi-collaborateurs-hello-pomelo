@@ -82,15 +82,19 @@ export default function MissionsTab({ collabId, collabs: allCollabs }) {
   const getEntry = (assignmentId, date) => timeEntries.find(t => t.assignment_id === assignmentId && t.date === date);
 
   // Open validation popup for a specific date
+  const HEURES_PAR_JOUR = 7;
+  // Convert: taux% → heures/jour (100% = 7h, 50% = 3.5h)
+  const tauxToHeures = (taux) => Math.round((taux || 0) / 100 * HEURES_PAR_JOUR * 10) / 10;
+
   const openValidate = (date) => {
-    if (date > today) return; // Can't validate future days
+    if (date > today) return;
     const form = {};
     active.forEach(a => {
       const entry = getEntry(a.id, date);
-      const prevu = (a.taux_staffing || 100) / 100;
+      const prevuH = tauxToHeures(a.taux_staffing || 100);
       form[a.id] = {
-        temps_reel: entry?.temps_reel != null ? entry.temps_reel : prevu,
-        prevu,
+        temps_reel: entry?.temps_reel != null ? entry.temps_reel : prevuH,
+        prevu: prevuH,
         commentaire: entry?.commentaire || '',
         confirmed: true, // default: confirm planned time
         existing: entry,
@@ -110,7 +114,7 @@ export default function MissionsTab({ collabId, collabs: allCollabs }) {
       for (const [assignmentId, entry] of Object.entries(validateForm)) {
         const existing = getEntry(assignmentId, validateDate);
         const data = {
-          temps_reel: entry.confirmed ? entry.prevu : parseFloat(entry.temps_reel) || 0,
+          temps_reel: entry.confirmed ? entry.prevu : Math.max(0.5, parseFloat(entry.temps_reel) || 0.5),
           statut: 'valide',
           commentaire: entry.confirmed ? null : (entry.commentaire || null),
         };
@@ -121,7 +125,7 @@ export default function MissionsTab({ collabId, collabs: allCollabs }) {
             assignment_id: assignmentId,
             collaborateur_id: collabId,
             date: validateDate,
-            temps_prevu: entry.prevu,
+            temps_prevu: entry.prevu, // in hours
             ...data,
           });
         }
@@ -207,9 +211,9 @@ export default function MissionsTab({ collabId, collabs: allCollabs }) {
                         const entry = getEntry(a.id, date);
                         const isToday = date === today;
                         const status = entry?.statut || 'planifie';
-                        const prevu = (a.taux_staffing || 100) / 100;
+                        const prevuH = tauxToHeures(a.taux_staffing || 100);
                         const isValidated = status === 'valide';
-                        const value = entry?.temps_reel != null ? entry.temps_reel : prevu;
+                        const value = entry?.temps_reel != null ? entry.temps_reel : prevuH;
 
                         return <td key={date} style={{padding:3,textAlign:'center',background:isToday?'rgba(255,50,133,0.03)':'transparent'}}>
                           <div style={{
@@ -218,7 +222,7 @@ export default function MissionsTab({ collabId, collabs: allCollabs }) {
                             minHeight:36,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
                             opacity: !isPast(date) ? 0.5 : 1,
                           }}>
-                            <div style={{fontWeight:700,fontSize:'0.85rem',color:isValidated?'var(--green)':'var(--navy)'}}>{value}j</div>
+                            <div style={{fontWeight:700,fontSize:'0.85rem',color:isValidated?'var(--green)':'var(--navy)'}}>{value}h</div>
                             <div style={{fontSize:'0.5rem',fontWeight:600,color:isValidated?'var(--green)':'var(--muted)'}}>
                               {isValidated ? '✓ Validé' : isPast(date) ? 'À valider' : 'Futur'}
                             </div>
@@ -226,7 +230,7 @@ export default function MissionsTab({ collabId, collabs: allCollabs }) {
                           {entry?.commentaire && <div style={{fontSize:'0.5rem',color:'var(--muted)',marginTop:1}} title={entry.commentaire}>💬</div>}
                         </td>;
                       })}
-                      <td style={{padding:8,textAlign:'center',fontWeight:700,color:'var(--navy)'}}>{weekTotal > 0 ? `${weekTotal}j` : '—'}</td>
+                      <td style={{padding:8,textAlign:'center',fontWeight:700,color:'var(--navy)'}}>{weekTotal > 0 ? `${weekTotal}h` : '—'}</td>
                     </tr>
                   );
                 })}
@@ -259,7 +263,7 @@ export default function MissionsTab({ collabId, collabs: allCollabs }) {
 
       {/* VALIDATION POPUP */}
       <Modal open={!!validateDate} onClose={()=>setValidateDate(null)} title={`Valider le ${validateDate ? validateDate.split('-')[2]+'/'+validateDate.split('-')[1]+'/'+validateDate.split('-')[0] : ''}`}>
-        <p style={{fontSize:'0.85rem',color:'var(--muted)',marginBottom:16}}>Pour chaque mission, confirmez le temps prévu ou indiquez le temps réel.</p>
+        <p style={{fontSize:'0.85rem',color:'var(--muted)',marginBottom:16}}>Pour chaque mission, confirmez les heures prévues ou indiquez le temps réel (min. 0,5h).</p>
         {Object.entries(validateForm).map(([assignmentId, entry]) => (
           <div key={assignmentId} style={{padding:'14px 16px',border:'1.5px solid var(--lavender)',borderRadius:12,marginBottom:10,background:entry.confirmed?'var(--offwhite)':'white'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
@@ -267,12 +271,12 @@ export default function MissionsTab({ collabId, collabs: allCollabs }) {
                 <div style={{fontWeight:700,color:'var(--navy)',fontSize:'0.9rem'}}>{entry.missionNom}</div>
                 <div style={{fontSize:'0.75rem',color:'var(--muted)'}}>{entry.missionClient} · {entry.role}</div>
               </div>
-              <div style={{fontWeight:700,color:'var(--blue)',fontSize:'1rem'}}>{entry.prevu}j prévu</div>
+              <div style={{fontWeight:700,color:'var(--blue)',fontSize:'1rem'}}>{entry.prevu}h prévu</div>
             </div>
             <div style={{display:'flex',gap:8,marginBottom:entry.confirmed?0:10}}>
               <button onClick={()=>setValidateForm({...validateForm,[assignmentId]:{...entry,confirmed:true}})}
                 style={{flex:1,padding:'10px',borderRadius:10,border:`2px solid ${entry.confirmed?'var(--green)':'var(--lavender)'}`,background:entry.confirmed?'var(--bg-success)':'white',cursor:'pointer',fontFamily:'inherit',fontWeight:700,fontSize:'0.82rem',color:entry.confirmed?'var(--green)':'var(--muted)',transition:'all 0.15s'}}>
-                ✓ Temps prévu confirmé ({entry.prevu}j)
+                ✓ Temps prévu confirmé ({entry.prevu}h)
               </button>
               <button onClick={()=>setValidateForm({...validateForm,[assignmentId]:{...entry,confirmed:false,temps_reel:entry.temps_reel}})}
                 style={{flex:1,padding:'10px',borderRadius:10,border:`2px solid ${!entry.confirmed?'var(--orange)':'var(--lavender)'}`,background:!entry.confirmed?'var(--bg-warning)':'white',cursor:'pointer',fontFamily:'inherit',fontWeight:700,fontSize:'0.82rem',color:!entry.confirmed?'var(--orange)':'var(--muted)',transition:'all 0.15s'}}>
@@ -282,8 +286,8 @@ export default function MissionsTab({ collabId, collabs: allCollabs }) {
             {!entry.confirmed && (
               <div style={{display:'flex',gap:8,alignItems:'center'}}>
                 <div className="form-field" style={{flex:1,margin:0}}>
-                  <label style={{fontSize:'0.7rem'}}>Temps réel (jours)</label>
-                  <input type="number" step="0.1" min="0" max="1" value={entry.temps_reel}
+                  <label style={{fontSize:'0.7rem'}}>Temps réel (heures)</label>
+                  <input type="number" step="0.5" min="0.5" max="7" value={entry.temps_reel}
                     onChange={e=>setValidateForm({...validateForm,[assignmentId]:{...entry,temps_reel:e.target.value}})}
                     style={{padding:'6px 10px',fontSize:'0.85rem'}} />
                 </div>
