@@ -34,6 +34,10 @@ export default function MissionDetail() {
   const [tab, setTab] = useState('equipe');
   const [form, setForm] = useState({});
   const [addForm, setAddForm] = useState({ collaborateur_id:'', role:'', jours_par_semaine:5, tjm:'' });
+  const [editingCell, setEditingCell] = useState(null); // {assignId, weekIdx}
+  const [editCellValue, setEditCellValue] = useState('');
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [bulkForm, setBulkForm] = useState({ assignId:'', jours:5, debut:'', fin:'' });
 
   async function loadMission() {
     try {
@@ -100,14 +104,45 @@ export default function MissionDetail() {
   const totalJours = team.reduce((s,a) => s+(a.jours_par_semaine||a.taux_staffing/100*5), 0);
   const budgetPct = mission.budget_vendu > 0 ? Math.round(totalCA/mission.budget_vendu*100) : null;
 
-  // Mini timeline: 16 weeks
+  // Week key helper
+  const getWeekKey = (d) => { const wn = Math.ceil(((d - new Date(d.getFullYear(),0,1))/86400000+1)/7); return `${d.getFullYear()}-W${String(wn).padStart(2,'0')}`; };
+  const getEffectiveTaux = (a, wk) => { const ov = a.staffing_overrides || {}; return ov[wk] !== undefined ? ov[wk] : (a.taux_staffing || 0); };
+  const tauxToJours = (taux) => Math.round(taux / 100 * 5 * 10) / 10;
+  const joursToTaux = (jours) => Math.round(jours / 5 * 100);
+
+  // Update a single cell (week override)
+  const updateWeekCell = async (a, weekKey, jours) => {
+    const taux = joursToTaux(jours);
+    const overrides = {...(a.staffing_overrides || {})};
+    if (taux === (a.taux_staffing || 0)) { delete overrides[weekKey]; } else { overrides[weekKey] = taux; }
+    try { await api.updateAssignment(a.id, { staffing_overrides: overrides }); await loadMission(); } catch(e) { showToast('Erreur: '+e.message); }
+  };
+
+  // Bulk update: set jours for all weeks in a date range
+  const applyBulkUpdate = async () => {
+    const a = team.find(x => x.id === bulkForm.assignId);
+    if (!a || !bulkForm.debut || !bulkForm.fin) return;
+    const taux = joursToTaux(parseFloat(bulkForm.jours) || 0);
+    const overrides = {...(a.staffing_overrides || {})};
+    const cursor = new Date(bulkForm.debut);
+    cursor.setDate(cursor.getDate() - ((cursor.getDay()+6)%7)); // align to Monday
+    const endDate = new Date(bulkForm.fin);
+    while (cursor <= endDate) {
+      const wk = getWeekKey(cursor);
+      if (taux === (a.taux_staffing || 0)) { delete overrides[wk]; } else { overrides[wk] = taux; }
+      cursor.setDate(cursor.getDate() + 7);
+    }
+    try { await api.updateAssignment(a.id, { staffing_overrides: overrides }); setBulkForm({assignId:'',jours:5,debut:'',fin:''}); await loadMission(); showToast('Planning mis à jour'); } catch(e) { showToast('Erreur: '+e.message); }
+  };
+
+  // Timeline: 16 weeks with offset
   const WEEKS = 16;
-  const startMon = new Date(now); startMon.setDate(now.getDate() - ((now.getDay()+6)%7)); startMon.setHours(0,0,0,0);
+  const startMon = new Date(now); startMon.setDate(now.getDate() - ((now.getDay()+6)%7) + weekOffset*WEEKS); startMon.setHours(0,0,0,0);
   const weeks = Array.from({length:WEEKS},(_,i) => {
     const d = new Date(startMon); d.setDate(startMon.getDate()+i*7);
     const wn = Math.ceil(((d - new Date(d.getFullYear(),0,1))/86400000+1)/7);
     const end = new Date(d.getTime()+4*86400000);
-    return { label:`S${wn}`, start:d.toISOString().split('T')[0], end:end.toISOString().split('T')[0], isCurrent:todayStr>=d.toISOString().split('T')[0]&&todayStr<=end.toISOString().split('T')[0] };
+    return { label:`S${wn}`, start:d.toISOString().split('T')[0], end:end.toISOString().split('T')[0], isCurrent:todayStr>=d.toISOString().split('T')[0]&&todayStr<=end.toISOString().split('T')[0], weekKey:`${d.getFullYear()}-W${String(wn).padStart(2,'0')}` };
   });
   const COLORS = ['#3B82F6','#8B5CF6','#EC4899','#F59E0B','#10B981','#6366F1'];
 
@@ -181,7 +216,7 @@ export default function MissionDetail() {
         <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap',marginBottom:24}}>
           <select value={addForm.collaborateur_id} onChange={e=>setAddForm({...addForm,collaborateur_id:e.target.value})} style={{...inputStyle,flex:1,minWidth:120,padding:'8px 10px'}}>
             <option value="">+ Collaborateur...</option>
-            {collabs.filter(c=>!team.some(a=>a.collaborateur_id===c.id)).map(c=><option key={c.id} value={c.id}>{c.prenom} {c.nom} — {c.poste||''}</option>)}
+            {collabs.map(c=><option key={c.id} value={c.id}>{c.prenom} {c.nom} — {c.poste||''}{team.some(a=>a.collaborateur_id===c.id)?' (déjà affecté)':''}</option>)}
           </select>
           <select value={addForm.role} onChange={e=>{const role=missionRoles.find(r=>r.label===e.target.value); setAddForm({...addForm, role:e.target.value, tjm:role?String(role.tjm):''}); }} style={{...inputStyle,flex:1,minWidth:120,padding:'8px 10px'}}>
             <option value="">Rôle...</option>
@@ -194,13 +229,21 @@ export default function MissionDetail() {
           <button className="btn btn-primary btn-sm" onClick={addCollab} disabled={!addForm.collaborateur_id||!addForm.role}>+ Ajouter</button>
         </div>
 
-        {/* Mini Gantt */}
+        {/* Interactive Gantt */}
         <div className="section-title">Planning mission</div>
         <div className="card" style={{overflowX:'auto',padding:0}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 12px',borderBottom:'1px solid var(--lavender)'}}>
+            <button className="btn btn-ghost btn-sm" style={{padding:'3px 8px',fontSize:'0.68rem'}} onClick={()=>setWeekOffset(weekOffset-1)}>← {WEEKS} sem.</button>
+            <span style={{fontSize:'0.72rem',fontWeight:700,color:'var(--navy)'}}>Planning staffing</span>
+            <div style={{display:'flex',gap:4}}>
+              {weekOffset!==0 && <button className="btn btn-ghost btn-sm" style={{padding:'3px 8px',fontSize:'0.68rem'}} onClick={()=>setWeekOffset(0)}>Aujourd'hui</button>}
+              <button className="btn btn-ghost btn-sm" style={{padding:'3px 8px',fontSize:'0.68rem'}} onClick={()=>setWeekOffset(weekOffset+1)}>{WEEKS} sem. →</button>
+            </div>
+          </div>
           <table style={{fontSize:'0.65rem',width:'100%',borderCollapse:'collapse'}}>
             <thead><tr>
               <th style={{textAlign:'left',padding:'6px 10px',minWidth:120,position:'sticky',left:0,background:'var(--white)',zIndex:1}}>Collab</th>
-              {weeks.map((w,i)=><th key={i} style={{textAlign:'center',padding:'4px 2px',minWidth:40,fontWeight:w.isCurrent?800:600,color:w.isCurrent?'var(--pink)':'var(--muted)'}}>{w.label}</th>)}
+              {weeks.map((w,i)=><th key={i} style={{textAlign:'center',padding:'4px 2px',minWidth:44,fontWeight:w.isCurrent?800:600,color:w.isCurrent?'var(--pink)':'var(--muted)'}}>{w.label}</th>)}
             </tr></thead>
             <tbody>
               {team.map((a,idx) => {
@@ -215,10 +258,26 @@ export default function MissionDetail() {
                   {weeks.map((w,wi) => {
                     const isInRange = (!a.date_debut || a.date_debut <= w.end) && (!a.date_fin || a.date_fin >= w.start);
                     const missionInRange = (!mission.date_debut || mission.date_debut <= w.end) && (!mission.date_fin || mission.date_fin >= w.start);
-                    const active = isInRange && missionInRange;
-                    const jps = a.jours_par_semaine || (a.taux_staffing||0)/100*5;
-                    return <td key={wi} style={{padding:1,background:w.isCurrent?'rgba(255,50,133,0.04)':'transparent',textAlign:'center'}}>
-                      {active ? <div style={{background:COLORS[idx%COLORS.length],color:'white',borderRadius:3,padding:'2px 2px',fontSize:'0.5rem',fontWeight:700,opacity:0.85}}>{Math.round(jps*10)/10}j</div> : <div style={{height:18}} />}
+                    const inRange = isInRange && missionInRange;
+                    const effectiveTaux = getEffectiveTaux(a, w.weekKey);
+                    const jps = tauxToJours(effectiveTaux);
+                    const defaultJps = tauxToJours(a.taux_staffing || 0);
+                    const isOverridden = (a.staffing_overrides||{})[w.weekKey] !== undefined;
+                    const isEditing = editingCell && editingCell.assignId === a.id && editingCell.weekIdx === wi;
+
+                    return <td key={wi} style={{padding:1,background:w.isCurrent?'rgba(255,50,133,0.04)':'transparent',textAlign:'center',cursor:inRange?'pointer':'default'}}
+                      onClick={inRange && !isEditing ? ()=>{setEditingCell({assignId:a.id,weekIdx:wi}); setEditCellValue(String(jps));} : undefined}>
+                      {isEditing ? (
+                        <input type="number" step="0.5" min="0" max="5" value={editCellValue} autoFocus
+                          style={{width:38,padding:'1px 2px',fontSize:'0.55rem',fontWeight:700,textAlign:'center',border:'1.5px solid var(--pink)',borderRadius:3,outline:'none',background:'white',color:'var(--navy)'}}
+                          onChange={e=>setEditCellValue(e.target.value)}
+                          onBlur={()=>{const v=parseFloat(editCellValue); if(!isNaN(v)&&v>=0&&v<=5) updateWeekCell(a,w.weekKey,v); setEditingCell(null);}}
+                          onKeyDown={e=>{if(e.key==='Enter')e.target.blur();if(e.key==='Escape')setEditingCell(null);}}
+                          onClick={e=>e.stopPropagation()}
+                        />
+                      ) : inRange ? (
+                        <div style={{background:jps>0?COLORS[idx%COLORS.length]:'var(--offwhite)',color:jps>0?'white':'var(--muted)',borderRadius:3,padding:'2px 2px',fontSize:'0.5rem',fontWeight:700,opacity:jps>0?0.85:0.4,border:isOverridden?'1px dashed rgba(255,255,255,0.6)':'none'}} title={isOverridden?`Override: ${jps}j (défaut: ${defaultJps}j)`:''}>{jps}j</div>
+                      ) : <div style={{height:18}} />}
                     </td>;
                   })}
                 </tr>;
@@ -226,6 +285,26 @@ export default function MissionDetail() {
             </tbody>
           </table>
         </div>
+
+        {/* Bulk update */}
+        {team.length > 0 && <div style={{marginTop:12,padding:'10px 12px',border:'1.5px dashed var(--lavender)',borderRadius:10}}>
+          <div style={{fontSize:'0.7rem',fontWeight:700,color:'var(--muted)',marginBottom:6}}>📅 Modifier une période</div>
+          <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
+            <select value={bulkForm.assignId} onChange={e=>setBulkForm({...bulkForm,assignId:e.target.value})} style={{...inputStyle,flex:1,minWidth:120,padding:'6px 8px'}}>
+              <option value="">Collaborateur...</option>
+              {team.map(a=><option key={a.id} value={a.id}>{a.collaborateurs?a.collaborateurs.prenom+' '+a.collaborateurs.nom:'—'}</option>)}
+            </select>
+            <div style={{display:'flex',alignItems:'center',gap:3}}>
+              <input type="number" step="0.5" min="0" max="5" value={bulkForm.jours} onChange={e=>setBulkForm({...bulkForm,jours:e.target.value})} style={{...inputStyle,width:50,padding:'6px 8px'}} />
+              <span style={{fontSize:'0.68rem',color:'var(--muted)'}}>j/sem</span>
+            </div>
+            <span style={{fontSize:'0.68rem',color:'var(--muted)'}}>du</span>
+            <input type="date" value={bulkForm.debut} onChange={e=>setBulkForm({...bulkForm,debut:e.target.value})} style={{...inputStyle,width:120,padding:'6px 8px'}} />
+            <span style={{fontSize:'0.68rem',color:'var(--muted)'}}>au</span>
+            <input type="date" value={bulkForm.fin} onChange={e=>setBulkForm({...bulkForm,fin:e.target.value})} style={{...inputStyle,width:120,padding:'6px 8px'}} />
+            <button className="btn btn-primary btn-sm" onClick={applyBulkUpdate} disabled={!bulkForm.assignId||!bulkForm.debut||!bulkForm.fin}>Appliquer</button>
+          </div>
+        </div>}
       </div></FadeIn>}
 
       {/* TAB: INFOS */}
