@@ -318,7 +318,7 @@ export default function MissionsTab({ collabId, collabs: allCollabs }) {
         {active.map(a => {
           const client = clients.find(c => c.id === a.missions?.client_id);
           const isExpanded = expandedMission === a.id;
-          const teammates = (a.missions?.assignments||[]).filter(x=>x.collaborateur_id!==collabId&&x.statut==='actif');
+          const teammates = (a.missions?.assignments||[]).filter(x=>x.collaborateur_id!==collabId&&(!x.statut||x.statut==='actif'));
           return (
           <div key={a.id} className="card" style={{marginBottom:12,padding:0,borderLeft:'4px solid var(--blue)',overflow:'hidden'}}>
             {/* Header — cliquable */}
@@ -336,8 +336,16 @@ export default function MissionsTab({ collabId, collabs: allCollabs }) {
               <div style={{display:'flex',gap:12,fontSize:'0.75rem',color:'var(--muted)',marginTop:6,flexWrap:'wrap'}}>
                 <span>📅 {fmtDate(a.date_debut)} → {fmtDate(a.date_fin)}</span>
                 {a.missions?.categorie && <span>🏷️ {a.missions.categorie}</span>}
-                {teammates.length > 0 && <span>👥 {teammates.length} collab{teammates.length>1?'s':''}</span>}
               </div>
+              {/* Équipe aperçu — toujours visible */}
+              {teammates.length > 0 && <div style={{display:'flex',alignItems:'center',gap:6,marginTop:8,flexWrap:'wrap'}}>
+                <span style={{fontSize:'0.68rem',fontWeight:700,color:'var(--muted)'}}>👥</span>
+                {teammates.slice(0,5).map(x => {
+                  const collab = allCollabs?.find(c=>c.id===x.collaborateur_id) || x.collaborateurs;
+                  return <span key={x.id} style={{fontSize:'0.68rem',fontWeight:600,color:'var(--navy)',background:'var(--offwhite)',padding:'2px 6px',borderRadius:4}}>{collab ? `${collab.prenom} ${(collab.nom||'')[0]}.` : '—'}</span>;
+                })}
+                {teammates.length > 5 && <span style={{fontSize:'0.65rem',color:'var(--muted)'}}>+{teammates.length-5}</span>}
+              </div>}
             </div>
 
             {/* Détails expandés */}
