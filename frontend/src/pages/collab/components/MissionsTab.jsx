@@ -182,11 +182,11 @@ export default function MissionsTab({ collabId, collabs: allCollabs }) {
             <table style={{width:'100%',fontSize:'0.8rem',borderCollapse:'collapse'}}>
               <thead>
                 <tr style={{background:'var(--offwhite)'}}>
-                  <th style={{textAlign:'left',padding:'10px 14px',fontWeight:700,color:'var(--navy)',minWidth:160}}>Mission</th>
+                  <th style={{textAlign:'left',padding:'10px 14px',fontWeight:700,color:'var(--navy)',minWidth:100}}>Mission</th>
                   {weekDates.map((date, i) => {
                     const isToday = date === today;
                     const validated = isDayValidated(date);
-                    return <th key={date} style={{textAlign:'center',padding:'8px 4px',minWidth:70,fontWeight:700,color:isToday?'var(--pink)':'var(--navy)',background:isToday?'rgba(255,50,133,0.05)':'transparent'}}>
+                    return <th key={date} style={{textAlign:'center',padding:'8px 4px',minWidth:50,fontWeight:700,color:isToday?'var(--pink)':'var(--navy)',background:isToday?'rgba(255,50,133,0.05)':'transparent'}}>
                       <div>{DAY_SHORT[i]}</div>
                       <div style={{fontSize:'0.65rem',fontWeight:600,color:'var(--muted)'}}>{date.split('-')[2]}/{date.split('-')[1]}</div>
                       {validated && <div style={{fontSize:'0.6rem',color:'var(--green)'}}>✓</div>}
@@ -284,7 +284,7 @@ export default function MissionsTab({ collabId, collabs: allCollabs }) {
               </button>
             </div>
             {!entry.confirmed && (
-              <div style={{display:'flex',gap:8,alignItems:'center'}}>
+              <div className="mobile-stack" style={{display:'flex',gap:8,alignItems:'center'}}>
                 <div className="form-field" style={{flex:1,margin:0}}>
                   <label style={{fontSize:'0.7rem'}}>Temps réel (heures)</label>
                   <input type="number" step="0.5" min="0.5" max="7" value={entry.temps_reel}
@@ -345,7 +345,7 @@ export default function MissionsTab({ collabId, collabs: allCollabs }) {
               {/* Infos client */}
               {client && <div style={{padding:'12px 16px',background:'var(--offwhite)'}}>
                 <div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',color:'var(--pink)',marginBottom:8}}>🏢 Client</div>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,fontSize:'0.78rem'}}>
+                <div className="mobile-grid-2" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,fontSize:'0.78rem'}}>
                   <div><span style={{color:'var(--muted)'}}>Raison sociale : </span><span style={{fontWeight:700,color:'var(--navy)'}}>{client.nom}</span></div>
                   {client.secteur && <div><span style={{color:'var(--muted)'}}>Secteur : </span><span style={{fontWeight:600,color:'var(--navy)'}}>{client.secteur}</span></div>}
                   {client.ville && <div><span style={{color:'var(--muted)'}}>Ville : </span><span style={{fontWeight:600,color:'var(--navy)'}}>{client.ville}</span></div>}

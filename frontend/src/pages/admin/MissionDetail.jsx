@@ -217,7 +217,7 @@ export default function MissionDetail() {
         </div>
 
         {/* Quick add */}
-        <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap',marginBottom:24}}>
+        <div className="mobile-stack" style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap',marginBottom:24}}>
           <select value={addForm.collaborateur_id} onChange={e=>setAddForm({...addForm,collaborateur_id:e.target.value})} style={{...inputStyle,flex:1,minWidth:120,padding:'8px 10px'}}>
             <option value="">+ Collaborateur...</option>
             {collabs.map(c=><option key={c.id} value={c.id}>{c.prenom} {c.nom} — {c.poste||''}{team.some(a=>a.collaborateur_id===c.id)?' (déjà affecté)':''}</option>)}
@@ -323,7 +323,7 @@ export default function MissionDetail() {
         {/* Bulk update */}
         {team.length > 0 && <div style={{marginTop:12,padding:'10px 12px',border:'1.5px dashed var(--lavender)',borderRadius:10}}>
           <div style={{fontSize:'0.7rem',fontWeight:700,color:'var(--muted)',marginBottom:6}}>📅 Modifier une période</div>
-          <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
+          <div className="mobile-stack" style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
             <select value={bulkForm.assignId} onChange={e=>setBulkForm({...bulkForm,assignId:e.target.value})} style={{...inputStyle,flex:1,minWidth:120,padding:'6px 8px'}}>
               <option value="">Collaborateur...</option>
               {team.map(a=><option key={a.id} value={a.id}>{a.collaborateurs?a.collaborateurs.prenom+' '+a.collaborateurs.nom:'—'}</option>)}

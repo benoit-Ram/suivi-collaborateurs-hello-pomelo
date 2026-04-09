@@ -158,6 +158,11 @@ tr:hover td { background: var(--hover-row, #F0F0FF); }
   .period-filter .period-presets { flex-wrap: wrap; }
   /* Safe area for notch devices */
   body { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+  /* Mobile form/flex stacking */
+  .mobile-stack { flex-direction: column !important; }
+  .mobile-stack > * { width: 100% !important; min-width: 0 !important; }
+  /* Mobile grid: force 2 columns max */
+  .mobile-grid-2 { grid-template-columns: 1fr 1fr !important; }
 }
 
 @media (max-width: 400px) {
@@ -167,6 +172,7 @@ tr:hover td { background: var(--hover-row, #F0F0FF); }
   th { padding: 4px 6px; font-size: 0.55rem; }
   td { padding: 6px; font-size: 0.72rem; }
   main { padding: 8px !important; padding-top: 52px !important; }
+  .mobile-stack > * { flex: none !important; }
 }
 
 @media (min-width: 769px) {

@@ -328,7 +328,7 @@ export default function Missions() {
               </div>
             </div>
             {cMissions.length === 0 ? <div className="card" style={{textAlign:'center',padding:24,color:'var(--muted)'}}>Aucune mission</div> :
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(320px,1fr))',gap:16}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:16}}>
               {cMissions.map(m => <MissionCard key={m.id} m={m} collabs={collabs} onEdit={openEdit} onDelete={deleteMission} onAssign={()=>{setAssignModal(m.id);setAssignForm({collaborateur_id:'',role:'',taux_staffing:100,jours_par_semaine:5,tjm:'',date_debut:m.date_debut||'',date_fin:m.date_fin||''});}} onRemoveAssign={removeAssignment} onDetail={(m)=>navigate(`/admin/missions/${m.id}`)} onDuplicate={duplicateMission} />)}
             </div>}
           </div>;
@@ -393,7 +393,7 @@ export default function Missions() {
           </table></div>;
 
           // Mode cartes
-          return <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:16}}>
+          return <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(250px,1fr))',gap:12}}>
             {filteredClients.map(c => {
               const cMissions = missions.filter(m => m.client_id === c.id);
               const activeMissions = cMissions.filter(isMissionActive);
