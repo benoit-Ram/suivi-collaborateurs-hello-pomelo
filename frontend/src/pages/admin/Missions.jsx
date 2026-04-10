@@ -495,8 +495,13 @@ export default function Missions() {
         // Jours ouvrés sur la période sélectionnée
         const periodWeeks = Math.max(1, (new Date(periodEnd) - new Date(periodStart)) / (7 * 86400000));
         const periodWorkDays = Math.round(periodWeeks * 5 * 10) / 10;
-        // Taux staffing sur la période = jours staffés / jours ouvrés période
-        const calcPeriodTaux = (collabId) => { const days = calcStaffedDays(collabId); return periodWorkDays > 0 ? Math.round(days / periodWorkDays * 100) : 0; };
+        // Taux staffing sur la période = jours staffés / (jours ouvrés - absences)
+        const calcPeriodTaux = (collabId) => {
+          const days = calcStaffedDays(collabId);
+          const abs = getAbsenceDays(collabId, periodStart, periodEnd, approvedAbsences);
+          const disponible = Math.max(1, periodWorkDays - abs);
+          return Math.round(days / disponible * 100);
+        };
 
         const filteredStaffing = Object.values(staffingMap).filter(({collab:c}) => filterEquipes.length===0 || filterEquipes.some(eq=>(c.equipe||'').includes(eq)));
         const avg = filteredStaffing.length ? Math.round(filteredStaffing.reduce((s,{collab:c})=>s+calcPeriodTaux(c.id),0)/filteredStaffing.length) : 0;

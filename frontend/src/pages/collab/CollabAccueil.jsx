@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import { useAuth } from '../../services/AuthContext';
-import { Avatar, Badge, ProgressBar, EmptyState, FadeIn, Skeleton, fmtDate, moisLabel, calculateSolde, STATUS_LABELS, STATUS_COLORS } from '../../components/UI';
+import { Avatar, Badge, ProgressBar, EmptyState, FadeIn, Skeleton, fmtDate, moisLabel, calculateSolde, getAbsenceDays, STATUS_LABELS, STATUS_COLORS } from '../../components/UI';
 import { getTeamObjectives } from './utils/questions';
 import ObjCard from './components/ObjCard';
 import PointCard from './components/PointCard';
@@ -77,16 +77,17 @@ export default function CollabAccueil() {
     if (!selectedId) return;
     const collab = collabs.find(x => x.id === selectedId);
     if (!collab) return;
-    api.getMissions().then(missions => {
+    Promise.all([api.getMissions(), api.getAbsences({collaborateur_id:selectedId})]).then(([missions, abs]) => {
       const now = new Date();
       const janFirst = new Date(now.getFullYear(), 0, 1);
       const startDate = collab.date_entree && new Date(collab.date_entree) > janFirst ? new Date(collab.date_entree) : janFirst;
+      const myAbs = (abs||[]).filter(a=>a.statut==='approuve');
 
       // Iterate week by week from startDate to now
       const cursor = new Date(startDate);
-      cursor.setDate(cursor.getDate() - ((cursor.getDay() + 6) % 7)); // align to Monday
-      let totalTaux = 0;
-      let weekCount = 0;
+      cursor.setDate(cursor.getDate() - ((cursor.getDay() + 6) % 7));
+      let totalStaffedDays = 0;
+      let totalAvailableDays = 0;
 
       while (cursor <= now) {
         const wn = Math.ceil(((cursor - new Date(cursor.getFullYear(), 0, 1)) / 86400000 + 1) / 7);
@@ -94,7 +95,10 @@ export default function CollabAccueil() {
         const weekStart = cursor.toISOString().split('T')[0];
         const weekEnd = new Date(cursor.getTime() + 4 * 86400000).toISOString().split('T')[0];
 
-        let weekTaux = 0;
+        const absDays = getAbsenceDays(selectedId, weekStart, weekEnd, myAbs);
+        const availDays = Math.max(0, 5 - absDays);
+
+        let weekStaffedDays = 0;
         (missions || []).forEach(m => {
           if (m.date_debut && m.date_debut > weekEnd) return;
           if (m.date_fin && m.date_fin < weekStart) return;
@@ -104,16 +108,17 @@ export default function CollabAccueil() {
             if (a.date_debut && a.date_debut > weekEnd) return;
             if (a.date_fin && a.date_fin < weekStart) return;
             const ov = a.staffing_overrides || {};
-            weekTaux += ov[weekKey] !== undefined ? ov[weekKey] : (a.taux_staffing || 0);
+            const taux = ov[weekKey] !== undefined ? ov[weekKey] : (a.taux_staffing || 0);
+            weekStaffedDays += taux / 100 * 5;
           });
         });
 
-        totalTaux += weekTaux;
-        weekCount++;
+        totalStaffedDays += Math.min(weekStaffedDays, availDays);
+        totalAvailableDays += availDays;
         cursor.setDate(cursor.getDate() + 7);
       }
 
-      setStaffingGlobal(weekCount > 0 ? Math.round(totalTaux / weekCount) : 0);
+      setStaffingGlobal(totalAvailableDays > 0 ? Math.round(totalStaffedDays / totalAvailableDays * 100) : 0);
     }).catch(e => console.error('Staffing calc error:', e));
   }, [selectedId, collabs]);
 
