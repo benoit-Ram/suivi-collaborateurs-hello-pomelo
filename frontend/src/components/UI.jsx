@@ -248,6 +248,22 @@ export function absenceDays(a) {
   return countWorkDays(a.date_debut, a.date_fin);
 }
 
+/** Get absence days for a collab within a date range (only approved) */
+export function getAbsenceDays(collabId, rangeStart, rangeEnd, absences) {
+  if (!collabId || !rangeStart || !rangeEnd || !absences) return 0;
+  let total = 0;
+  absences.filter(a => a.collaborateur_id === collabId).forEach(a => {
+    if (!a.date_debut || !a.date_fin) return;
+    // Overlap between absence and query range
+    const start = a.date_debut > rangeStart ? a.date_debut : rangeStart;
+    const end = a.date_fin < rangeEnd ? a.date_fin : rangeEnd;
+    if (start > end) return;
+    if (a.demi_journee) { total += 0.5; return; }
+    total += countWorkDays(start, end);
+  });
+  return total;
+}
+
 /** Calculate leave balance for a collaborateur */
 export function calculateSolde(collab, absences, settings) {
   const soldeInit = collab.solde_conges || 0;

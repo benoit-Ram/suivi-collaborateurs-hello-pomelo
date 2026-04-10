@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useData } from '../../services/DataContext';
 import { useAuth } from '../../services/AuthContext';
 import { api } from '../../services/api';
-import { PageHeader, Badge, Avatar, Modal, FadeIn, Skeleton, fmtDate } from '../../components/UI';
+import { PageHeader, Badge, Avatar, Modal, FadeIn, Skeleton, fmtDate, getAbsenceDays } from '../../components/UI';
 
 // Helpers
 const calcConsumedBudget = (assignments, now) => (assignments || []).reduce((s, a) => {
@@ -30,7 +30,8 @@ function exportCSV(filename, headers, rows) {
 
 export default function Missions() {
   const navigate = useNavigate();
-  const { collabs, settings, showToast, loading: ctxLoading } = useData();
+  const { collabs, absences: allAbsences, settings, showToast, loading: ctxLoading } = useData();
+  const approvedAbsences = (allAbsences || []).filter(a => a.statut === 'approuve');
   const missionCategories = settings?.mission_categories || ['Web','Mobile','ERP','DevOps','Design','Data','Conseil','TMA'];
   const missionRoles = settings?.mission_roles || [
     {label:'Directeur Projet',tjm:900},{label:'Product Manager',tjm:700},{label:'Product Owner',tjm:650},
@@ -555,15 +556,17 @@ export default function Missions() {
         </div>
         <div className="card" style={{overflowX:'auto'}}>
         <table>
-          <thead><tr><th>Collaborateur</th><th>Poste</th><th>Taux staffing</th><th>Jours staffés</th><th>Missions</th></tr></thead>
+          <thead><tr><th>Collaborateur</th><th>Poste</th><th>Taux staffing</th><th>Jours staffés</th><th>Absences</th><th>Missions</th></tr></thead>
           <tbody>{filteredStaffing.sort((a,b)=>calcPeriodTaux(b.collab.id)-calcPeriodTaux(a.collab.id)).map(({collab:c,missions:ms})=>{
             const totalDays = Math.round(calcStaffedDays(c.id)*10)/10;
+            const absJours = Math.round(getAbsenceDays(c.id, periodStart, periodEnd, approvedAbsences)*10)/10;
             const pTaux = calcPeriodTaux(c.id);
             return <tr key={c.id}>
               <td><div style={{display:'flex',alignItems:'center',gap:8}}><Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={28} /><span style={{fontWeight:700,color:'var(--navy)'}}>{c.prenom} {c.nom}</span></div></td>
               <td style={{fontSize:'0.78rem',color:'var(--muted)'}}>{c.poste||'—'}</td>
               <td><div style={{display:'flex',alignItems:'center',gap:8}}><div style={{width:80,height:8,background:'var(--offwhite)',borderRadius:4,overflow:'hidden'}}><div style={{height:'100%',width:`${Math.min(pTaux,100)}%`,background:pTaux>100?'var(--red)':pTaux>=80?'var(--orange)':'var(--green)',borderRadius:4}} /></div><span style={{fontWeight:700,fontSize:'0.85rem',color:pTaux>100?'var(--red)':pTaux>=80?'var(--orange)':'var(--green)'}}>{pTaux}%</span></div></td>
               <td style={{fontWeight:700,color:totalDays>0?'var(--blue)':'var(--muted)'}}>{totalDays}j</td>
+              <td style={{fontWeight:600,color:absJours>0?'var(--orange)':'var(--muted)'}}>{absJours>0?`${absJours}j`:'—'}</td>
               <td style={{fontSize:'0.78rem',color:'var(--muted)'}}>{ms.length===0?'Non staffé':ms.map(m=>`${m.nom} (${m.taux}%)`).join(', ')}</td>
             </tr>;
           })}</tbody>
@@ -600,12 +603,20 @@ export default function Missions() {
         const allCompetences = [...new Set(collabs.flatMap(c=>c.competences||[]))].sort();
         const selectStyle = {border:'1.5px solid var(--lavender)',borderRadius:8,padding:'6px 10px',fontFamily:'inherit',fontSize:'0.78rem',background:'var(--offwhite)',color:'var(--navy)'};
 
-        // Calculate availability per collab
+        // Calculate availability per collab (subtracting absences this week)
+        const nowD = new Date();
+        const monD = new Date(nowD); monD.setDate(nowD.getDate()-((nowD.getDay()+6)%7));
+        const friD = new Date(monD); friD.setDate(monD.getDate()+4);
+        const wkStart = monD.toISOString().split('T')[0];
+        const wkEnd = friD.toISOString().split('T')[0];
+
         const dispoData = collabs.map(c => {
           const taux = staffingMap[c.id]?.taux || 0;
-          const dispo = Math.max(0, 100 - taux);
-          const joursDispo = dispo / 100 * 5;
-          return { collab: c, taux, dispo, joursDispo, missions: staffingMap[c.id]?.missions || [] };
+          const absJours = getAbsenceDays(c.id, wkStart, wkEnd, approvedAbsences);
+          const joursStaffes = taux / 100 * 5;
+          const joursDispo = Math.max(0, 5 - joursStaffes - absJours);
+          const dispo = Math.round(joursDispo / 5 * 100);
+          return { collab: c, taux, dispo, joursDispo, absJours, missions: staffingMap[c.id]?.missions || [] };
         }).filter(d => {
           if (!dispoShowAll && d.dispo === 0) return false;
           if (dispoFilterEq && !(d.collab.equipe||'').includes(dispoFilterEq)) return false;
@@ -656,8 +667,8 @@ export default function Missions() {
         {/* Table */}
         <div className="card" style={{overflowX:'auto'}}>
         <table>
-          <thead><tr><th>Collaborateur</th><th>Poste</th><th>Équipe</th><th>Bureau</th><th>Compétences</th><th>Staffing</th><th>Dispo</th><th>Jours dispo</th></tr></thead>
-          <tbody>{dispoData.map(({collab:c,taux,dispo,joursDispo,missions:ms})=>(
+          <thead><tr><th>Collaborateur</th><th>Poste</th><th>Équipe</th><th>Bureau</th><th>Compétences</th><th>Staffing</th><th>Absences</th><th>Dispo</th><th>Jours dispo</th></tr></thead>
+          <tbody>{dispoData.map(({collab:c,taux,dispo,joursDispo,absJours,missions:ms})=>(
             <tr key={c.id} style={{background:dispo===100?'rgba(249,115,22,0.05)':dispo>0?'rgba(34,197,94,0.04)':'transparent'}}>
               <td><div style={{display:'flex',alignItems:'center',gap:8}}><Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={28} /><span style={{fontWeight:700,color:'var(--navy)'}}>{c.prenom} {c.nom}</span></div></td>
               <td style={{fontSize:'0.78rem',color:'var(--muted)'}}>{c.poste||'—'}</td>
@@ -665,6 +676,7 @@ export default function Missions() {
               <td style={{fontSize:'0.78rem',color:'var(--muted)'}}>{c.bureau||'—'}</td>
               <td><div style={{display:'flex',gap:3,flexWrap:'wrap'}}>{(c.competences||[]).map(comp=><span key={comp} style={{padding:'2px 6px',borderRadius:4,fontSize:'0.6rem',fontWeight:700,background:'var(--bg-info)',color:'var(--text-info)'}}>{comp}</span>)}</div></td>
               <td><span style={{fontWeight:700,fontSize:'0.82rem',color:taux>100?'var(--red)':taux>=80?'var(--orange)':'var(--green)'}}>{taux}%</span></td>
+              <td style={{fontWeight:600,color:absJours>0?'var(--orange)':'var(--muted)'}}>{absJours>0?`🏖️ ${absJours}j`:'—'}</td>
               <td><span style={{fontWeight:700,fontSize:'0.82rem',color:dispo===100?'var(--orange)':dispo>0?'var(--green)':'var(--muted)'}}>{dispo}%</span></td>
               <td style={{fontWeight:700,color:joursDispo>0?'var(--blue)':'var(--muted)'}}>{joursDispo.toFixed(1)}j</td>
             </tr>

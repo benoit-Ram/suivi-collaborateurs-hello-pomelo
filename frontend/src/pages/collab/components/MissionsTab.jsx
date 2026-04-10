@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../../services/api';
-import { Badge, FadeIn, Skeleton, fmtDate, ProgressBar, Modal } from '../../../components/UI';
+import { Badge, FadeIn, Skeleton, fmtDate, ProgressBar, Modal, getAbsenceDays } from '../../../components/UI';
 
 const STATUT_LABEL = { en_cours:'En cours', termine:'Terminé', annule:'Annulé', en_attente:'En attente' };
 const STATUT_BADGE = { en_cours:'blue', termine:'green', annule:'pink', en_attente:'orange' };
@@ -35,6 +35,7 @@ export default function MissionsTab({ collabId, collabs: allCollabs }) {
   const [assignments, setAssignments] = useState([]);
   const [timeEntries, setTimeEntries] = useState([]);
   const [clients, setClients] = useState([]);
+  const [myAbsences, setMyAbsences] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedMission, setExpandedMission] = useState(null);
   const [weekOffset, setWeekOffset] = useState(0);
@@ -50,13 +51,15 @@ export default function MissionsTab({ collabId, collabs: allCollabs }) {
 
   async function loadData() {
     try {
-      const [a, t, m, c] = await Promise.all([
+      const [a, t, m, c, abs] = await Promise.all([
         api.getAssignments({ collaborateur_id: collabId }),
         api.getTimeEntries({ collaborateur_id: collabId }),
         api.getMissions(),
-        api.getClients()
+        api.getClients(),
+        api.getAbsences({ collaborateur_id: collabId })
       ]);
       setClients(c || []);
+      setMyAbsences((abs||[]).filter(x=>x.statut==='approuve'));
       // Enrich assignments with full mission data (including team)
       const enriched = (a||[]).map(assign => {
         const fullMission = (m||[]).find(mi => mi.id === assign.mission_id);
@@ -209,6 +212,18 @@ export default function MissionsTab({ collabId, collabs: allCollabs }) {
                     })}
                   </tr>;
                 })}
+                {/* Absence row */}
+                {myAbsences.length > 0 && <tr style={{background:'rgba(249,115,22,0.05)'}}>
+                  <td style={{padding:'5px 10px',position:'sticky',left:0,background:'rgba(249,115,22,0.06)',zIndex:1}}>
+                    <div style={{fontWeight:700,color:'var(--orange)',fontSize:'0.65rem'}}>🏖️ Absences</div>
+                  </td>
+                  {ganttWeeks.map((w,wi) => {
+                    const abs = getAbsenceDays(collabId, w.start, w.end, myAbsences);
+                    return <td key={wi} style={{padding:1,textAlign:'center',background:w.isCurrent?'rgba(255,50,133,0.04)':'transparent'}}>
+                      {abs > 0 ? <div style={{background:'var(--orange)',color:'white',borderRadius:3,padding:'2px 1px',fontSize:'0.45rem',fontWeight:700,opacity:0.8,height:16,lineHeight:'16px'}}>{abs}j</div> : <div style={{height:16}} />}
+                    </td>;
+                  })}
+                </tr>}
                 {/* Total row */}
                 <tr style={{borderTop:'2px solid var(--lavender)',background:'var(--offwhite)'}}>
                   <td style={{padding:'4px 10px',position:'sticky',left:0,background:'var(--offwhite)',zIndex:1,fontWeight:700,fontSize:'0.58rem',color:'var(--navy)'}}>Total</td>

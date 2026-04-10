@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../../services/DataContext';
 import { api } from '../../services/api';
-import { PageHeader, Badge, Avatar, FadeIn, Skeleton, fmtDate } from '../../components/UI';
+import { PageHeader, Badge, Avatar, FadeIn, Skeleton, fmtDate, getAbsenceDays } from '../../components/UI';
 
 const calcConsumedBudget = (assignments, now) => (assignments || []).reduce((s, a) => {
   if (!a.date_debut || !a.tjm) return s;
@@ -20,7 +20,8 @@ const tauxFromJPS = (jps) => Math.round(jps / 5 * 100);
 export default function MissionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { collabs, settings, showToast } = useData();
+  const { collabs, absences: allAbsences, settings, showToast } = useData();
+  const approvedAbsences = (allAbsences || []).filter(a => a.statut === 'approuve');
   const missionCategories = settings?.mission_categories || ['Web','Mobile','ERP','DevOps','Design','Data','Conseil','TMA'];
   const missionRoles = settings?.mission_roles || [
     {label:'Directeur Projet',tjm:900},{label:'Product Manager',tjm:700},{label:'Product Owner',tjm:650},
@@ -272,8 +273,9 @@ export default function MissionDetail() {
                     const isOverridden = (a.staffing_overrides||{})[w.weekKey] !== undefined;
                     const isEditing = editingCell && editingCell.assignId === a.id && editingCell.weekIdx === wi;
                     const barPct = Math.min(jps/5*100, 100);
+                    const absJ = getAbsenceDays(a.collaborateur_id, w.start, w.end, approvedAbsences);
 
-                    return <td key={wi} style={{padding:1,background:w.isCurrent?'rgba(255,50,133,0.04)':'transparent',textAlign:'center',cursor:inRange?'pointer':'default',verticalAlign:'bottom'}}
+                    return <td key={wi} style={{padding:1,background:absJ>0?'rgba(249,115,22,0.08)':w.isCurrent?'rgba(255,50,133,0.04)':'transparent',textAlign:'center',cursor:inRange?'pointer':'default',verticalAlign:'bottom'}}
                       onClick={inRange && !isEditing ? ()=>{setEditingCell({assignId:a.id,weekIdx:wi}); setEditCellValue(String(jps));} : undefined}>
                       {isEditing ? (
                         <input type="number" step="0.5" min="0" max="5" value={editCellValue} autoFocus
@@ -284,9 +286,10 @@ export default function MissionDetail() {
                           onClick={e=>e.stopPropagation()}
                         />
                       ) : inRange ? (
-                        <div style={{position:'relative',height:20,borderRadius:3,overflow:'hidden',background:'var(--offwhite)'}}>
+                        <div style={{position:'relative',height:20,borderRadius:3,overflow:'hidden',background:absJ>0?'repeating-linear-gradient(45deg,var(--offwhite),var(--offwhite) 3px,rgba(249,115,22,0.1) 3px,rgba(249,115,22,0.1) 6px)':'var(--offwhite)'}}>
                           <div style={{position:'absolute',top:0,left:0,bottom:0,width:`${barPct}%`,background:COLORS[idx%COLORS.length],opacity:jps>0?0.85:0,borderRadius:3,transition:'width 0.15s',border:isOverridden?'1px dashed rgba(255,255,255,0.7)':'none'}} />
-                          <div style={{position:'relative',zIndex:1,fontSize:'0.48rem',fontWeight:700,color:jps>2.5?'white':'var(--navy)',lineHeight:'20px',paddingLeft:3}} title={isOverridden?`Override: ${jps}j (défaut: ${defaultJps}j)`:''}>{jps>0?jps+'j':''}</div>
+                          <div style={{position:'relative',zIndex:1,fontSize:'0.48rem',fontWeight:700,color:jps>2.5?'white':'var(--navy)',lineHeight:'20px',paddingLeft:3}} title={absJ>0?`🏖️ ${absJ}j absence`:isOverridden?`Override: ${jps}j (défaut: ${defaultJps}j)`:''}>{jps>0?jps+'j':''}</div>
+                          {absJ>0 && <div style={{position:'absolute',top:1,right:1,width:5,height:5,borderRadius:'50%',background:'var(--orange)',zIndex:2}} title={`${absJ}j absence`} />}
                         </div>
                       ) : <div style={{height:22}} />}
                     </td>;
