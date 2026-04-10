@@ -113,7 +113,7 @@ export default function CollabAccueil() {
       }
 
       setStaffingGlobal(weekCount > 0 ? Math.round(totalTaux / weekCount) : 0);
-    }).catch(() => {});
+    }).catch(e => console.error('Staffing calc error:', e));
   }, [selectedId, collabs]);
 
   if (loading) return <div style={{maxWidth:600,margin:'40px auto'}}><Skeleton lines={5} /></div>;
@@ -162,7 +162,7 @@ export default function CollabAccueil() {
   const [isReferent, setIsReferent] = useState(false);
   useEffect(() => {
     if (!selectedId) return;
-    api.getMissions().then(m => setIsReferent((m||[]).some(mi => mi.responsable_id === selectedId))).catch(()=>{});
+    api.getMissions().then(m => setIsReferent((m||[]).some(mi => mi.responsable_id === selectedId))).catch(e => console.error('Referent check error:', e));
   }, [selectedId]);
 
   const tabs = [['objectifs', isManager ? '🎯 Mes objectifs' : '🎯 Objectifs'],['missions','🚀 Missions'],['points', isManager ? '📋 Mes entretiens RH' : '📋 Entretien RH'],['conges', isManager ? '🏖️ Mes congés' : '🏖️ Congés']];

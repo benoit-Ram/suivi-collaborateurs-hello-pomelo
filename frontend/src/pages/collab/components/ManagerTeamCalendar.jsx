@@ -13,7 +13,7 @@ function ManagerTeamCalendar({ team, teamPendingAbs = [] }) {
     const ids = team.map(m => m.id);
     api.getAbsences().then(data => {
       setAllAbs((data||[]).filter(a => ids.includes(a.collaborateur_id) && (a.statut==='approuve'||a.statut==='en_attente')));
-    }).catch(() => {});
+    }).catch(e => console.error('Team calendar error:', e));
   }, [team, teamPendingAbs]);
 
   if (!team.length) return null;
