@@ -28,6 +28,7 @@ export default function CollabAccueil() {
   const [loading, setLoading] = useState(true);
   const [teamPendingAbs, setTeamPendingAbs] = useState([]);
   const [staffingGlobal, setStaffingGlobal] = useState(null);
+  const [isReferent, setIsReferent] = useState(false);
 
   // Expose setTab for notification navigation
   useEffect(() => { window.__collabSetTab = setTab; return () => { delete window.__collabSetTab; }; }, []);
@@ -116,6 +117,12 @@ export default function CollabAccueil() {
     }).catch(e => console.error('Staffing calc error:', e));
   }, [selectedId, collabs]);
 
+  // Check if referent of any mission
+  useEffect(() => {
+    if (!selectedId) return;
+    api.getMissions().then(m => setIsReferent((m||[]).some(mi => mi.responsable_id === selectedId))).catch(e => console.error('Referent check error:', e));
+  }, [selectedId]);
+
   if (loading) return <div style={{maxWidth:600,margin:'40px auto'}}><Skeleton lines={5} /></div>;
 
   /** Charge les absences d'un collaborateur */
@@ -157,13 +164,6 @@ export default function CollabAccueil() {
 
   const pendingCount = teamPendingAbs.length;
   const isManager = myTeam.length > 0;
-
-  // Check if referent of any mission
-  const [isReferent, setIsReferent] = useState(false);
-  useEffect(() => {
-    if (!selectedId) return;
-    api.getMissions().then(m => setIsReferent((m||[]).some(mi => mi.responsable_id === selectedId))).catch(e => console.error('Referent check error:', e));
-  }, [selectedId]);
 
   const tabs = [['objectifs', isManager ? '🎯 Mes objectifs' : '🎯 Objectifs'],['missions','🚀 Missions'],['points', isManager ? '📋 Mes entretiens RH' : '📋 Entretien RH'],['conges', isManager ? '🏖️ Mes congés' : '🏖️ Congés']];
   if (isManager) tabs.splice(3, 0, ['management', pendingCount > 0 ? `👔 Management (${pendingCount})` : '👔 Management']);
