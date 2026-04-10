@@ -486,13 +486,19 @@ export default function Missions() {
             return total + (a.taux_staffing || 0) / 100 * 5 * weeks;
           }, 0);
         };
+        // Jours ouvrés sur la période sélectionnée
+        const periodWeeks = Math.max(1, (new Date(periodEnd) - new Date(periodStart)) / (7 * 86400000));
+        const periodWorkDays = Math.round(periodWeeks * 5 * 10) / 10;
+        // Taux staffing sur la période = jours staffés / jours ouvrés période
+        const calcPeriodTaux = (collabId) => { const days = calcStaffedDays(collabId); return periodWorkDays > 0 ? Math.round(days / periodWorkDays * 100) : 0; };
+
         const filteredStaffing = Object.values(staffingMap).filter(({collab:c}) => filterEquipes.length===0 || filterEquipes.some(eq=>(c.equipe||'').includes(eq)));
-        const avg = filteredStaffing.length ? Math.round(filteredStaffing.reduce((s,v)=>s+v.taux,0)/filteredStaffing.length) : 0;
+        const avg = filteredStaffing.length ? Math.round(filteredStaffing.reduce((s,{collab:c})=>s+calcPeriodTaux(c.id),0)/filteredStaffing.length) : 0;
 
         return <FadeIn><div>
         <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
           <span style={{fontSize:'0.78rem',color:'var(--muted)',fontWeight:600}}>Taux moyen: {avg}%</span>
-          <button className="btn btn-ghost btn-sm" style={{marginLeft:'auto',fontSize:'0.7rem'}} onClick={()=>exportCSV('staffing.csv',['Collaborateur','Poste','Taux staffing','Jours/sem','Jours staffés','Missions'],filteredStaffing.sort((a,b)=>b.taux-a.taux).map(({collab:c,taux,missions:ms})=>[`${c.prenom} ${c.nom}`,c.poste||'',`${taux}%`,`${(taux/100*5).toFixed(1)}`,`${Math.round(calcStaffedDays(c.id)*10)/10}`,ms.map(m=>`${m.nom} (${m.taux}%)`).join(', ')||'Non staffé']))}>📥 Export CSV</button>
+          <button className="btn btn-ghost btn-sm" style={{marginLeft:'auto',fontSize:'0.7rem'}} onClick={()=>exportCSV('staffing.csv',['Collaborateur','Poste','Taux staffing période','Jours staffés','Missions'],filteredStaffing.sort((a,b)=>calcPeriodTaux(b.collab.id)-calcPeriodTaux(a.collab.id)).map(({collab:c,missions:ms})=>[`${c.prenom} ${c.nom}`,c.poste||'',`${calcPeriodTaux(c.id)}%`,`${Math.round(calcStaffedDays(c.id)*10)/10}`,ms.map(m=>`${m.nom} (${m.taux}%)`).join(', ')||'Non staffé']))}>📥 Export CSV</button>
           {/* Multi-select équipes */}
           <div ref={equipeDropdownRef} style={{position:'relative'}}>
             <button onClick={()=>setShowEquipeDropdown(!showEquipeDropdown)} className="btn btn-ghost btn-sm" style={{fontSize:'0.75rem'}}>
@@ -511,14 +517,14 @@ export default function Missions() {
         </div>
         <div className="card" style={{overflowX:'auto'}}>
         <table>
-          <thead><tr><th>Collaborateur</th><th>Poste</th><th>Taux staffing</th><th>Jours/sem.</th><th>Jours staffés</th><th>Missions</th></tr></thead>
-          <tbody>{filteredStaffing.sort((a,b)=>b.taux-a.taux).map(({collab:c,taux,missions:ms})=>{
+          <thead><tr><th>Collaborateur</th><th>Poste</th><th>Taux staffing</th><th>Jours staffés</th><th>Missions</th></tr></thead>
+          <tbody>{filteredStaffing.sort((a,b)=>calcPeriodTaux(b.collab.id)-calcPeriodTaux(a.collab.id)).map(({collab:c,missions:ms})=>{
             const totalDays = Math.round(calcStaffedDays(c.id)*10)/10;
+            const pTaux = calcPeriodTaux(c.id);
             return <tr key={c.id}>
               <td><div style={{display:'flex',alignItems:'center',gap:8}}><Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={28} /><span style={{fontWeight:700,color:'var(--navy)'}}>{c.prenom} {c.nom}</span></div></td>
               <td style={{fontSize:'0.78rem',color:'var(--muted)'}}>{c.poste||'—'}</td>
-              <td><div style={{display:'flex',alignItems:'center',gap:8}}><div style={{width:80,height:8,background:'var(--offwhite)',borderRadius:4,overflow:'hidden'}}><div style={{height:'100%',width:`${Math.min(taux,100)}%`,background:taux>100?'var(--red)':taux>=80?'var(--orange)':'var(--green)',borderRadius:4}} /></div><span style={{fontWeight:700,fontSize:'0.85rem',color:taux>100?'var(--red)':taux>=80?'var(--orange)':'var(--green)'}}>{taux}%</span></div></td>
-              <td style={{fontWeight:600,color:'var(--navy)'}}>{(taux/100*5).toFixed(1)}j</td>
+              <td><div style={{display:'flex',alignItems:'center',gap:8}}><div style={{width:80,height:8,background:'var(--offwhite)',borderRadius:4,overflow:'hidden'}}><div style={{height:'100%',width:`${Math.min(pTaux,100)}%`,background:pTaux>100?'var(--red)':pTaux>=80?'var(--orange)':'var(--green)',borderRadius:4}} /></div><span style={{fontWeight:700,fontSize:'0.85rem',color:pTaux>100?'var(--red)':pTaux>=80?'var(--orange)':'var(--green)'}}>{pTaux}%</span></div></td>
               <td style={{fontWeight:700,color:totalDays>0?'var(--blue)':'var(--muted)'}}>{totalDays}j</td>
               <td style={{fontSize:'0.78rem',color:'var(--muted)'}}>{ms.length===0?'Non staffé':ms.map(m=>`${m.nom} (${m.taux}%)`).join(', ')}</td>
             </tr>;
