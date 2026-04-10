@@ -15,6 +15,7 @@ import { MissionsModule } from './modules/missions/missions.module';
 import { AssignmentsModule } from './modules/assignments/assignments.module';
 import { TimeEntriesModule } from './modules/time-entries/time-entries.module';
 import { ActivityLogModule } from './modules/activity-log/activity-log.module';
+import { StaffingRequestsModule } from './modules/staffing-requests/staffing-requests.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { ActivityLogModule } from './modules/activity-log/activity-log.module';
     AssignmentsModule,
     TimeEntriesModule,
     ActivityLogModule,
+    StaffingRequestsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: AuthGuard },

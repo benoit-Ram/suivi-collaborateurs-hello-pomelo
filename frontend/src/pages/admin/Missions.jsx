@@ -68,6 +68,10 @@ export default function Missions() {
   const [dispoFilterEq, setDispoFilterEq] = useState('');
   const [dispoFilterBur, setDispoFilterBur] = useState('');
   const [dispoShowAll, setDispoShowAll] = useState(false);
+  // Staffing requests
+  const [staffReqs, setStaffReqs] = useState([]);
+  const [refuseId, setRefuseId] = useState(null);
+  const [refuseMotif, setRefuseMotif] = useState('');
   const [filterClient, setFilterClient] = useState('');
   const [filterEquipes, setFilterEquipes] = useState([]); // multi-select
   const [showEquipeDropdown, setShowEquipeDropdown] = useState(false);
@@ -88,6 +92,7 @@ export default function Missions() {
   const [periodType, setPeriodType] = useState(''); // '', 'week', 'month', 'q', 'year'
 
   useEffect(() => { loadData(); }, []);
+  useEffect(() => { api.getStaffingRequests({statut:'en_attente'}).then(setStaffReqs).catch(()=>{}); }, []);
 
   async function loadData() {
     try {
@@ -495,7 +500,40 @@ export default function Missions() {
         const filteredStaffing = Object.values(staffingMap).filter(({collab:c}) => filterEquipes.length===0 || filterEquipes.some(eq=>(c.equipe||'').includes(eq)));
         const avg = filteredStaffing.length ? Math.round(filteredStaffing.reduce((s,{collab:c})=>s+calcPeriodTaux(c.id),0)/filteredStaffing.length) : 0;
 
+        const approveReq = async (reqId) => { try { await api.approveStaffingRequest(reqId); setStaffReqs(prev=>prev.filter(r=>r.id!==reqId)); await loadData(); showToast('Demande approuvée — assignment créé'); } catch(e) { showToast('Erreur: '+e.message); } };
+        const doRefuse = async () => { if (!refuseId) return; try { await api.refuseStaffingRequest(refuseId, refuseMotif); setStaffReqs(prev=>prev.filter(r=>r.id!==refuseId)); setRefuseId(null); setRefuseMotif(''); showToast('Demande refusée'); } catch(e) { showToast('Erreur: '+e.message); } };
+
         return <FadeIn><div>
+        {/* Demandes de staffing en attente */}
+        {staffReqs.length > 0 && <div className="card" style={{marginBottom:16,borderLeft:'4px solid var(--orange)',padding:'16px 20px'}}>
+          <div style={{fontSize:'0.78rem',fontWeight:700,textTransform:'uppercase',color:'var(--orange)',marginBottom:10}}>📩 Demandes de staffing ({staffReqs.length})</div>
+          {staffReqs.map(r => (
+            <div key={r.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:'var(--bg-warning)',borderRadius:10,marginBottom:6,flexWrap:'wrap'}}>
+              {r.collaborateurs && <Avatar prenom={r.collaborateurs.prenom} nom={r.collaborateurs.nom} photoUrl={r.collaborateurs.photo_url} size={28} />}
+              <div style={{flex:1,minWidth:150}}>
+                <div style={{fontWeight:700,fontSize:'0.82rem',color:'var(--navy)'}}>{r.collaborateurs?`${r.collaborateurs.prenom} ${r.collaborateurs.nom}`:'—'}</div>
+                <div style={{fontSize:'0.7rem',color:'var(--muted)'}}>
+                  {r.missions?.nom||'—'} · {r.role||'—'} · {r.jours_par_semaine}j/sem · {fmtDate(r.date_debut)} → {fmtDate(r.date_fin)}
+                </div>
+                <div style={{fontSize:'0.68rem',color:'var(--text-warning)'}}>Demandé par {r.demandeurs?`${r.demandeurs.prenom} ${r.demandeurs.nom}`:'—'}{r.motif?` — "${r.motif}"`:''}</div>
+              </div>
+              <div style={{display:'flex',gap:4}}>
+                <button className="btn btn-primary btn-sm" style={{padding:'5px 10px',fontSize:'0.7rem'}} onClick={()=>approveReq(r.id)}>✓ Approuver</button>
+                <button className="btn btn-danger btn-sm" style={{padding:'5px 10px',fontSize:'0.7rem'}} onClick={()=>{setRefuseId(r.id);setRefuseMotif('');}}>✕ Refuser</button>
+              </div>
+            </div>
+          ))}
+          {/* Refuse modal inline */}
+          {refuseId && <div style={{padding:'10px 12px',background:'var(--bg-danger)',borderRadius:8,marginTop:6}}>
+            <div style={{fontSize:'0.75rem',fontWeight:700,color:'var(--text-danger)',marginBottom:6}}>Motif du refus</div>
+            <div style={{display:'flex',gap:6}}>
+              <input value={refuseMotif} onChange={e=>setRefuseMotif(e.target.value)} placeholder="Raison du refus..." style={{flex:1,border:'1.5px solid var(--border-danger)',borderRadius:8,padding:'6px 10px',fontFamily:'inherit',fontSize:'0.78rem'}} />
+              <button className="btn btn-danger btn-sm" onClick={doRefuse}>Confirmer</button>
+              <button className="btn btn-ghost btn-sm" onClick={()=>setRefuseId(null)}>Annuler</button>
+            </div>
+          </div>}
+        </div>}
+
         <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
           <span style={{fontSize:'0.78rem',color:'var(--muted)',fontWeight:600}}>Taux moyen: {avg}%</span>
           <button className="btn btn-ghost btn-sm" style={{marginLeft:'auto',fontSize:'0.7rem'}} onClick={()=>exportCSV('staffing.csv',['Collaborateur','Poste','Taux staffing période','Jours staffés','Missions'],filteredStaffing.sort((a,b)=>calcPeriodTaux(b.collab.id)-calcPeriodTaux(a.collab.id)).map(({collab:c,missions:ms})=>[`${c.prenom} ${c.nom}`,c.poste||'',`${calcPeriodTaux(c.id)}%`,`${Math.round(calcStaffedDays(c.id)*10)/10}`,ms.map(m=>`${m.nom} (${m.taux}%)`).join(', ')||'Non staffé']))}>📥 Export CSV</button>

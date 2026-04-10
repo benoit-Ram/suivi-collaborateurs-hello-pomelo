@@ -268,3 +268,22 @@ La liste des compétences disponibles est gérée dans `settings` avec la clé `
 ```sql
 ALTER TABLE assignments ADD COLUMN IF NOT EXISTS notes text;
 ```
+
+## Migration v15 — Demandes de staffing
+
+```sql
+CREATE TABLE IF NOT EXISTS staffing_requests (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  mission_id uuid REFERENCES missions(id) ON DELETE CASCADE,
+  collaborateur_id uuid REFERENCES collaborateurs(id) ON DELETE CASCADE,
+  demandeur_id uuid REFERENCES collaborateurs(id),
+  role text,
+  jours_par_semaine numeric DEFAULT 5,
+  date_debut date,
+  date_fin date,
+  motif text,
+  statut text DEFAULT 'en_attente',
+  motif_refus text,
+  created_at timestamptz DEFAULT now()
+);
+```

@@ -8,6 +8,7 @@ import PointCard from './components/PointCard';
 import CongesTab from './components/CongesTab';
 import ManagementTab from './components/ManagementTab';
 import MissionsTab from './components/MissionsTab';
+import ReferentTab from './components/ReferentTab';
 
 // ── MAIN COMPONENT ──
 
@@ -157,8 +158,16 @@ export default function CollabAccueil() {
   const pendingCount = teamPendingAbs.length;
   const isManager = myTeam.length > 0;
 
+  // Check if referent of any mission
+  const [isReferent, setIsReferent] = useState(false);
+  useEffect(() => {
+    if (!selectedId) return;
+    api.getMissions().then(m => setIsReferent((m||[]).some(mi => mi.responsable_id === selectedId))).catch(()=>{});
+  }, [selectedId]);
+
   const tabs = [['objectifs', isManager ? '🎯 Mes objectifs' : '🎯 Objectifs'],['missions','🚀 Missions'],['points', isManager ? '📋 Mes entretiens RH' : '📋 Entretien RH'],['conges', isManager ? '🏖️ Mes congés' : '🏖️ Congés']];
   if (isManager) tabs.splice(3, 0, ['management', pendingCount > 0 ? `👔 Management (${pendingCount})` : '👔 Management']);
+  if (isReferent) tabs.splice(2, 0, ['referent', '📋 Mes projets']);
 
   return (
     <div>
@@ -288,6 +297,8 @@ export default function CollabAccueil() {
 
       {/* CONGÉS */}
       {tab==='missions' && <FadeIn><MissionsTab collabId={c.id} isResponsable={false} collabs={collabs} /></FadeIn>}
+
+      {tab==='referent' && <FadeIn><ReferentTab collabId={c.id} collabs={collabs} settings={settings} /></FadeIn>}
       {tab==='conges' && <FadeIn><CongesTab c={c} absences={absences} solde={solde} settings={settings} onReload={() => loadAbsences(c.id)} api={api} /></FadeIn>}
 
       {/* MANAGEMENT */}

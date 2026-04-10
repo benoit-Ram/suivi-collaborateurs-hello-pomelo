@@ -95,6 +95,12 @@ export const api = {
   createTimeEntry: (data) => request('/time-entries', { method: 'POST', body: data }),
   updateTimeEntry: (id, data) => request(`/time-entries/${id}`, { method: 'PUT', body: data }),
 
+  // Staffing Requests
+  getStaffingRequests: (filters) => request('/staffing-requests?' + new URLSearchParams(filters || {})),
+  createStaffingRequest: (data) => request('/staffing-requests', { method: 'POST', body: data }),
+  approveStaffingRequest: (id) => request(`/staffing-requests/${id}/approve`, { method: 'PUT' }),
+  refuseStaffingRequest: (id, motif) => request(`/staffing-requests/${id}/refuse`, { method: 'PUT', body: { motif_refus: motif } }),
+
   // Activity Log
   getActivityLog: (limit) => request(`/activity-log?limit=${limit || 50}`),
   logActivity: (action, auteur, cible, details) => request('/activity-log', { method: 'POST', body: { action, auteur, cible, details } }).catch(() => {}),
