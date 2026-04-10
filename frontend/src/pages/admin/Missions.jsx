@@ -988,7 +988,7 @@ function TimelineView({ missions, collabs, staffingMap, allMissions, clients, gr
                     const taux = Math.round(row.getCellTaux(col));
                     const val = fmtCell(taux);
                     return <td key={ci} style={{padding:1,background:col.isCurrent?'rgba(255,50,133,0.03)':'transparent',textAlign:'center'}}>
-                      {val ? <div style={{background:cellBg(taux),color:cellColor(taux),borderRadius:3,padding:'2px 3px',fontSize:'0.55rem',fontWeight:700}}>{val}</div> : <div style={{height:20}} />}
+                      {val ? <div style={{position:'relative',height:18,borderRadius:3,overflow:'hidden',background:'var(--offwhite)'}}><div style={{position:'absolute',top:0,left:0,bottom:0,width:`${Math.min(taux/100*100,100)}%`,background:cellColor(taux),opacity:0.25,borderRadius:3}} /><div style={{position:'relative',zIndex:1,fontSize:'0.55rem',fontWeight:700,color:cellColor(taux),lineHeight:'18px',paddingLeft:3}}>{val}</div></div> : <div style={{height:18}} />}
                     </td>;
                   })}
                 </tr>

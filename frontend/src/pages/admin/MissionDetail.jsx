@@ -284,9 +284,9 @@ export default function MissionDetail() {
                           onClick={e=>e.stopPropagation()}
                         />
                       ) : inRange ? (
-                        <div style={{position:'relative',height:22,borderRadius:3,overflow:'hidden',background:'var(--offwhite)'}}>
-                          <div style={{position:'absolute',bottom:0,left:0,right:0,height:`${barPct}%`,background:COLORS[idx%COLORS.length],opacity:jps>0?0.8:0,borderRadius:3,transition:'height 0.15s',border:isOverridden?'1px dashed rgba(255,255,255,0.7)':'none'}} />
-                          <div style={{position:'relative',zIndex:1,fontSize:'0.48rem',fontWeight:700,color:jps>0?'white':'var(--muted)',lineHeight:'22px'}} title={isOverridden?`Override: ${jps}j (défaut: ${defaultJps}j)`:''}>{jps>0?jps+'j':''}</div>
+                        <div style={{position:'relative',height:20,borderRadius:3,overflow:'hidden',background:'var(--offwhite)'}}>
+                          <div style={{position:'absolute',top:0,left:0,bottom:0,width:`${barPct}%`,background:COLORS[idx%COLORS.length],opacity:jps>0?0.85:0,borderRadius:3,transition:'width 0.15s',border:isOverridden?'1px dashed rgba(255,255,255,0.7)':'none'}} />
+                          <div style={{position:'relative',zIndex:1,fontSize:'0.48rem',fontWeight:700,color:jps>2.5?'white':'var(--navy)',lineHeight:'20px',paddingLeft:3}} title={isOverridden?`Override: ${jps}j (défaut: ${defaultJps}j)`:''}>{jps>0?jps+'j':''}</div>
                         </div>
                       ) : <div style={{height:22}} />}
                     </td>;
