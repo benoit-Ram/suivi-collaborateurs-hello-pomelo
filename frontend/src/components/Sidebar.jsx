@@ -59,9 +59,9 @@ export default function Sidebar() {
     { to: '/admin/collaborateurs', icon: '👥', label: 'Collaborateurs' },
     { to: '/admin/organigramme', icon: '🗂️', label: 'Organigramme' },
     { to: '/admin/objectifs', icon: '🎯', label: 'Objectifs' },
-    { to: '/admin/missions', icon: '🚀', label: 'Missions' },
     { to: '/admin/absences', icon: '🏖️', label: 'Congés', badge: pendingAbs },
     { to: '/admin/settings', icon: '⚙️', label: 'Paramètres' },
+    { to: '/admin/missions', icon: '🚀', label: 'Missions', beta: true },
   ];
 
   const sidebarContent = (
@@ -130,6 +130,7 @@ export default function Sidebar() {
             <span style={{ fontSize:collapsed?'1.2rem':'1rem', width:20, textAlign:'center' }}>{item.icon}</span>
             {!collapsed && <span style={{ flex:1 }}>{item.label}</span>}
             {item.badge > 0 && <span style={{ background:'var(--pink)', color:'white', fontSize:'0.6rem', fontWeight:800, padding:'1px 5px', borderRadius:99, position:collapsed?'absolute':'static', top:collapsed?2:undefined, right:collapsed?2:undefined }}>{item.badge}</span>}
+            {item.beta && !collapsed && <span style={{ background:'#FDE68A', color:'#92400E', fontSize:'0.5rem', fontWeight:800, padding:'1px 4px', borderRadius:4, marginLeft:'auto' }}>bêta</span>}
           </NavLink>
         ))}
       </div>
