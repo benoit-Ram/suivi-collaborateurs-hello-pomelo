@@ -149,7 +149,7 @@ tr:hover td { background: var(--hover-row, #F0F0FF); }
   .sidebar-desktop { display: none !important; }
   .sidebar-mobile-toggle { display: flex !important; }
   /* Admin layout mobile padding */
-  main { padding: 12px !important; padding-top: 56px !important; }
+  main { padding: 12px !important; padding-top: 56px !important; margin-left: 0 !important; width: 100% !important; max-width: 100vw !important; overflow-x: hidden; }
   /* Tabs: smaller on mobile */
   .tabs-scroll button { padding: 8px 10px !important; font-size: 0.7rem !important; }
   /* Period filter: stack vertically */

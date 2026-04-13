@@ -27,8 +27,19 @@ export default function Sidebar() {
   }, [dark]);
 
   useEffect(() => {
-    document.documentElement.style.setProperty('--sidebar-w', collapsed ? '0px' : '240px');
+    const isMobile = window.innerWidth <= 768;
+    document.documentElement.style.setProperty('--sidebar-w', (collapsed || isMobile) ? '0px' : '240px');
     localStorage.setItem('hp_sidebar_collapsed', collapsed ? 'true' : 'false');
+  }, [collapsed]);
+
+  // Reset sidebar-w on resize (mobile ↔ desktop)
+  useEffect(() => {
+    const onResize = () => {
+      const isMobile = window.innerWidth <= 768;
+      document.documentElement.style.setProperty('--sidebar-w', (collapsed || isMobile) ? '0px' : '240px');
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
   }, [collapsed]);
 
   // Close sidebar on navigation (mobile)
