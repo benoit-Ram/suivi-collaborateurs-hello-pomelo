@@ -264,7 +264,7 @@ export function getAbsenceDays(collabId, rangeStart, rangeEnd, absences) {
   return total;
 }
 
-/** Calculate leave balance for a collaborateur */
+/** Calculate leave balance for a collaborateur (congé + RTT) */
 export function calculateSolde(collab, absences, settings) {
   const soldeInit = collab.solde_conges || 0;
   const acq = collab.acquisition_conges || 2.08;
@@ -275,8 +275,15 @@ export function calculateSolde(collab, absences, settings) {
     moisAcq = Math.max(0, (n.getFullYear() - e.getFullYear()) * 12 + (n.getMonth() - e.getMonth()));
   }
   const acquis = Math.round(moisAcq * acq * 100) / 100;
-  const pris = (absences || []).filter(a => a.statut === 'approuve' && absenceDeductsSolde(a.type, settings)).reduce((s, a) => s + absenceDays(a), 0);
-  return { soldeInit, acq, moisAcq, acquis, pris, solde: Math.round((soldeInit + acquis - pris) * 100) / 100 };
+  const pris = (absences || []).filter(a => a.statut === 'approuve' && absenceDeductsSolde(a.type, settings) && a.type !== 'rtt').reduce((s, a) => s + absenceDays(a), 0);
+  const solde = Math.round((soldeInit + acquis - pris) * 100) / 100;
+
+  // RTT balance (separate)
+  const soldeRttInit = collab.solde_rtt || 0;
+  const prisRtt = (absences || []).filter(a => a.statut === 'approuve' && a.type === 'rtt').reduce((s, a) => s + absenceDays(a), 0);
+  const soldeRtt = Math.round((soldeRttInit - prisRtt) * 100) / 100;
+
+  return { soldeInit, acq, moisAcq, acquis, pris, solde, soldeRtt, prisRtt, soldeRttInit };
 }
 
 // ── ENTRETIEN RH HELPERS ──
