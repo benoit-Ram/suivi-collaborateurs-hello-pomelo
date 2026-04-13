@@ -187,7 +187,7 @@ export default function MissionDetail() {
         {/* Editable team table */}
         <div className="card" style={{overflowX:'auto',marginBottom:16,padding:0}}>
           <table style={{fontSize:'0.78rem'}}>
-            <thead><tr><th style={{minWidth:140}}>Collaborateur</th><th style={{minWidth:110}}>Rôle</th><th style={{width:65}}>J/sem</th><th style={{width:65}}>TJM</th><th style={{width:110}}>Du</th><th style={{width:110}}>Au</th><th style={{minWidth:100}}>Notes</th><th style={{textAlign:'right',width:80}}>CA est.</th><th style={{width:50}}></th></tr></thead>
+            <thead><tr><th style={{minWidth:100}}>Collab</th><th style={{minWidth:80}}>Rôle</th><th>J/sem</th><th>TJM</th><th>Du</th><th>Au</th><th>Notes</th><th style={{textAlign:'right'}}>CA</th><th></th></tr></thead>
             <tbody>
               {team.map((a, idx) => {
                 const c = a.collaborateurs;
@@ -197,13 +197,13 @@ export default function MissionDetail() {
                     {c && <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={24} />}
                     <span style={{fontWeight:700,color:'var(--navy)'}}>{c ? `${c.prenom} ${c.nom}` : '—'}</span>
                   </div></td>
-                  <td><select defaultValue={a.role||''} onChange={e=>updateAssign(a.id,'role',e.target.value)} style={{...inputStyle,width:110}}>
+                  <td><select defaultValue={a.role||''} onChange={e=>updateAssign(a.id,'role',e.target.value)} style={{...inputStyle,width:100}}>
                     <option value="">—</option>{missionRoles.map(r=><option key={r.label} value={r.label}>{r.label}</option>)}
                   </select></td>
                   <td><input type="number" step="0.5" min="0.5" max="5" defaultValue={a.jours_par_semaine||Math.round(a.taux_staffing/100*5*10)/10} onBlur={e=>{const v=parseFloat(e.target.value);if(!isNaN(v)&&v>0)updateAssign(a.id,'jours_par_semaine',v);}} style={{...inputStyle,width:55}} /></td>
                   <td><input type="number" defaultValue={a.tjm||''} onBlur={e=>{const v=parseFloat(e.target.value);if(!isNaN(v))updateAssign(a.id,'tjm',v);}} style={{...inputStyle,width:60}} /></td>
-                  <td><input type="date" defaultValue={a.date_debut||''} onBlur={e=>updateAssign(a.id,'date_debut',e.target.value||null)} style={{...inputStyle,width:110}} /></td>
-                  <td><input type="date" defaultValue={a.date_fin||''} onBlur={e=>updateAssign(a.id,'date_fin',e.target.value||null)} style={{...inputStyle,width:110}} /></td>
+                  <td><input type="date" defaultValue={a.date_debut||''} onBlur={e=>updateAssign(a.id,'date_debut',e.target.value||null)} style={{...inputStyle,width:100}} /></td>
+                  <td><input type="date" defaultValue={a.date_fin||''} onBlur={e=>updateAssign(a.id,'date_fin',e.target.value||null)} style={{...inputStyle,width:100}} /></td>
                   <td><input defaultValue={a.notes||''} placeholder="..." onBlur={e=>updateAssign(a.id,'notes',e.target.value||null)} style={{...inputStyle,width:100,fontSize:'0.68rem'}} /></td>
                   <td style={{textAlign:'right',fontWeight:700,color:'var(--blue)',whiteSpace:'nowrap'}}>{fmtEuro(Math.round(ca))}</td>
                   <td style={{whiteSpace:'nowrap'}}><div style={{display:'flex',gap:2}}>
@@ -247,8 +247,8 @@ export default function MissionDetail() {
           </div>
           <table style={{fontSize:'0.65rem',width:'100%',borderCollapse:'collapse'}}>
             <thead><tr>
-              <th style={{textAlign:'left',padding:'6px 10px',minWidth:120,position:'sticky',left:0,background:'var(--white)',zIndex:1}}>Collab</th>
-              {weeks.map((w,i)=><th key={i} style={{textAlign:'center',padding:'4px 2px',minWidth:44,fontWeight:w.isCurrent?800:600,color:w.isCurrent?'var(--pink)':'var(--muted)'}}>{w.label}</th>)}
+              <th style={{textAlign:'left',padding:'6px 10px',minWidth:90,position:'sticky',left:0,background:'var(--white)',zIndex:1}}>Collab</th>
+              {weeks.map((w,i)=><th key={i} style={{textAlign:'center',padding:'4px 2px',minWidth:36,fontWeight:w.isCurrent?800:600,color:w.isCurrent?'var(--pink)':'var(--muted)'}}>{w.label}</th>)}
             </tr></thead>
             <tbody>
               {team.map((a,idx) => {

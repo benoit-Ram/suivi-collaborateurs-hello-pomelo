@@ -165,12 +165,23 @@ tr:hover td { background: var(--hover-row, #F0F0FF); }
   .mobile-grid-2 { grid-template-columns: 1fr 1fr !important; }
 }
 
+@media (max-width: 480px) {
+  /* Period filter: compact on small screens */
+  .period-filter .period-dates input[type="date"] { width: 110px !important; font-size: 0.7rem !important; padding: 4px 6px !important; }
+  .period-filter .period-presets button { padding: 3px 6px !important; font-size: 0.6rem !important; }
+  /* Tables: tighter */
+  th { min-width: auto !important; }
+  td input, td select { font-size: 0.68rem !important; padding: 3px 4px !important; }
+  /* Gantt cells smaller */
+  table th[style*="minWidth:44"], table th[style*="minWidth:38"] { min-width: 28px !important; }
+}
+
 @media (max-width: 400px) {
   .card { padding: 10px; }
   .btn { padding: 8px 12px; font-size: 0.75rem; }
   .btn-sm { padding: 6px 10px; font-size: 0.68rem; }
-  th { padding: 4px 6px; font-size: 0.55rem; }
-  td { padding: 6px; font-size: 0.72rem; }
+  th { padding: 4px 4px; font-size: 0.5rem; }
+  td { padding: 4px; font-size: 0.68rem; }
   main { padding: 8px !important; padding-top: 52px !important; }
   .mobile-stack > * { flex: none !important; }
 }
