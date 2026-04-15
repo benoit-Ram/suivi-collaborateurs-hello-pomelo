@@ -170,9 +170,11 @@ export default function CollabAccueil() {
   const pendingCount = teamPendingAbs.length;
   const isManager = myTeam.length > 0;
 
-  const tabs = [['objectifs', isManager ? '🎯 Mes objectifs' : '🎯 Objectifs'],['missions','🚀 Missions'],['points', isManager ? '📋 Mes entretiens RH' : '📋 Entretien RH'],['conges', isManager ? '🏖️ Mes congés' : '🏖️ Congés']];
-  if (isManager) tabs.splice(3, 0, ['management', pendingCount > 0 ? `👔 Management (${pendingCount})` : '👔 Management']);
-  if (isReferent) tabs.splice(2, 0, ['referent', '📋 Mes projets']);
+  const hasMissionsAccess = c.missions_access === true;
+  const tabs = [['objectifs', isManager ? '🎯 Mes objectifs' : '🎯 Objectifs'],['points', isManager ? '📋 Mes entretiens RH' : '📋 Entretien RH'],['conges', isManager ? '🏖️ Mes congés' : '🏖️ Congés']];
+  if (hasMissionsAccess) tabs.splice(1, 0, ['missions','🚀 Missions']);
+  if (isManager) tabs.splice(hasMissionsAccess?3:2, 0, ['management', pendingCount > 0 ? `👔 Management (${pendingCount})` : '👔 Management']);
+  if (isReferent) tabs.splice(hasMissionsAccess?2:1, 0, ['referent', '📋 Mes projets']);
 
   return (
     <div>

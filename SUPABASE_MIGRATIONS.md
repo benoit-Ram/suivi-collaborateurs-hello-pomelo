@@ -269,6 +269,12 @@ La liste des compétences disponibles est gérée dans `settings` avec la clé `
 ALTER TABLE assignments ADD COLUMN IF NOT EXISTS notes text;
 ```
 
+## Migration v16 — Accès missions par collaborateur
+
+```sql
+ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS missions_access boolean DEFAULT false;
+```
+
 ## Migration v15 — Demandes de staffing
 
 ```sql
