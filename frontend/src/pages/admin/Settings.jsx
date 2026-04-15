@@ -193,83 +193,58 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* Gestion des administrateurs — super admin uniquement */}
+      {/* Droits & accès collaborateurs */}
       {isSuperAdmin && (
         <>
-          <div className="section-title">Administrateurs</div>
-          <div className="card" style={{marginBottom:24}}>
-            <p style={{color:'var(--muted)',fontSize:'0.82rem',marginBottom:16}}>Les administrateurs peuvent accéder à l'espace de gestion.</p>
-            <div style={{display:'flex',flexDirection:'column',gap:8}}>
-              {collabs.map(c => {
+          <div className="section-title">Droits & accès</div>
+          <div className="card" style={{marginBottom:24,overflowX:'auto'}}>
+            <table style={{fontSize:'0.82rem',width:'100%'}}>
+              <thead><tr>
+                <th style={{textAlign:'left',minWidth:150}}>Collaborateur</th>
+                <th style={{textAlign:'center',width:80}}>Admin</th>
+                <th style={{textAlign:'center',width:80}}>Missions <span style={{background:'#FDE68A',color:'#92400E',fontSize:'0.5rem',fontWeight:800,padding:'0px 3px',borderRadius:3}}>bêta</span></th>
+              </tr></thead>
+              <tbody>{collabs.map(c => {
                 const isSA = (c.email||'').toLowerCase() === SUPER_ADMIN_EMAIL;
                 const isAdm = c.is_admin === true;
-                return (
-                  <div key={c.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',borderRadius:10,border:'1.5px solid var(--lavender)',background: isAdm ? 'var(--bg-success, #DCFCE7)' : 'transparent'}}>
-                    <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={32} />
-                    <div style={{flex:1}}>
-                      <div style={{fontWeight:700,fontSize:'0.88rem',color:'var(--navy)'}}>{c.prenom} {c.nom}</div>
-                      <div style={{fontSize:'0.72rem',color:'var(--muted)'}}>{c.email || '(pas d\'email)'}{isSA ? ' — Super Admin' : ''}</div>
+                const hasMissions = c.missions_access === true;
+                const toggleStyle = (on) => ({position:'relative',display:'inline-block',width:40,height:22,cursor:isSA?'not-allowed':'pointer'});
+                const trackStyle = (on) => ({position:'absolute',inset:0,borderRadius:11,background:on?'var(--green)':'var(--lavender)',transition:'background 0.2s'});
+                const thumbStyle = (on) => ({position:'absolute',top:2,left:on?20:2,width:18,height:18,borderRadius:9,background:'white',boxShadow:'0 1px 3px rgba(0,0,0,0.2)',transition:'left 0.2s'});
+                return <tr key={c.id}>
+                  <td style={{padding:'8px 10px'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={28} />
+                      <div>
+                        <div style={{fontWeight:700,color:'var(--navy)',fontSize:'0.82rem'}}>{c.prenom} {c.nom}</div>
+                        <div style={{fontSize:'0.65rem',color:'var(--muted)'}}>{c.poste||''}{isSA?' · Super Admin':''}</div>
+                      </div>
                     </div>
-                    {isSA ? (
-                      <span style={{fontSize:'0.7rem',color:'var(--muted)',fontWeight:700}}>🔒 Permanent</span>
-                    ) : (
-                      <button className={`btn btn-sm ${isAdm ? 'btn-danger' : 'btn-primary'}`}
-                        onClick={async () => {
-                          await api.updateCollaborateur(c.id, { is_admin: !isAdm });
-                          await reload();
-                          await reloadCollabs();
-                          showToast(isAdm ? `${c.prenom} n'est plus admin.` : `${c.prenom} est maintenant admin !`);
-                        }}>
-                        {isAdm ? 'Retirer admin' : 'Rendre admin'}
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Accès Missions (bêta) */}
-      {isSuperAdmin && (
-        <>
-          <div className="section-title">Accès Missions <span style={{background:'#FDE68A',color:'#92400E',fontSize:'0.55rem',fontWeight:800,padding:'1px 5px',borderRadius:4,marginLeft:4,verticalAlign:'middle'}}>bêta</span></div>
-          <div className="card" style={{marginBottom:24}}>
-            <p style={{color:'var(--muted)',fontSize:'0.82rem',marginBottom:16}}>Activez l'accès à l'onglet Missions pour chaque collaborateur.</p>
-            <div style={{display:'flex',gap:8,marginBottom:16}}>
-              <button className="btn btn-navy btn-sm" onClick={async () => {
-                for (const c of collabs) await api.updateCollaborateur(c.id, { missions_access: true });
-                await reload(); showToast('Missions activé pour tous');
-              }}>Activer tous</button>
-              <button className="btn btn-ghost btn-sm" onClick={async () => {
-                for (const c of collabs) await api.updateCollaborateur(c.id, { missions_access: false });
-                await reload(); showToast('Missions désactivé pour tous');
-              }}>Désactiver tous</button>
-            </div>
-            <div style={{display:'flex',flexDirection:'column',gap:6}}>
-              {collabs.map(c => {
-                const on = c.missions_access === true;
-                return (
-                  <div key={c.id} style={{display:'flex',alignItems:'center',gap:12,padding:'8px 14px',borderRadius:10,border:'1.5px solid var(--lavender)'}}>
-                    <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={28} />
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontWeight:700,fontSize:'0.85rem',color:'var(--navy)'}}>{c.prenom} {c.nom}</div>
-                      <div style={{fontSize:'0.68rem',color:'var(--muted)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.poste||''}{c.equipe?' · '+c.equipe:''}</div>
-                    </div>
-                    <label style={{position:'relative',display:'inline-block',width:44,height:24,flexShrink:0,cursor:'pointer'}}>
-                      <input type="checkbox" checked={on} onChange={async()=>{
-                        await api.updateCollaborateur(c.id, { missions_access: !on });
-                        await reload();
-                        showToast(!on ? `Missions activé pour ${c.prenom}` : `Missions désactivé pour ${c.prenom}`);
+                  </td>
+                  <td style={{textAlign:'center',padding:'8px 4px'}}>
+                    {isSA ? <span style={{fontSize:'0.6rem',color:'var(--muted)'}}>🔒</span> :
+                    <label style={toggleStyle(isAdm)}>
+                      <input type="checkbox" checked={isAdm} onChange={async()=>{
+                        await api.updateCollaborateur(c.id, { is_admin: !isAdm });
+                        await reload(); await reloadCollabs();
+                        showToast(!isAdm ? `${c.prenom} est admin` : `${c.prenom} n'est plus admin`);
                       }} style={{opacity:0,width:0,height:0}} />
-                      <span style={{position:'absolute',inset:0,borderRadius:12,background:on?'var(--green)':'var(--lavender)',transition:'background 0.2s'}} />
-                      <span style={{position:'absolute',top:2,left:on?22:2,width:20,height:20,borderRadius:10,background:'white',boxShadow:'0 1px 3px rgba(0,0,0,0.2)',transition:'left 0.2s'}} />
+                      <span style={trackStyle(isAdm)} /><span style={thumbStyle(isAdm)} />
+                    </label>}
+                  </td>
+                  <td style={{textAlign:'center',padding:'8px 4px'}}>
+                    <label style={toggleStyle(hasMissions)}>
+                      <input type="checkbox" checked={hasMissions} onChange={async()=>{
+                        await api.updateCollaborateur(c.id, { missions_access: !hasMissions });
+                        await reload();
+                        showToast(!hasMissions ? `Missions activé pour ${c.prenom}` : `Missions désactivé pour ${c.prenom}`);
+                      }} style={{opacity:0,width:0,height:0}} />
+                      <span style={trackStyle(hasMissions)} /><span style={thumbStyle(hasMissions)} />
                     </label>
-                  </div>
-                );
-              })}
-            </div>
+                  </td>
+                </tr>;
+              })}</tbody>
+            </table>
           </div>
         </>
       )}
