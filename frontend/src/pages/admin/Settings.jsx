@@ -236,37 +236,36 @@ export default function Settings() {
         <>
           <div className="section-title">Accès Missions <span style={{background:'#FDE68A',color:'#92400E',fontSize:'0.55rem',fontWeight:800,padding:'1px 5px',borderRadius:4,marginLeft:4,verticalAlign:'middle'}}>bêta</span></div>
           <div className="card" style={{marginBottom:24}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-              <p style={{color:'var(--muted)',fontSize:'0.82rem',margin:0}}>Les collaborateurs activés ici verront l'onglet Missions dans leur espace.</p>
-              <div style={{display:'flex',gap:6}}>
-                <button className="btn btn-navy btn-sm" onClick={async () => {
-                  for (const c of collabs) { await api.updateCollaborateur(c.id, { missions_access: true }); }
-                  await reload(); showToast('Missions activé pour tous');
-                }}>✓ Activer tous</button>
-                <button className="btn btn-danger btn-sm" onClick={async () => {
-                  for (const c of collabs) { await api.updateCollaborateur(c.id, { missions_access: false }); }
-                  await reload(); showToast('Missions désactivé pour tous');
-                }}>✕ Désactiver tous</button>
-              </div>
+            <p style={{color:'var(--muted)',fontSize:'0.82rem',marginBottom:16}}>Activez l'accès à l'onglet Missions pour chaque collaborateur.</p>
+            <div style={{display:'flex',gap:8,marginBottom:16}}>
+              <button className="btn btn-navy btn-sm" onClick={async () => {
+                for (const c of collabs) await api.updateCollaborateur(c.id, { missions_access: true });
+                await reload(); showToast('Missions activé pour tous');
+              }}>Activer tous</button>
+              <button className="btn btn-ghost btn-sm" onClick={async () => {
+                for (const c of collabs) await api.updateCollaborateur(c.id, { missions_access: false });
+                await reload(); showToast('Missions désactivé pour tous');
+              }}>Désactiver tous</button>
             </div>
-            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+            <div style={{display:'flex',flexDirection:'column',gap:6}}>
               {collabs.map(c => {
-                const hasAccess = c.missions_access === true;
+                const on = c.missions_access === true;
                 return (
-                  <div key={c.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',borderRadius:10,border:`1.5px solid ${hasAccess?'var(--blue)':'var(--lavender)'}`,background: hasAccess ? 'rgba(59,130,246,0.06)' : 'transparent'}}>
-                    <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={32} />
-                    <div style={{flex:1}}>
-                      <div style={{fontWeight:700,fontSize:'0.88rem',color:'var(--navy)'}}>{c.prenom} {c.nom}</div>
-                      <div style={{fontSize:'0.72rem',color:'var(--muted)'}}>{c.poste || ''}{c.equipe ? ' · '+c.equipe : ''}</div>
+                  <div key={c.id} style={{display:'flex',alignItems:'center',gap:12,padding:'8px 14px',borderRadius:10,border:'1.5px solid var(--lavender)'}}>
+                    <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={28} />
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontWeight:700,fontSize:'0.85rem',color:'var(--navy)'}}>{c.prenom} {c.nom}</div>
+                      <div style={{fontSize:'0.68rem',color:'var(--muted)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.poste||''}{c.equipe?' · '+c.equipe:''}</div>
                     </div>
-                    <button className={`btn btn-sm ${hasAccess ? 'btn-danger' : 'btn-navy'}`}
-                      onClick={async () => {
-                        await api.updateCollaborateur(c.id, { missions_access: !hasAccess });
+                    <label style={{position:'relative',display:'inline-block',width:44,height:24,flexShrink:0,cursor:'pointer'}}>
+                      <input type="checkbox" checked={on} onChange={async()=>{
+                        await api.updateCollaborateur(c.id, { missions_access: !on });
                         await reload();
-                        showToast(hasAccess ? `Missions désactivé pour ${c.prenom}.` : `Missions activé pour ${c.prenom} !`);
-                      }}>
-                      {hasAccess ? '✕ Désactiver' : '✓ Activer'}
-                    </button>
+                        showToast(!on ? `Missions activé pour ${c.prenom}` : `Missions désactivé pour ${c.prenom}`);
+                      }} style={{opacity:0,width:0,height:0}} />
+                      <span style={{position:'absolute',inset:0,borderRadius:12,background:on?'var(--green)':'var(--lavender)',transition:'background 0.2s'}} />
+                      <span style={{position:'absolute',top:2,left:on?22:2,width:20,height:20,borderRadius:10,background:'white',boxShadow:'0 1px 3px rgba(0,0,0,0.2)',transition:'left 0.2s'}} />
+                    </label>
                   </div>
                 );
               })}
