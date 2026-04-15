@@ -192,7 +192,7 @@ export default function Sidebar() {
       {/* Toggle button when collapsed */}
       {collapsed && <button onClick={()=>setCollapsed(false)} className="sidebar-desktop" style={{ position:'fixed', top:12, left:12, zIndex:101, width:40, height:40, borderRadius:10, border:'none', background:'#05056D', color:'white', fontSize:'1.1rem', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 4px 14px rgba(5,5,109,0.3)' }}>☰</button>}
 
-      <nav className="sidebar-desktop" style={{ width:'var(--sidebar-w)', minHeight:'100vh', background:'#05056D', display:collapsed?'none':'flex', flexDirection:'column', position:'fixed', left:0, top:0, zIndex:100, transition:'width 0.2s' }}>
+      <nav className="sidebar-desktop" style={{ width:'var(--sidebar-w)', height:'100vh', background:'#05056D', display:collapsed?'none':'flex', flexDirection:'column', position:'fixed', left:0, top:0, zIndex:100, transition:'width 0.2s', overflowY:'auto' }}>
         {sidebarContent}
       </nav>
 
