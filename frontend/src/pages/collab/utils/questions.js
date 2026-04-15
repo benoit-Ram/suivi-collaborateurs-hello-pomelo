@@ -11,12 +11,14 @@ export function getTeamObjectives(equipes, settings) {
 
 /** Récupère les questions manager depuis les settings ou les questions par défaut */
 export function getManagerQuestions(settings) {
+  const DEFAULT_M = ['Retours sur les missions','Taux de staffing','Qualités','Axe d\'amélioration'];
   if ((settings?.questions_manager||[]).length > 0) {
-    return {
-      keys: settings.questions_manager.map((_,i) => 'q'+i),
-      labels: settings.questions_manager.map(q => q.label||q),
-      questions: settings.questions_manager.map((q,i) => ({key:'q'+i, label:q.label||q, type:q.type||'texte'})),
-    };
+    const qs = settings.questions_manager.map((q,i) => {
+      const label = typeof q === 'object' ? (q.label || q.text || `Question ${i+1}`) : (q && !q.match(/^q\d+$/) ? q : DEFAULT_M[i] || `Question ${i+1}`);
+      const type = typeof q === 'object' ? (q.type || 'texte') : 'texte';
+      return {key:'q'+i, label, type};
+    });
+    return { keys: qs.map(q=>q.key), labels: qs.map(q=>q.label), questions: qs };
   }
   const defaults = ['Retours sur les missions','Taux de staffing','Qualités','Axe d\'amélioration'];
   return {
@@ -30,7 +32,11 @@ export function getManagerQuestions(settings) {
 export function getCollabQuestions(settings) {
   const DEFAULT_Q = ['Comment t\'es-tu senti(e) au travail ?','Réussites du mois','Objectifs M-1 atteints ?','Suggestions process','Objectifs mois suivant','Autres sujets','Axe d\'amélioration'];
   if ((settings?.questions_collab||[]).length > 0) {
-    return settings.questions_collab.map((q,i) => ({key:'cq'+i, label:q.label||q, type:q.type||'texte'}));
+    return settings.questions_collab.map((q,i) => {
+      const label = typeof q === 'object' ? (q.label || q.text || `Question ${i+1}`) : (q && !q.match(/^[cq]+\d+$/) ? q : DEFAULT_Q[i] || `Question ${i+1}`);
+      const type = typeof q === 'object' ? (q.type || 'texte') : 'texte';
+      return {key:'cq'+i, label, type};
+    });
   }
   return DEFAULT_Q.map((q,i) => ({key:'cq'+i, label:q, type:'texte'}));
 }
