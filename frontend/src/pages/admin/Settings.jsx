@@ -240,11 +240,11 @@ export default function Settings() {
               <p style={{color:'var(--muted)',fontSize:'0.82rem',margin:0}}>Les collaborateurs activés ici verront l'onglet Missions dans leur espace.</p>
               <div style={{display:'flex',gap:6}}>
                 <button className="btn btn-navy btn-sm" onClick={async () => {
-                  for (const c of collabs) { if (!c.missions_access) await api.updateCollaborateur(c.id, { missions_access: true }); }
+                  for (const c of collabs) { await api.updateCollaborateur(c.id, { missions_access: true }); }
                   await reload(); showToast('Missions activé pour tous');
                 }}>✓ Activer tous</button>
                 <button className="btn btn-danger btn-sm" onClick={async () => {
-                  for (const c of collabs) { if (c.missions_access) await api.updateCollaborateur(c.id, { missions_access: false }); }
+                  for (const c of collabs) { await api.updateCollaborateur(c.id, { missions_access: false }); }
                   await reload(); showToast('Missions désactivé pour tous');
                 }}>✕ Désactiver tous</button>
               </div>
