@@ -236,18 +236,30 @@ export default function Settings() {
         <>
           <div className="section-title">Accès Missions <span style={{background:'#FDE68A',color:'#92400E',fontSize:'0.55rem',fontWeight:800,padding:'1px 5px',borderRadius:4,marginLeft:4,verticalAlign:'middle'}}>bêta</span></div>
           <div className="card" style={{marginBottom:24}}>
-            <p style={{color:'var(--muted)',fontSize:'0.82rem',marginBottom:16}}>Les collaborateurs activés ici verront l'onglet Missions dans leur espace.</p>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+              <p style={{color:'var(--muted)',fontSize:'0.82rem',margin:0}}>Les collaborateurs activés ici verront l'onglet Missions dans leur espace.</p>
+              <div style={{display:'flex',gap:6}}>
+                <button className="btn btn-navy btn-sm" onClick={async () => {
+                  for (const c of collabs) { if (!c.missions_access) await api.updateCollaborateur(c.id, { missions_access: true }); }
+                  await reload(); showToast('Missions activé pour tous');
+                }}>✓ Activer tous</button>
+                <button className="btn btn-danger btn-sm" onClick={async () => {
+                  for (const c of collabs) { if (c.missions_access) await api.updateCollaborateur(c.id, { missions_access: false }); }
+                  await reload(); showToast('Missions désactivé pour tous');
+                }}>✕ Désactiver tous</button>
+              </div>
+            </div>
             <div style={{display:'flex',flexDirection:'column',gap:8}}>
               {collabs.map(c => {
                 const hasAccess = c.missions_access === true;
                 return (
-                  <div key={c.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',borderRadius:10,border:'1.5px solid var(--lavender)',background: hasAccess ? 'rgba(59,130,246,0.06)' : 'transparent'}}>
+                  <div key={c.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',borderRadius:10,border:`1.5px solid ${hasAccess?'var(--blue)':'var(--lavender)'}`,background: hasAccess ? 'rgba(59,130,246,0.06)' : 'transparent'}}>
                     <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={32} />
                     <div style={{flex:1}}>
                       <div style={{fontWeight:700,fontSize:'0.88rem',color:'var(--navy)'}}>{c.prenom} {c.nom}</div>
                       <div style={{fontSize:'0.72rem',color:'var(--muted)'}}>{c.poste || ''}{c.equipe ? ' · '+c.equipe : ''}</div>
                     </div>
-                    <button className={`btn btn-sm ${hasAccess ? 'btn-ghost' : 'btn-navy'}`}
+                    <button className={`btn btn-sm ${hasAccess ? 'btn-danger' : 'btn-navy'}`}
                       onClick={async () => {
                         await api.updateCollaborateur(c.id, { missions_access: !hasAccess });
                         await reload();
