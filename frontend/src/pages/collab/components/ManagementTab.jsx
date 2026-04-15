@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { api } from '../../../services/api';
-import { Avatar, Badge, Modal, ProgressBar, EmptyState, fmtDate, moisLabel, absenceDays, ABS_TYPES, STATUS_COLORS, STATUS_LABELS } from '../../../components/UI';
+import { Avatar, Badge, Modal, ProgressBar, EmptyState, fmtDate, moisLabel, absenceDays, ABS_TYPES, ABS_STATUTS, STATUS_COLORS, STATUS_LABELS } from '../../../components/UI';
 import { getManagerQuestions, getCollabQuestions } from '../utils/questions';
 import ManagerTeamCalendar from './ManagerTeamCalendar';
 
