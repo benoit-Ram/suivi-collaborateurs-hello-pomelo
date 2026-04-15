@@ -77,6 +77,7 @@ export default function CollabAccueil() {
     if (!selectedId) return;
     const collab = collabs.find(x => x.id === selectedId);
     if (!collab) return;
+    if (!collab.missions_access) { setStaffingGlobal(null); return; }
     Promise.all([api.getMissions(), api.getAbsences({collaborateur_id:selectedId})]).then(([missions, abs]) => {
       const now = new Date();
       const janFirst = new Date(now.getFullYear(), 0, 1);
