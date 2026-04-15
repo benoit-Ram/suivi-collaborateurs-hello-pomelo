@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { api } from '../../../services/api';
 import { Avatar, Badge, Modal, ProgressBar, EmptyState, fmtDate, moisLabel, absenceDays, ABS_TYPES, STATUS_COLORS, STATUS_LABELS } from '../../../components/UI';
-import { getManagerQuestions } from '../utils/questions';
+import { getManagerQuestions, getCollabQuestions } from '../utils/questions';
 import ManagerTeamCalendar from './ManagerTeamCalendar';
 
 export default 
@@ -300,16 +300,25 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
                 <button className="btn btn-ghost btn-sm" onClick={()=>setEditingPoint(null)}>Annuler</button>
                 <button className="btn btn-primary btn-sm" onClick={savePoint}>💾 Enregistrer</button>
               </div>
-            </> : Object.entries(md).filter(([k])=>k!=='objectifs').map(([k,v])=>(
-              <div key={k} style={{marginBottom:6}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)'}}>{k}</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:v?'var(--navy)':'var(--muted)',fontStyle:v?'normal':'italic'}}>{v||'Non renseigné'}</div></div>
-            ))}
+            </> : (()=>{
+              const mgrQ = getManagerQuestions(settings);
+              const keyToLabel = {}; mgrQ.questions.forEach(q => { keyToLabel[q.key] = q.label; });
+              return Object.entries(md).filter(([k])=>k!=='objectifs').map(([k,v])=>(
+                <div key={k} style={{marginBottom:6}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)'}}>{keyToLabel[k]||k}</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:v?'var(--navy)':'var(--muted)',fontStyle:v?'normal':'italic'}}>{v||'Non renseigné'}</div></div>
+              ));
+            })()}
             {/* Collab responses (read-only) */}
-            {Object.keys(cd).filter(k=>k!=='objectifs').length>0 && <>
+            {Object.keys(cd).filter(k=>k!=='objectifs'&&k!=='_commentaire').length>0 && (()=>{
+              const collabQ = getCollabQuestions(settings);
+              const keyToLabel = {}; collabQ.forEach(q => { keyToLabel[q.key] = q.label; });
+              return <>
               <div style={{marginTop:12,fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--pink)',marginBottom:8}}>👤 Réponses de {m.prenom}</div>
-              {Object.entries(cd).filter(([k])=>k!=='objectifs').map(([k,v])=>(
-                <div key={k} style={{marginBottom:6}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)'}}>{k}</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:v?'var(--navy)':'var(--muted)',fontStyle:v?'normal':'italic'}}>{v||'—'}</div></div>
+              {Object.entries(cd).filter(([k])=>k!=='objectifs'&&k!=='_commentaire').map(([k,v])=>(
+                <div key={k} style={{marginBottom:6}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)'}}>{keyToLabel[k]||k}</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:v?'var(--navy)':'var(--muted)',fontStyle:v?'normal':'italic'}}>{v||'—'}</div></div>
               ))}
-            </>}
+              {cd._commentaire && <div style={{marginBottom:6}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)'}}>Commentaire libre</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:'var(--navy)'}}>{cd._commentaire}</div></div>}
+            </>;
+            })()}
           </div>;
         })}
       </div>}
