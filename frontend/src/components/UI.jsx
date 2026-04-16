@@ -191,23 +191,28 @@ export function fmtDate(d) {
 const FERIES_FIXES = [[1,1],[5,1],[5,8],[7,14],[8,15],[11,1],[11,11],[12,25]];
 
 function getEasterDate(year) {
-  const a=year%19, b=Math.floor(year/100), c2=year%100;
-  const d=Math.floor(b/4), e=b%4, f=Math.floor((b+8)/25);
-  const g=Math.floor((b-f+1)/3), h=(19*a+b-d-g+15)%30;
-  const i=Math.floor(c2/4), k=c2%4;
-  const l=(32+2*e+2*i-h-k)%7;
-  const m2=Math.floor((a+11*h+22*l)/451);
-  const month=Math.floor((h+l-7*m2+114)/31);
-  const day2=((h+l-7*m2+114)%31)+1;
-  return new Date(year, month-1, day2);
+  // Oudin's algorithm — verified correct for 2024-2033+
+  const c = Math.floor(year / 100);
+  const n = year - 19 * Math.floor(year / 19);
+  const k = Math.floor((c - 17) / 25);
+  let i = c - Math.floor(c / 4) - Math.floor((c - k) / 3) + 19 * n + 15;
+  i = i - 30 * Math.floor(i / 30);
+  i = i - Math.floor(i / 28) * (1 - Math.floor(i / 28) * Math.floor(29 / (i + 1)) * Math.floor((21 - n) / 11));
+  let j = year + Math.floor(year / 4) + i + 2 - c + Math.floor(c / 4);
+  j = j - 7 * Math.floor(j / 7);
+  const l = i - j;
+  const month = 3 + Math.floor((l + 40) / 44);
+  const day = l + 28 - 31 * Math.floor(month / 4);
+  return new Date(year, month - 1, day, 12, 0, 0);
 }
 
 export function getFeriesSet(year) {
   const set = new Set();
   FERIES_FIXES.forEach(([m,d]) => set.add(`${year}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`));
   const easter = getEasterDate(year);
-  [1,39,50].forEach(offset => {
-    const d2 = new Date(easter); d2.setDate(easter.getDate()+offset);
+  // Dimanche de Pâques + Lundi de Pâques + Ascension (jeu +39) + Lundi de Pentecôte (+50)
+  [0, 1, 39, 50].forEach(offset => {
+    const d2 = new Date(easter.getTime()); d2.setDate(easter.getDate() + offset);
     set.add(d2.toISOString().split('T')[0]);
   });
   return set;
