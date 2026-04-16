@@ -6,11 +6,23 @@ export class ObjectifRequestsController {
   constructor(private service: ObjectifRequestsService) {}
 
   @Get()
-  findAll(@Query() filters: Record<string, string>, @Req() req: any) {
-    if (!req.user?.isAdmin) {
-      return this.service.findAll({ ...filters, collaborateur_id: req.user.sub });
+  async findAll(@Query() filters: Record<string, string>, @Req() req: any) {
+    if (req.user?.isAdmin) {
+      // Admin sees all (or filtered)
+      return this.service.findAll(filters);
     }
-    return this.service.findAll(filters);
+    // Non-admin: sees own requests + requests where they are manager
+    const [own, asManager] = await Promise.all([
+      this.service.findAll({ ...filters, collaborateur_id: req.user.sub }),
+      this.service.findAll({ ...filters, manager_id: req.user.sub }),
+    ]);
+    // Merge and deduplicate
+    const ids = new Set();
+    const merged = [];
+    for (const r of [...asManager, ...own]) {
+      if (!ids.has(r.id)) { ids.add(r.id); merged.push(r); }
+    }
+    return merged;
   }
 
   @Post()

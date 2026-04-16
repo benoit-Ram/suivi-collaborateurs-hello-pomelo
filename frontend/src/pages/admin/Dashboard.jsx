@@ -56,7 +56,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     api.getActivityLog(15).then(setActivityLog).catch(() => {});
-    api.getObjectifRequests({statut:'en_attente'}).then(setObjRequests).catch(() => {});
+    api.getObjectifRequests({statut:'en_attente'}).then(reqs => {
+      // Admin sees only requests without a manager (manager handles their own)
+      setObjRequests((reqs||[]).filter(r => !r.manager_id));
+    }).catch(() => {});
   }, []);
 
   if (loading) return <div style={{maxWidth:600,margin:'40px auto'}}><Skeleton lines={5} /></div>;

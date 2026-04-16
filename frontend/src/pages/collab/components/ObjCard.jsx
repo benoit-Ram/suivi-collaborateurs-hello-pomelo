@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../../../services/api';
 import { Badge, ProgressBar, STATUS_COLORS, STATUS_LABELS, fmtDate } from '../../../components/UI';
 
-export default function ObjCard({ o, i, collabId }) {
+export default function ObjCard({ o, i, collabId, managerId }) {
   const pct = o.statut==='atteint'?100:(o.progression||0);
   const colors = { 'en-cours':'linear-gradient(90deg,var(--pink),var(--blue))', 'atteint':'var(--green)', 'non-atteint':'var(--orange)', 'en-attente':'var(--lavender)' };
   const hist = o.historique || [];
@@ -33,7 +33,7 @@ export default function ObjCard({ o, i, collabId }) {
         type: 'progression',
         data: { progression: newProg, commentaire: comment, ancienne_progression: pct },
         motif: comment || null,
-        manager_id: null, // Will be handled by the manager's view
+        manager_id: managerId || null,
       });
       setSent(true);
       setShowForm(false);
