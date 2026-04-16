@@ -13,6 +13,27 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
   const [refuseId, setRefuseId] = useState(null);
   const [refuseMotif, setRefuseMotif] = useState('');
   const [refuseLoading, setRefuseLoading] = useState(false);
+  const [objRequests, setObjRequests] = useState([]);
+  const [objRefuseId, setObjRefuseId] = useState(null);
+  const [objRefuseMotif, setObjRefuseMotif] = useState('');
+
+  // Load objective progression requests
+  React.useEffect(() => {
+    api.getObjectifRequests({ statut: 'en_attente' }).then(reqs => {
+      // Filter to team members only
+      const teamIds = team.map(m => m.id);
+      setObjRequests((reqs || []).filter(r => teamIds.includes(r.collaborateur_id)));
+    }).catch(() => {});
+  }, [team]);
+
+  const approveObjReq = async (id) => {
+    try { await api.approveObjectifRequest(id); setObjRequests(prev => prev.filter(r => r.id !== id)); } catch(e) { alert('Erreur: ' + e.message); }
+  };
+  const refuseObjReq = async () => {
+    if (!objRefuseId) return;
+    try { await api.refuseObjectifRequest(objRefuseId, objRefuseMotif); setObjRequests(prev => prev.filter(r => r.id !== objRefuseId)); setObjRefuseId(null); setObjRefuseMotif(''); } catch(e) { alert('Erreur: ' + e.message); }
+  };
+
   const pendingCount = teamPendingAbs.length;
   const [overviewTab, setOverviewTab] = useState(pendingCount > 0 ? 'conges' : 'objectifs');
   const [objModal, setObjModal] = useState(false);
@@ -40,6 +61,37 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
   if (view === 'overview') {
     return (
       <div>
+        {/* Demandes de progression en attente */}
+        {objRequests.length > 0 && <div className="card" style={{marginBottom:16,borderLeft:'4px solid var(--blue)',padding:'14px 18px'}}>
+          <div style={{fontSize:'0.78rem',fontWeight:700,textTransform:'uppercase',color:'var(--blue)',marginBottom:10}}>📈 Demandes de progression ({objRequests.length})</div>
+          {objRequests.map(r => {
+            const collab = r.collaborateurs;
+            const obj = r.objectifs;
+            const data = r.data || {};
+            return <div key={r.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:'var(--bg-info)',borderRadius:10,marginBottom:6,flexWrap:'wrap'}}>
+              {collab && <Avatar prenom={collab.prenom} nom={collab.nom} photoUrl={collab.photo_url} size={28} />}
+              <div style={{flex:1,minWidth:150}}>
+                <div style={{fontWeight:700,fontSize:'0.82rem',color:'var(--navy)'}}>{obj?.titre || '—'}</div>
+                <div style={{fontSize:'0.7rem',color:'var(--muted)'}}>
+                  {collab ? `${collab.prenom} ${collab.nom}` : '—'} · {data.ancienne_progression||0}% → <strong style={{color:'var(--blue)'}}>{data.progression||0}%</strong>
+                  {r.motif && <span> — "{r.motif}"</span>}
+                </div>
+              </div>
+              <div style={{display:'flex',gap:4}}>
+                <button className="btn btn-primary btn-sm" style={{padding:'5px 10px',fontSize:'0.7rem'}} onClick={()=>approveObjReq(r.id)}>✓</button>
+                <button className="btn btn-danger btn-sm" style={{padding:'5px 10px',fontSize:'0.7rem'}} onClick={()=>{setObjRefuseId(r.id);setObjRefuseMotif('');}}>✕</button>
+              </div>
+            </div>;
+          })}
+          {objRefuseId && <div style={{padding:'8px 10px',background:'var(--bg-danger)',borderRadius:8,marginTop:6}}>
+            <div style={{display:'flex',gap:6}}>
+              <input value={objRefuseMotif} onChange={e=>setObjRefuseMotif(e.target.value)} placeholder="Motif du refus..." style={{flex:1,border:'1.5px solid var(--border-danger)',borderRadius:8,padding:'6px 10px',fontFamily:'inherit',fontSize:'0.78rem'}} />
+              <button className="btn btn-danger btn-sm" onClick={refuseObjReq}>Refuser</button>
+              <button className="btn btn-ghost btn-sm" onClick={()=>setObjRefuseId(null)}>Annuler</button>
+            </div>
+          </div>}
+        </div>}
+
         <div style={{display:'flex',gap:6,marginBottom:20,background:'var(--offwhite)',padding:6,borderRadius:12}}>
           {[['affilies','👥 Affiliés'],['objectifs','🎯 Objectifs'],['points','📋 Entretiens équipe'],['conges','🏖️ Congés']].map(([k,l])=>(
             <button key={k} onClick={()=>setOverviewTab(k)} style={{position:'relative',flex:1,padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',background:overviewTab===k?'var(--pink)':'transparent',color:overviewTab===k?'white':'var(--muted)',border:overviewTab===k?'none':'1.5px solid var(--lavender)',boxShadow:overviewTab===k?'0 4px 14px rgba(255,50,133,0.3)':'none'}}>

@@ -293,8 +293,8 @@ export default function CollabAccueil() {
         })()}
 
         {/* Individual objectives */}
-        {enCours.length > 0 && <><div className="section-title">Objectifs individuels en cours ({enCours.length})</div>{enCours.map((o,i)=><ObjCard key={o.id} o={o} i={i} />)}</>}
-        {atteints.length > 0 && <><div className="section-title" style={{marginTop:24}}>✅ Atteints ({atteints.length})</div>{atteints.map((o,i)=><ObjCard key={o.id} o={o} i={i} />)}</>}
+        {enCours.length > 0 && <><div className="section-title">Objectifs individuels en cours ({enCours.length})</div>{enCours.map((o,i)=><ObjCard key={o.id} o={o} i={i} collabId={c.id} />)}</>}
+        {atteints.length > 0 && <><div className="section-title" style={{marginTop:24}}>✅ Atteints ({atteints.length})</div>{atteints.map((o,i)=><ObjCard key={o.id} o={o} i={i} collabId={c.id} />)}</>}
         {objs.length===0 && getTeamObjectives((c.equipe||'').split(',').map(s=>s.trim()).filter(Boolean), settings).length===0 && <EmptyState icon="🎯" text="Aucun objectif" />}
       </div></FadeIn>}
 

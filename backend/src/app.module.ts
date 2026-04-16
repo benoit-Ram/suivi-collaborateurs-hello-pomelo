@@ -16,6 +16,7 @@ import { AssignmentsModule } from './modules/assignments/assignments.module';
 import { TimeEntriesModule } from './modules/time-entries/time-entries.module';
 import { ActivityLogModule } from './modules/activity-log/activity-log.module';
 import { StaffingRequestsModule } from './modules/staffing-requests/staffing-requests.module';
+import { ObjectifRequestsModule } from './modules/objectif-requests/objectif-requests.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { StaffingRequestsModule } from './modules/staffing-requests/staffing-req
     TimeEntriesModule,
     ActivityLogModule,
     StaffingRequestsModule,
+    ObjectifRequestsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: AuthGuard },

@@ -95,6 +95,12 @@ export const api = {
   createTimeEntry: (data) => request('/time-entries', { method: 'POST', body: data }),
   updateTimeEntry: (id, data) => request(`/time-entries/${id}`, { method: 'PUT', body: data }),
 
+  // Objectif Requests
+  getObjectifRequests: (filters) => request('/objectif-requests?' + new URLSearchParams(filters || {})),
+  createObjectifRequest: (data) => request('/objectif-requests', { method: 'POST', body: data }),
+  approveObjectifRequest: (id) => request(`/objectif-requests/${id}/approve`, { method: 'PUT' }),
+  refuseObjectifRequest: (id, motif) => request(`/objectif-requests/${id}/refuse`, { method: 'PUT', body: { motif_refus: motif } }),
+
   // Staffing Requests
   getStaffingRequests: (filters) => request('/staffing-requests?' + new URLSearchParams(filters || {})),
   createStaffingRequest: (data) => request('/staffing-requests', { method: 'POST', body: data }),
