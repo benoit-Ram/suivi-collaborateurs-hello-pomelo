@@ -12,6 +12,7 @@ export default function Dashboard() {
   const [missionAlerts, setMissionAlerts] = useState([]);
   const [missionStats, setMissionStats] = useState(null);
   const [activityLog, setActivityLog] = useState([]);
+  const [objRequests, setObjRequests] = useState([]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -55,6 +56,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     api.getActivityLog(15).then(setActivityLog).catch(() => {});
+    api.getObjectifRequests({statut:'en_attente'}).then(setObjRequests).catch(() => {});
   }, []);
 
   if (loading) return <div style={{maxWidth:600,margin:'40px auto'}}><Skeleton lines={5} /></div>;
@@ -207,6 +209,30 @@ export default function Dashboard() {
               <span>{a.icon}</span><span style={{flex:1}}>{a.text}</span><span style={{fontSize:'0.72rem',fontWeight:700}}>Voir →</span>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Objective progression requests */}
+      {objRequests.length > 0 && (
+        <div className="card" style={{marginBottom:24,borderLeft:'4px solid var(--green)',padding:'20px 24px'}}>
+          <h3 style={{fontSize:'0.85rem',fontWeight:700,color:'var(--navy)',textTransform:'uppercase',marginBottom:12}}>📈 Demandes de progression ({objRequests.length})</h3>
+          {objRequests.map(r => {
+            const data = r.data || {};
+            return <div key={r.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:'var(--bg-info)',borderRadius:10,marginBottom:6,flexWrap:'wrap'}}>
+              {r.collaborateurs && <Avatar prenom={r.collaborateurs.prenom} nom={r.collaborateurs.nom} photoUrl={r.collaborateurs.photo_url} size={28} />}
+              <div style={{flex:1,minWidth:150}}>
+                <div style={{fontWeight:700,fontSize:'0.82rem',color:'var(--navy)'}}>{r.objectifs?.titre||'—'}</div>
+                <div style={{fontSize:'0.7rem',color:'var(--muted)'}}>
+                  {r.collaborateurs?`${r.collaborateurs.prenom} ${r.collaborateurs.nom}`:'—'} · {data.ancienne_progression||0}% → <strong style={{color:'var(--blue)'}}>{data.progression||0}%</strong>
+                  {r.motif && <span> — "{r.motif}"</span>}
+                </div>
+              </div>
+              <div style={{display:'flex',gap:4}}>
+                <button className="btn btn-primary btn-sm" style={{padding:'5px 10px',fontSize:'0.7rem'}} onClick={async()=>{try{await api.approveObjectifRequest(r.id);setObjRequests(prev=>prev.filter(x=>x.id!==r.id));showToast('Progression approuvée');}catch(e){showToast('Erreur: '+e.message);}}}>✓ Approuver</button>
+                <button className="btn btn-danger btn-sm" style={{padding:'5px 10px',fontSize:'0.7rem'}} onClick={async()=>{const motif=prompt('Motif du refus :');if(motif!==null){try{await api.refuseObjectifRequest(r.id,motif);setObjRequests(prev=>prev.filter(x=>x.id!==r.id));showToast('Demande refusée');}catch(e){showToast('Erreur: '+e.message);}}}}>✕ Refuser</button>
+              </div>
+            </div>;
+          })}
         </div>
       )}
 
