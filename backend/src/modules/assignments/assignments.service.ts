@@ -17,14 +17,51 @@ export class AssignmentsService {
     return data;
   }
 
+  private assignmentCost(a: any, missionFin?: string | null): number {
+    if (!a || !a.date_debut || !a.tjm) return 0;
+    const start = new Date(a.date_debut);
+    const endSrc = a.date_fin || missionFin || new Date().toISOString().split('T')[0];
+    const end = new Date(endSrc);
+    const weeks = Math.max(0, (end.getTime() - start.getTime()) / (7 * 86400000));
+    const jps = Number(a.jours_par_semaine) || ((Number(a.taux_staffing) || 0) / 100) * 5 || 5;
+    return Number(a.tjm) * jps * weeks;
+  }
+
+  private async validateBudget(dto: any, excludeId?: string) {
+    if (!dto || !dto.mission_id || dto.force_over_budget) return;
+    const { data: mission } = await this.supabase.db.from('missions').select('id, date_fin, budget_vendu, assignments(*)').eq('id', dto.mission_id).single();
+    if (!mission || !mission.budget_vendu) return;
+    const others = ((mission as any).assignments || []).filter((a: any) => a.id !== excludeId);
+    const existing = others.reduce((s: number, a: any) => s + this.assignmentCost(a, (mission as any).date_fin), 0);
+    // For update, merge existing row with new fields to compute projected cost
+    let projected: any = dto;
+    if (excludeId) {
+      const current = ((mission as any).assignments || []).find((a: any) => a.id === excludeId) || {};
+      projected = { ...current, ...dto };
+    }
+    const projectedCost = this.assignmentCost(projected, (mission as any).date_fin);
+    const total = existing + projectedCost;
+    if (total > Number((mission as any).budget_vendu)) {
+      const fmt = (n: number) => Math.round(n).toLocaleString('fr-FR') + ' €';
+      throw new HttpException(
+        `Budget dépassé : cette affectation porterait le consommé à ${fmt(total)} (budget vendu ${fmt(Number((mission as any).budget_vendu))}). Ajustez le TJM, la durée ou le budget de la mission, ou ajoutez "force_over_budget": true pour forcer.`,
+        HttpStatus.CONFLICT,
+      );
+    }
+  }
+
   async create(dto: any) {
-    const { data, error } = await this.supabase.db.from('assignments').insert(dto).select().single();
+    await this.validateBudget(dto);
+    const { force_over_budget, ...insertDto } = dto || {};
+    const { data, error } = await this.supabase.db.from('assignments').insert(insertDto).select().single();
     if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
     return data;
   }
 
   async update(id: string, dto: any) {
-    const { data, error } = await this.supabase.db.from('assignments').update(dto).eq('id', id).select().single();
+    await this.validateBudget(dto, id);
+    const { force_over_budget, ...updateDto } = dto || {};
+    const { data, error } = await this.supabase.db.from('assignments').update(updateDto).eq('id', id).select().single();
     if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
     return data;
   }

@@ -36,6 +36,18 @@ export class MissionsService {
   }
 
   async delete(id: string) {
+    // Block deletion if any time entries are attached (via assignments cascade)
+    const { data: assignments } = await this.supabase.db.from('assignments').select('id').eq('mission_id', id);
+    const assignmentIds = (assignments || []).map(a => a.id);
+    if (assignmentIds.length > 0) {
+      const { count } = await this.supabase.db.from('time_entries').select('id', { count: 'exact', head: true }).in('assignment_id', assignmentIds);
+      if (count && count > 0) {
+        throw new HttpException(
+          `Impossible de supprimer : ${count} saisie(s) de temps existe(nt) sur cette mission. Archivez-la (statut "terminée") plutôt que de la supprimer.`,
+          HttpStatus.CONFLICT,
+        );
+      }
+    }
     const { error } = await this.supabase.db.from('missions').delete().eq('id', id);
     if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
     return { success: true };

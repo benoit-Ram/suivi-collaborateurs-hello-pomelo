@@ -4,20 +4,7 @@ import { useData } from '../../services/DataContext';
 import { useAuth } from '../../services/AuthContext';
 import { api } from '../../services/api';
 import { PageHeader, Badge, Avatar, Modal, FadeIn, Skeleton, fmtDate, getAbsenceDays } from '../../components/UI';
-
-// Helpers
-const calcConsumedBudget = (assignments, now) => (assignments || []).reduce((s, a) => {
-  if (!a.date_debut || !a.tjm) return s;
-  const start = new Date(a.date_debut);
-  const end = a.date_fin ? new Date(Math.min(new Date(a.date_fin), now)) : now;
-  const weeks = Math.max(0, (end - start) / (7 * 86400000));
-  return s + (a.tjm * (a.jours_par_semaine || a.taux_staffing / 100 * 5) * weeks);
-}, 0);
-
-const calcMonthlyCA = (assignments) => (assignments || []).filter(a => a.statut === 'actif').reduce((s, a) => s + ((a.tjm || 0) * (a.jours_par_semaine || a.taux_staffing / 100 * 5) * 4.33), 0);
-
-const fmtEuro = (v) => v ? v.toLocaleString('fr-FR') + ' €' : '—';
-const tauxFromJPS = (jps) => Math.round(jps / 5 * 100);
+import { calcConsumedBudget, calcMonthlyCA, fmtEuro, tauxFromJPS } from '../../utils/missionCalcs';
 
 function exportCSV(filename, headers, rows) {
   const BOM = '\uFEFF';
@@ -341,7 +328,7 @@ export default function Missions() {
         })() : <>
         {/* Barre de filtres */}
         <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
-          <input type="text" value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher..." style={{flex:1,minWidth:0,border:'1.5px solid var(--lavender)',borderRadius:10,padding:'8px 14px',fontFamily:'inherit',fontSize:'0.82rem',outline:'none',background:'var(--offwhite)',color:'var(--navy)'}} />
+          <input type="text" value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher client, mission, catégorie..." style={{flex:1,minWidth:0,border:'1.5px solid var(--lavender)',borderRadius:10,padding:'8px 14px',fontFamily:'inherit',fontSize:'0.82rem',outline:'none',background:'var(--offwhite)',color:'var(--navy)'}} />
           <button className="btn btn-ghost btn-sm" onClick={()=>{setClientModal('create');setClientForm({nom:'',description:'',secteur:'',siren:'',siret:'',tva_intra:'',adresse:'',code_postal:'',ville:'',categorie_entreprise:'',referent_id:'',contact_signature_nom:'',contact_signature_email:'',contact_signature_tel:'',contact_facturation_nom:'',contact_facturation_email:'',contact_facturation_tel:''});}}>+ Client</button>
           <button className="btn btn-primary btn-sm" onClick={openCreate}>+ Mission</button>
           <div style={{display:'flex',gap:2}}>
@@ -351,13 +338,23 @@ export default function Missions() {
         </div>
 
         {(()=>{
-          const filteredClients = clients.filter(c => !search || (c.nom+(c.secteur||'')+missions.filter(m=>m.client_id===c.id).map(m=>m.nom).join('')).toLowerCase().includes(search.toLowerCase()));
-          if (filteredClients.length === 0) return <div className="card" style={{textAlign:'center',padding:32,color:'var(--muted)'}}>Aucun client trouvé</div>;
+          const q = (search || '').trim().toLowerCase();
+          const matchMission = (m) => !q || [m.nom, m.description, m.categorie, m.client].some(v => (v || '').toLowerCase().includes(q));
+          const matchClient = (c) => !q || [c.nom, c.secteur, c.ville, c.siren, c.siret].some(v => (v || '').toLowerCase().includes(q));
+          const missionsFor = (clientId) => {
+            const base = missions.filter(m => m.client_id === clientId);
+            if (!q) return base;
+            // If client itself matches, show all its missions; else only show matching missions
+            const client = clients.find(c => c.id === clientId);
+            return (client && matchClient(client)) ? base : base.filter(matchMission);
+          };
+          const filteredClients = clients.filter(c => matchClient(c) || missions.some(m => m.client_id === c.id && matchMission(m)));
+          if (filteredClients.length === 0) return <div className="card" style={{textAlign:'center',padding:32,color:'var(--muted)'}}>Aucun résultat pour « {search} »</div>;
 
           if (viewMode === 'liste') return <div className="card" style={{overflowX:'auto'}}><table>
             <thead><tr><th style={{minWidth:160}}>Client</th><th>Secteur</th><th>Référent</th><th>Missions</th><th></th></tr></thead>
             <tbody>{filteredClients.map(c => {
-              const cMissions = missions.filter(m => m.client_id === c.id);
+              const cMissions = missionsFor(c.id);
               const activeMissions = cMissions.filter(isMissionActive);
               const isExpanded = expandedClients.has(c.id);
               return <React.Fragment key={c.id}>
@@ -401,7 +398,7 @@ export default function Missions() {
           // Mode cartes
           return <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(250px,1fr))',gap:12}}>
             {filteredClients.map(c => {
-              const cMissions = missions.filter(m => m.client_id === c.id);
+              const cMissions = missionsFor(c.id);
               const activeMissions = cMissions.filter(isMissionActive);
               return (
                 <div key={c.id} className="card" style={{padding:20,borderLeft:`4px solid ${activeMissions.length>0?'var(--blue)':'var(--lavender)'}`,cursor:'pointer'}} onClick={()=>setSelectedClient(c.id)}>

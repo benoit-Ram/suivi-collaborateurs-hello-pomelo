@@ -3,19 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../../services/DataContext';
 import { api } from '../../services/api';
 import { PageHeader, Badge, Avatar, FadeIn, Skeleton, fmtDate, getAbsenceDays } from '../../components/UI';
-
-const calcConsumedBudget = (assignments, now) => (assignments || []).reduce((s, a) => {
-  if (!a.date_debut || !a.tjm) return s;
-  const start = new Date(a.date_debut);
-  const end = a.date_fin ? new Date(Math.min(new Date(a.date_fin), now)) : now;
-  const weeks = Math.max(0, (end - start) / (7 * 86400000));
-  return s + (a.tjm * (a.jours_par_semaine || a.taux_staffing / 100 * 5) * weeks);
-}, 0);
-
-const calcMonthlyCA = (assignments) => (assignments || []).filter(a => a.statut === 'actif').reduce((s, a) => s + ((a.tjm || 0) * (a.jours_par_semaine || a.taux_staffing / 100 * 5) * 4.33), 0);
-
-const fmtEuro = (v) => v ? v.toLocaleString('fr-FR') + ' €' : '—';
-const tauxFromJPS = (jps) => Math.round(jps / 5 * 100);
+import { calcConsumedBudget, calcMonthlyCA, fmtEuro, tauxFromJPS } from '../../utils/missionCalcs';
 
 export default function MissionDetail() {
   const { id } = useParams();
