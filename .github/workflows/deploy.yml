@@ -64,8 +64,12 @@ jobs:
             node --version
             npm --version
             cd /home/ubuntu/suivi-collaborateurs-hello-pomelo
-            cd backend && npm ci --omit=dev
-            cd ../frontend && npm ci --omit=dev
+            # Backend runs via `npx ts-node` (hp-backend.service) so ts-node
+            # is required at runtime even though it's a devDependency.
+            # Frontend runs via `vite` (hp-frontend.service) which is also a
+            # devDependency. Install all deps on both.
+            cd backend && npm ci
+            cd ../frontend && npm ci
             sudo systemctl restart hp-backend
             sudo systemctl restart hp-frontend
             echo "Deploy done at $(date)"
