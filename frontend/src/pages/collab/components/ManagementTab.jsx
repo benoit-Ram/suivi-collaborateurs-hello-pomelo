@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { api } from '../../../services/api';
-import { Avatar, Badge, Modal, ProgressBar, EmptyState, fmtDate, moisLabel, absenceDays, ABS_TYPES, ABS_STATUTS, STATUS_COLORS, STATUS_LABELS } from '../../../components/UI';
+import { Avatar, Badge, Modal, ProgressBar, EmptyState, fmtDate, moisLabel, absenceDays, isEntretienLocked, daysUntilEntretienLock, ABS_TYPES, ABS_STATUTS, STATUS_COLORS, STATUS_LABELS } from '../../../components/UI';
 import { getManagerQuestions, getCollabQuestions } from '../utils/questions';
 import ManagerTeamCalendar from './ManagerTeamCalendar';
 
@@ -336,11 +336,14 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
           const md=p.manager_data||{};
           const cd=p.collab_data||{};
           const isEditing = editingPoint===p.id;
+          const locked = p.type==='mensuel' && isEntretienLocked(p.mois);
           return <div key={p.id} className="card" style={{marginBottom:10,padding:16,borderLeft:'4px solid var(--skyblue)'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
-              <div style={{fontWeight:700,color:'var(--navy)'}}>📅 {moisLabel(p.mois)}</div>
-              {!isEditing && <button className="btn btn-ghost btn-sm" onClick={()=>startEditPoint(p)}>✏️ Remplir</button>}
+              <div style={{fontWeight:700,color:'var(--navy)'}}>📅 {moisLabel(p.mois)} {locked && <Badge type="gray">🔒 Verrouillé</Badge>}</div>
+              {!isEditing && !locked && <button className="btn btn-ghost btn-sm" onClick={()=>startEditPoint(p)}>✏️ Remplir</button>}
             </div>
+            {locked && <div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.78rem',color:'var(--muted)',marginBottom:10}}>🔒 Au-delà du 5 du mois suivant — retours non modifiables.</div>}
+            {!locked && p.type==='mensuel' && (()=>{const d=daysUntilEntretienLock(p.mois);return d!==null && d<=10 && <div style={{background:'var(--bg-warning)',borderRadius:8,padding:'8px 12px',fontSize:'0.78rem',color:'var(--text-warning)',marginBottom:10,borderLeft:'3px solid var(--border-warning)'}}>⏰ Il reste <strong>{d} jour{d>1?'s':''}</strong> pour compléter vos retours (verrouillage le 5 du mois suivant).</div>;})()}
             {/* Manager section */}
             <div style={{fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--skyblue)',marginBottom:8}}>👔 Mes retours</div>
             {isEditing ? <>

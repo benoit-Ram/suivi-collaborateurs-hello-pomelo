@@ -44,10 +44,12 @@ export default function Collaborateurs() {
   const save = async () => {
     if (!form.prenom || !form.nom || !form.poste) { showToast('Prénom, nom et poste obligatoires'); return; }
     const row = { prenom:form.prenom, nom:form.nom, poste:form.poste, email:form.email||null, telephone:form.telephone||null, date_entree:form.date_entree||null, bureau:form.bureau||null, equipe:form.equipe||null, contrat:form.contrat||null, type_poste:form.type_poste||null, manager_id:form.manager_id||null };
+    const openedFromProfile = !!(editing && searchParams.get('edit'));
     try {
       if (editing) await api.updateCollaborateur(editing, row);
       else await api.createCollaborateur(row);
       await reload(); setModalOpen(false); showToast('Enregistré !');
+      if (openedFromProfile) navigate(-1);
     } catch(e) { showToast('Erreur: '+e.message); }
   };
 

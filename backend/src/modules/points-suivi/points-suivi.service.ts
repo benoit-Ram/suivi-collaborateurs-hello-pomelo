@@ -29,7 +29,22 @@ export class PointsSuiviService {
     return data;
   }
 
+  private isEntretienMensuelLocked(mois: string | null | undefined): boolean {
+    if (!mois) return false;
+    const [year, month] = mois.split('-').map(Number);
+    // Verrouillé à partir du 5 du mois suivant (mois est 1-12; Date(year, month, 5) = jour 5 du mois +1)
+    return new Date() >= new Date(year, month, 5);
+  }
+
   async update(id: string, dto: any) {
+    const { data: current, error: fetchErr } = await this.supabase.db.from('points_suivi').select('mois, type').eq('id', id).single();
+    if (fetchErr) throw new HttpException(fetchErr.message, HttpStatus.NOT_FOUND);
+    if (current?.type === 'mensuel' && this.isEntretienMensuelLocked(current.mois)) {
+      throw new HttpException(
+        `Cet entretien mensuel est verrouillé (au-delà du 5 du mois suivant). Les retours ne sont plus modifiables.`,
+        HttpStatus.FORBIDDEN,
+      );
+    }
     const { data, error } = await this.supabase.db.from('points_suivi').update(dto).eq('id', id).select().single();
     if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
     return data;

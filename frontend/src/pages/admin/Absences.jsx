@@ -55,7 +55,15 @@ export default function Absences() {
   };
   const submitSolde = async () => {
     setSoldeLoading(true);
-    try { await api.updateCollaborateur(soldeModal, { solde_conges: parseFloat(soldeForm.solde), acquisition_conges: parseFloat(soldeForm.acq) }); await reload(); showToast('Solde mis à jour ✓'); setSoldeModal(null); } catch(e) { showToast('Erreur: '+e.message); }
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      await api.updateCollaborateur(soldeModal, {
+        solde_conges: parseFloat(soldeForm.solde),
+        acquisition_conges: parseFloat(soldeForm.acq),
+        solde_reference_date: today,
+      });
+      await reload(); showToast('Solde mis à jour ✓'); setSoldeModal(null);
+    } catch(e) { showToast('Erreur: '+e.message); }
     setSoldeLoading(false);
   };
   const submitCreate = async () => {
@@ -224,7 +232,7 @@ export default function Absences() {
         </div>
         <div className="card" style={{overflowX:'auto'}}>
         <table>
-          <thead><tr><th>Collaborateur</th><th>Solde initial</th><th>Acquisition/mois</th><th>Acquis</th><th>Pris</th><th>Solde</th><th></th></tr></thead>
+          <thead><tr><th>Collaborateur</th><th>Solde aujourd'hui</th><th>Acquisition/mois</th><th>Acquis depuis</th><th>Pris depuis</th><th>Solde</th><th></th></tr></thead>
           <tbody>{collabs.filter(c => !soldeSearch || (c.prenom+' '+c.nom).toLowerCase().includes(soldeSearch.toLowerCase())).map(c => {
             const s = calculateSolde(c, absences.filter(a=>a.collaborateur_id===c.id), settings);
             const color = s.solde<=0?'var(--red)':s.solde<=5?'var(--orange)':'var(--green)';
@@ -256,10 +264,13 @@ export default function Absences() {
 
       {/* SOLDE MODAL */}
       <Modal open={!!soldeModal} onClose={()=>setSoldeModal(null)} title="Modifier le solde congés">
+        <div style={{fontSize:'0.82rem',color:'var(--muted)',marginBottom:12,background:'var(--bg-info)',padding:'8px 12px',borderRadius:8,color:'var(--text-info)'}}>
+          ℹ️ La valeur saisie est le <strong>solde réel à aujourd'hui</strong>. L'acquisition mensuelle et les absences s'ajouteront/se déduiront à partir de ce jour.
+        </div>
         <div className="form-grid">
           <div className="form-field">
-            <label>Solde initial (jours)</label>
-            <input type="number" autoFocus value={soldeForm.solde} onChange={e=>setSoldeForm({...soldeForm,solde:e.target.value})} />
+            <label>Solde aujourd'hui (jours)</label>
+            <input type="number" step="0.01" autoFocus value={soldeForm.solde} onChange={e=>setSoldeForm({...soldeForm,solde:e.target.value})} />
           </div>
           <div className="form-field">
             <label>Acquisition/mois (jours)</label>

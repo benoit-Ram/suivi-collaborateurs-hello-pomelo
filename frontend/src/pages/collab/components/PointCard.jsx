@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { api } from '../../../services/api';
-import { Badge, Modal, moisLabel, fmtDate, isEntretienLocked, getEntretienStatus, ENTRETIEN_STATUS_BADGE } from '../../../components/UI';
+import { Badge, Modal, moisLabel, fmtDate, isEntretienLocked, daysUntilEntretienLock, getEntretienStatus, ENTRETIEN_STATUS_BADGE } from '../../../components/UI';
 import { getCollabQuestions, getManagerQuestions } from '../utils/questions';
 
 export default function PointCard({ p, collabId, settings, objectifs = [] }) {
@@ -10,6 +10,8 @@ export default function PointCard({ p, collabId, settings, objectifs = [] }) {
   const [saving, setSaving] = useState(false);
   const md = p.manager_data||{}; const cd = p.collab_data||{};
   const locked = isEntretienLocked(p.mois);
+  const daysLeft = daysUntilEntretienLock(p.mois);
+  const closeToLock = !locked && daysLeft !== null && daysLeft <= 10;
   const status = getEntretienStatus(p);
   const statusBadge = locked ? {label:'🔒 Verrouillé',type:'gray'} : ENTRETIEN_STATUS_BADGE[status];
 
@@ -65,6 +67,7 @@ export default function PointCard({ p, collabId, settings, objectifs = [] }) {
       </div>
       {open && <div style={{padding:'0 18px 18px',borderTop:'1px solid var(--lavender)'}}>
         {locked && <div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.78rem',color:'var(--muted)',marginTop:10,marginBottom:10}}>🔒 Cet entretien est verrouillé et n'est plus modifiable.</div>}
+        {closeToLock && <div style={{background:'var(--bg-warning)',borderRadius:8,padding:'8px 12px',fontSize:'0.78rem',color:'var(--text-warning)',marginTop:10,marginBottom:10,borderLeft:'3px solid var(--border-warning)'}}>⏰ Il reste <strong>{daysLeft} jour{daysLeft>1?'s':''}</strong> pour compléter cet entretien (verrouillage le 5 du mois suivant).</div>}
 
         <div style={{marginTop:10,fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',color:'var(--skyblue)',marginBottom:8}}>👔 Retours Manager</div>
         {managerQuestions.map(q=>(<div key={q.key} style={{marginBottom:8}}><div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)',marginBottom:2}}>{q.label}</div><div style={{background:'var(--offwhite)',borderRadius:8,padding:'8px 12px',fontSize:'0.85rem',color:md[q.key]?'var(--navy)':'var(--muted)',fontStyle:md[q.key]?'normal':'italic'}}>{md[q.key]||'Non renseigné'}</div></div>))}

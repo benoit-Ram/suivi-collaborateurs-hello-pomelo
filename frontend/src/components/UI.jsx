@@ -268,19 +268,26 @@ export function getAbsenceDays(collabId, rangeStart, rangeEnd, absences) {
   return total;
 }
 
-/** Calculate leave balance for a collaborateur */
+/** Calculate leave balance for a collaborateur.
+ * `solde_conges` = balance as of `solde_reference_date` (or `date_entree` if no manual edit).
+ * Accrual and taken days are counted from that anchor onward. */
 export function calculateSolde(collab, absences, settings) {
   const soldeInit = collab.solde_conges || 0;
   const acq = collab.acquisition_conges || 2.08;
+  const anchor = collab.solde_reference_date || collab.date_entree;
   let moisAcq = 0;
-  if (collab.date_entree) {
-    const e = new Date(collab.date_entree);
+  if (anchor) {
+    const e = new Date(anchor);
     const n = new Date();
     moisAcq = Math.max(0, (n.getFullYear() - e.getFullYear()) * 12 + (n.getMonth() - e.getMonth()));
   }
   const acquis = Math.round(moisAcq * acq * 100) / 100;
-  const pris = (absences || []).filter(a => a.statut === 'approuve' && absenceDeductsSolde(a.type, settings)).reduce((s, a) => s + absenceDays(a), 0);
-  return { soldeInit, acq, moisAcq, acquis, pris, solde: Math.round((soldeInit + acquis - pris) * 100) / 100 };
+  const anchorStr = anchor ? (typeof anchor === 'string' ? anchor : new Date(anchor).toISOString().split('T')[0]) : null;
+  const pris = (absences || [])
+    .filter(a => a.statut === 'approuve' && absenceDeductsSolde(a.type, settings))
+    .filter(a => !anchorStr || (a.date_debut && a.date_debut >= anchorStr))
+    .reduce((s, a) => s + absenceDays(a), 0);
+  return { soldeInit, acq, moisAcq, acquis, pris, anchor: anchorStr, solde: Math.round((soldeInit + acquis - pris) * 100) / 100 };
 }
 
 // ── ENTRETIEN RH HELPERS ──
@@ -289,6 +296,17 @@ export function isEntretienLocked(mois) {
   const [year, month] = mois.split('-').map(Number);
   // Verrouillé le 5 du mois suivant
   return new Date() >= new Date(year, month, 5);
+}
+
+/** Days remaining before a mensuel entretien locks on the 5th of month after `mois`.
+ * Returns null if already locked or no mois provided. */
+export function daysUntilEntretienLock(mois) {
+  if (!mois) return null;
+  const [year, month] = mois.split('-').map(Number);
+  const lockDate = new Date(year, month, 5); // 5th of month after `mois`
+  const now = new Date();
+  if (now >= lockDate) return null;
+  return Math.ceil((lockDate - now) / 86400000);
 }
 
 export function getEntretienStatus(point) {

@@ -275,6 +275,16 @@ ALTER TABLE assignments ADD COLUMN IF NOT EXISTS notes text;
 ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS missions_access boolean DEFAULT false;
 ```
 
+## Migration v17 — Date de référence du solde congés
+
+```sql
+-- Date à laquelle un admin a défini manuellement le solde_conges.
+-- Si renseignée, le calcul "acquis" et "pris" démarre à partir de cette date
+-- (solde_conges représente alors le solde réel à cette date).
+-- Sinon, fallback sur date_entree (comportement historique).
+ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS solde_reference_date date;
+```
+
 ## Migration v15 — Demandes de staffing
 
 ```sql
