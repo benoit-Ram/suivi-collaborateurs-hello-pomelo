@@ -203,14 +203,16 @@ export default function Settings() {
                 <th style={{textAlign:'left',minWidth:150}}>Collaborateur</th>
                 <th style={{textAlign:'center',width:80}}>Admin</th>
                 <th style={{textAlign:'center',width:80}}>Missions <span style={{background:'#FDE68A',color:'#92400E',fontSize:'0.5rem',fontWeight:800,padding:'0px 3px',borderRadius:3}}>bêta</span></th>
+                <th style={{textAlign:'center',width:80}} title="Staffable = questions staffables. Désactivé = support.">Staffable</th>
               </tr></thead>
               <tbody>{collabs.map(c => {
                 const isSA = (c.email||'').toLowerCase() === SUPER_ADMIN_EMAIL;
                 const isAdm = c.is_admin === true;
                 const hasMissions = c.missions_access === true;
+                const isStaffable = c.groupe_entretien === 'staffable';
                 const toggleStyle = (on) => ({position:'relative',display:'inline-block',width:40,height:22,cursor:isSA?'not-allowed':'pointer'});
                 const trackStyle = (on) => ({position:'absolute',inset:0,borderRadius:11,background:on?'var(--green)':'var(--lavender)',transition:'background 0.2s'});
-                const thumbStyle = (on) => ({position:'absolute',top:2,left:on?20:2,width:18,height:18,borderRadius:9,background:'white',boxShadow:'0 1px 3px rgba(0,0,0,0.2)',transition:'left 0.2s'});
+                const thumbStyle = (on) => ({position:'absolute',top:2,left:on?20:2,width:18,height:18,borderRadius:9,background:'var(--white)',boxShadow:'0 1px 3px rgba(0,0,0,0.2)',transition:'left 0.2s'});
                 return <tr key={c.id}>
                   <td style={{padding:'8px 10px'}}>
                     <div style={{display:'flex',alignItems:'center',gap:8}}>
@@ -240,6 +242,17 @@ export default function Settings() {
                         showToast(!hasMissions ? `Missions activé pour ${c.prenom}` : `Missions désactivé pour ${c.prenom}`);
                       }} style={{opacity:0,width:0,height:0}} />
                       <span style={trackStyle(hasMissions)} /><span style={thumbStyle(hasMissions)} />
+                    </label>
+                  </td>
+                  <td style={{textAlign:'center',padding:'8px 4px'}}>
+                    <label style={toggleStyle(isStaffable)} title={isStaffable ? 'Staffable — questions staffables' : 'Support — questions support'}>
+                      <input type="checkbox" checked={isStaffable} onChange={async()=>{
+                        const next = isStaffable ? 'support' : 'staffable';
+                        await api.updateCollaborateur(c.id, { groupe_entretien: next });
+                        await reload();
+                        showToast(`${c.prenom} : ${next === 'staffable' ? 'staffable ✓' : 'support'}`);
+                      }} style={{opacity:0,width:0,height:0}} />
+                      <span style={trackStyle(isStaffable)} /><span style={thumbStyle(isStaffable)} />
                     </label>
                   </td>
                 </tr>;
