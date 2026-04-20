@@ -142,7 +142,7 @@ export default function CollabProfile() {
 
       {tab === 'missions' && <FadeIn><CollabMissionsTab collabId={c.id} collabName={`${c.prenom} ${c.nom}`} navigate={navigate} /></FadeIn>}
 
-      {tab === 'points' && <FadeIn><div>{points.length===0?<EmptyState icon="📋" text="Aucun point" />:points.map(p=><PointCard key={p.id} p={p} settings={settings} objectifs={objs} onSave={async(pid,md)=>{try{await api.updatePointSuivi(pid,{manager_data:md});await reload();showToast('Point enregistré !')}catch(e){showToast('Erreur: '+e.message)}}} />)}</div></FadeIn>}
+      {tab === 'points' && <FadeIn><div>{points.length===0?<EmptyState icon="📋" text="Aucun point" />:points.map(p=><PointCard key={p.id} p={p} collab={c} settings={settings} objectifs={objs} onSave={async(pid,md)=>{try{await api.updatePointSuivi(pid,{manager_data:md});await reload();showToast('Point enregistré !')}catch(e){showToast('Erreur: '+e.message)}}} />)}</div></FadeIn>}
 
       {tab === 'onboarding' && <FadeIn><OnboardingTab collab={c} onSave={async(data)=>{try{await api.updateCollaborateur(c.id,{onboarding:data});await reload();showToast('Onboarding mis à jour !')}catch(e){showToast('Erreur: '+e.message)}}} /></FadeIn>}
 
@@ -183,14 +183,14 @@ function ObjCard({ o, i, onEdit, onDelete }) {
   );
 }
 
-function PointCard({ p, onSave, settings, objectifs = [] }) {
+function PointCard({ p, onSave, settings, collab, objectifs = [] }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({});
   const md = p.manager_data||{}; const cd = p.collab_data||{};
   const locked = isEntretienLocked(p.mois);
-  const managerQs = getManagerQuestions(settings || {}).questions;
-  const collabQs = getCollabQuestions(settings || {});
+  const managerQs = getManagerQuestions(settings || {}, collab).questions;
+  const collabQs = getCollabQuestions(settings || {}, collab);
   const managerKeySet = new Set(managerQs.map(q => q.key));
   const collabKeySet = new Set(collabQs.map(q => q.key));
   const objById = Object.fromEntries((objectifs || []).map(o => [o.id, o]));

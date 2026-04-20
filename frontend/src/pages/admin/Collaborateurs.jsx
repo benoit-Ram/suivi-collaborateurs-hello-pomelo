@@ -38,12 +38,12 @@ export default function Collaborateurs() {
     return (va < vb ? -1 : va > vb ? 1 : 0) * (sortAsc ? 1 : -1);
   });
 
-  const openAdd = () => { setEditing(null); setForm({ prenom:'',nom:'',poste:'',email:'',telephone:'',date_entree:'',bureau:'',equipe:'',contrat:'',type_poste:'',manager_id:'' }); setModalOpen(true); };
+  const openAdd = () => { setEditing(null); setForm({ prenom:'',nom:'',poste:'',email:'',telephone:'',date_entree:'',bureau:'',equipe:'',contrat:'',type_poste:'',groupe_entretien:'',manager_id:'' }); setModalOpen(true); };
   const openEdit = (c) => { setEditing(c.id); setForm({ ...c, manager_id: c.manager_id||'' }); setModalOpen(true); };
 
   const save = async () => {
     if (!form.prenom || !form.nom || !form.poste) { showToast('Prénom, nom et poste obligatoires'); return; }
-    const row = { prenom:form.prenom, nom:form.nom, poste:form.poste, email:form.email||null, telephone:form.telephone||null, date_entree:form.date_entree||null, bureau:form.bureau||null, equipe:form.equipe||null, contrat:form.contrat||null, type_poste:form.type_poste||null, manager_id:form.manager_id||null };
+    const row = { prenom:form.prenom, nom:form.nom, poste:form.poste, email:form.email||null, telephone:form.telephone||null, date_entree:form.date_entree||null, bureau:form.bureau||null, equipe:form.equipe||null, contrat:form.contrat||null, type_poste:form.type_poste||null, groupe_entretien:form.groupe_entretien||null, manager_id:form.manager_id||null };
     const openedFromProfile = !!(editing && searchParams.get('edit'));
     try {
       if (editing) await api.updateCollaborateur(editing, row);
@@ -127,6 +127,13 @@ export default function Collaborateurs() {
             <select value={form.type_poste||''} onChange={e=>setForm({...form,type_poste:e.target.value})}>
               <option value="">— Choisir —</option>
               {(settings.typePostes||[]).map(v=><option key={v} value={v}>{v}</option>)}
+            </select>
+          </div>
+          <div className="form-field"><label>Groupe entretien</label>
+            <select value={form.groupe_entretien||''} onChange={e=>setForm({...form,groupe_entretien:e.target.value})} title="Détermine quelles questions mensuelles sont posées">
+              <option value="">— Les deux groupes —</option>
+              <option value="staffable">Staffable</option>
+              <option value="support">Support</option>
             </select>
           </div>
           <div className="form-field full"><label>Équipe(s)</label>

@@ -299,6 +299,17 @@ CREATE UNIQUE INDEX IF NOT EXISTS uniq_objectif_parent_periode
   WHERE parent_id IS NOT NULL AND periode IS NOT NULL;
 ```
 
+## Migration v19 — Groupe d'entretien (staffable / support)
+
+```sql
+-- Groupe utilisé pour filtrer les questions d'entretien mensuel.
+-- Valeurs attendues : 'staffable' | 'support' | NULL (les deux groupes).
+ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS groupe_entretien text;
+```
+
+Côté settings, les questions `questions_manager` / `questions_collab` acceptent un champ optionnel
+`groupes: ['staffable'] | ['support'] | ['staffable','support']`. Absence du champ = visible par tous.
+
 ## Migration v15 — Demandes de staffing
 
 ```sql

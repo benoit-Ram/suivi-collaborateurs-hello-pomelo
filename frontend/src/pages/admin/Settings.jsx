@@ -274,8 +274,11 @@ export default function Settings() {
   );
 }
 
+const GROUPE_LABELS = { staffable: 'Staffable', support: 'Support' };
+
 function QuestionEditor({ settingsKey, label, questions, onSave }) {
-  const [list, setList] = useState(questions.map(q => typeof q==='string'?{label:q,type:'texte',obligatoire:true}:q));
+  const normalize = (q) => typeof q==='string' ? {label:q,type:'texte',obligatoire:true} : { obligatoire: true, ...q };
+  const [list, setList] = useState(questions.map(normalize));
   const [newQ, setNewQ] = useState({label:'',type:'texte',obligatoire:true});
   const [preview, setPreview] = useState(false);
 
@@ -294,8 +297,17 @@ function QuestionEditor({ settingsKey, label, questions, onSave }) {
   const edit = (i, field, val) => {
     const l=[...list]; l[i]={...l[i],[field]:val}; setList(l);
   };
+  const toggleGroupe = (i, g) => {
+    const l=[...list];
+    const cur = Array.isArray(l[i].groupes) ? l[i].groupes : [];
+    const next = cur.includes(g) ? cur.filter(x=>x!==g) : [...cur, g];
+    // empty array → remove the field (shown to everyone)
+    if (next.length === 0) { const { groupes, ...rest } = l[i]; l[i] = rest; }
+    else l[i] = { ...l[i], groupes: next };
+    setList(l);
+  };
 
-  const hasChanges = JSON.stringify(list) !== JSON.stringify(questions.map(q => typeof q==='string'?{label:q,type:'texte',obligatoire:true}:q));
+  const hasChanges = JSON.stringify(list) !== JSON.stringify(questions.map(normalize));
 
   return (
     <div className="card">
@@ -324,23 +336,31 @@ function QuestionEditor({ settingsKey, label, questions, onSave }) {
           ))}
         </div>
       ) : <>
-        {list.map((q,i) => (
-          <div key={i} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',border:'1.5px solid var(--lavender)',borderRadius:10,marginBottom:6}}>
+        <div style={{fontSize:'0.72rem',color:'var(--muted)',marginBottom:8}}>💡 Cochez "Staffable" ou "Support" pour n'afficher la question qu'à ce groupe. Aucune case = tous les collaborateurs.</div>
+        {list.map((q,i) => {
+          const groupes = Array.isArray(q.groupes) ? q.groupes : [];
+          return (
+          <div key={i} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',border:'1.5px solid var(--lavender)',borderRadius:10,marginBottom:6,flexWrap:'wrap'}}>
             <div style={{display:'flex',flexDirection:'column',gap:2}}>
               <button className="btn btn-ghost btn-sm" style={{padding:'1px 4px',lineHeight:1}} onClick={()=>move(i,-1)} disabled={i===0}>▲</button>
               <button className="btn btn-ghost btn-sm" style={{padding:'1px 4px',lineHeight:1}} onClick={()=>move(i,1)} disabled={i===list.length-1}>▼</button>
             </div>
-            <input value={q.label} onChange={e=>edit(i,'label',e.target.value)} style={{flex:1,border:'none',fontFamily:'inherit',fontSize:'0.85rem',fontWeight:600,color:'var(--navy)',outline:'none',background:'transparent'}} />
+            <input value={q.label} onChange={e=>edit(i,'label',e.target.value)} style={{flex:1,minWidth:140,border:'none',fontFamily:'inherit',fontSize:'0.85rem',fontWeight:600,color:'var(--navy)',outline:'none',background:'transparent'}} />
             <select value={q.type||'texte'} onChange={e=>edit(i,'type',e.target.value)} style={{border:'1.5px solid var(--lavender)',borderRadius:6,padding:'4px 8px',fontSize:'0.75rem',fontFamily:'inherit'}}>
               <option value="texte">Texte</option>
               <option value="notation">Notation 1-5</option>
             </select>
+            {['staffable','support'].map(g => (
+              <label key={g} style={{display:'flex',alignItems:'center',gap:3,fontSize:'0.7rem',color:groupes.includes(g)?'var(--pink)':'var(--muted)',cursor:'pointer',whiteSpace:'nowrap',fontWeight:700}} title={`Afficher aux ${GROUPE_LABELS[g]}`}>
+                <input type="checkbox" checked={groupes.includes(g)} onChange={()=>toggleGroupe(i,g)} style={{accentColor:'var(--pink)'}} /> {GROUPE_LABELS[g]}
+              </label>
+            ))}
             <label style={{display:'flex',alignItems:'center',gap:4,fontSize:'0.72rem',color:'var(--muted)',cursor:'pointer',whiteSpace:'nowrap'}} title="Question obligatoire">
               <input type="checkbox" checked={q.obligatoire!==false} onChange={e=>edit(i,'obligatoire',e.target.checked)} style={{accentColor:'var(--pink)'}} /> Req.
             </label>
             <button className="btn btn-danger btn-sm" style={{padding:'3px 6px'}} onClick={()=>remove(i)}>✕</button>
           </div>
-        ))}
+        );})}
         <div style={{display:'flex',gap:8,marginTop:10,alignItems:'end'}}>
           <input value={newQ.label} onChange={e=>setNewQ({...newQ,label:e.target.value})} onKeyDown={e=>{if(e.key==='Enter')add();}} placeholder="Nouvelle question..."
             style={{flex:1,border:'1.5px solid var(--lavender)',borderRadius:8,padding:'8px 12px',fontFamily:'inherit',fontSize:'0.85rem',outline:'none'}} />

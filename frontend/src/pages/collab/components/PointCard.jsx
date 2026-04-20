@@ -3,7 +3,7 @@ import { api } from '../../../services/api';
 import { Badge, Modal, moisLabel, fmtDate, isEntretienLocked, daysUntilEntretienLock, getEntretienStatus, ENTRETIEN_STATUS_BADGE } from '../../../components/UI';
 import { getCollabQuestions, getManagerQuestions } from '../utils/questions';
 
-export default function PointCard({ p, collabId, settings, objectifs = [] }) {
+export default function PointCard({ p, collabId, collab, settings, objectifs = [] }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({});
@@ -15,8 +15,8 @@ export default function PointCard({ p, collabId, settings, objectifs = [] }) {
   const status = getEntretienStatus(p);
   const statusBadge = locked ? {label:'🔒 Verrouillé',type:'gray'} : ENTRETIEN_STATUS_BADGE[status];
 
-  const collabQuestions = getCollabQuestions(settings);
-  const managerQuestions = getManagerQuestions(settings).questions;
+  const collabQuestions = getCollabQuestions(settings, collab);
+  const managerQuestions = getManagerQuestions(settings, collab).questions;
   const activeObjectifs = objectifs.filter(o => o.statut !== 'atteint');
 
   const startEdit = () => {

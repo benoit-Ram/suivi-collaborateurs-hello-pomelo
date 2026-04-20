@@ -300,7 +300,7 @@ export default function CollabAccueil() {
 
       {/* POINTS */}
       {tab==='points' && <FadeIn><div>
-        {points.length===0 ? <EmptyState icon="📋" text="Aucun entretien RH" /> : points.map(p => <PointCard key={p.id} p={p} collabId={c.id} settings={settings} objectifs={c.objectifs||[]} />)}
+        {points.length===0 ? <EmptyState icon="📋" text="Aucun entretien RH" /> : points.map(p => <PointCard key={p.id} p={p} collabId={c.id} collab={c} settings={settings} objectifs={c.objectifs||[]} />)}
       </div></FadeIn>}
 
       {/* CONGÉS */}
