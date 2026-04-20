@@ -44,9 +44,20 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
+            set -euo pipefail
+            # Source NVM if present (non-interactive SSH sessions don't run .bashrc)
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            # Fallback: try common system paths for node/npm
+            if ! command -v npm >/dev/null 2>&1; then
+              export PATH="/usr/local/bin:/usr/bin:$PATH"
+            fi
+            echo "Using node=$(command -v node) npm=$(command -v npm)"
+            node --version
+            npm --version
             cd /home/ubuntu/suivi-collaborateurs-hello-pomelo
-            cd backend && npm ci --production
-            cd ../frontend && npm ci --production
+            cd backend && npm ci --omit=dev
+            cd ../frontend && npm ci --omit=dev
             sudo systemctl restart hp-backend
             sudo systemctl restart hp-frontend
             echo "Deploy done at $(date)"
