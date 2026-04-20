@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useData } from '../../services/DataContext';
+import { useAuth } from '../../services/AuthContext';
 import { api } from '../../services/api';
 import { Avatar, PageHeader, Modal, ConfirmModal, FadeIn, Skeleton, fmtDate } from '../../components/UI';
 
+const SUPER_ADMIN_EMAIL = 'benoit@hello-pomelo.com';
+
 export default function Collaborateurs() {
   const { collabs, settings, showToast, getManagerName, reload } = useData();
+  const { isSuperAdmin, reloadCollabs } = useAuth();
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState('nom');
   const [sortAsc, setSortAsc] = useState(true);
@@ -85,10 +89,20 @@ export default function Collaborateurs() {
             <th style={{cursor:'pointer'}} onClick={()=>sort('equipe')}>Équipe{sortIcon('equipe')}</th>
             <th style={{cursor:'pointer'}} onClick={()=>sort('manager')}>Manager{sortIcon('manager')}</th>
             <th style={{cursor:'pointer'}} onClick={()=>sort('dateEntree')}>Entrée{sortIcon('dateEntree')}</th>
+            {isSuperAdmin && <th style={{textAlign:'center'}}>Admin</th>}
+            {isSuperAdmin && <th style={{textAlign:'center'}}>Missions <span style={{background:'#FDE68A',color:'#92400E',fontSize:'0.5rem',fontWeight:800,padding:'0px 3px',borderRadius:3}}>bêta</span></th>}
+            {isSuperAdmin && <th style={{textAlign:'center'}} title="Staffable = questions staffables. Désactivé = support.">Staffable</th>}
             <th>Actions</th>
           </tr></thead>
-          <tbody>{list.map(c => (
-            <tr key={c.id}>
+          <tbody>{list.map(c => {
+            const isSA = (c.email||'').toLowerCase() === SUPER_ADMIN_EMAIL;
+            const isAdm = c.is_admin === true;
+            const hasMissions = c.missions_access === true;
+            const isStaffable = c.groupe_entretien === 'staffable';
+            const toggleStyle = (disabled) => ({position:'relative',display:'inline-block',width:40,height:22,cursor:disabled?'not-allowed':'pointer'});
+            const trackStyle = (on) => ({position:'absolute',inset:0,borderRadius:11,background:on?'var(--green)':'var(--lavender)',transition:'background 0.2s'});
+            const thumbStyle = (on) => ({position:'absolute',top:2,left:on?20:2,width:18,height:18,borderRadius:9,background:'var(--white)',boxShadow:'0 1px 3px rgba(0,0,0,0.2)',transition:'left 0.2s'});
+            return <tr key={c.id}>
               <td><div style={{display:'flex',alignItems:'center',gap:10}}>
                 <Avatar prenom={c.prenom} nom={c.nom} photoUrl={c.photo_url} size={32} />
                 <div><div style={{fontWeight:700}}>{c.prenom} {c.nom}</div><div style={{fontSize:'0.72rem',color:'var(--muted)'}}>{c.email}</div></div>
@@ -97,13 +111,51 @@ export default function Collaborateurs() {
               <td>{c.equipe || '—'}</td>
               <td>{c.manager_id ? getManagerName(c.manager_id) : '—'}</td>
               <td>{fmtDate(c.date_entree)}</td>
+              {isSuperAdmin && <td style={{textAlign:'center'}}>
+                {isSA ? <span style={{fontSize:'0.6rem',color:'var(--muted)'}} title="Super Admin — non modifiable">🔒</span> :
+                <label style={toggleStyle(false)}>
+                  <input type="checkbox" checked={isAdm} onChange={async()=>{
+                    try {
+                      await api.updateCollaborateur(c.id, { is_admin: !isAdm });
+                      await reload(); await reloadCollabs();
+                      showToast(!isAdm ? `${c.prenom} est admin` : `${c.prenom} n'est plus admin`);
+                    } catch(e) { showToast('Erreur: '+e.message); }
+                  }} style={{opacity:0,width:0,height:0}} />
+                  <span style={trackStyle(isAdm)} /><span style={thumbStyle(isAdm)} />
+                </label>}
+              </td>}
+              {isSuperAdmin && <td style={{textAlign:'center'}}>
+                <label style={toggleStyle(false)}>
+                  <input type="checkbox" checked={hasMissions} onChange={async()=>{
+                    try {
+                      await api.updateCollaborateur(c.id, { missions_access: !hasMissions });
+                      await reload();
+                      showToast(!hasMissions ? `Missions activé pour ${c.prenom}` : `Missions désactivé pour ${c.prenom}`);
+                    } catch(e) { showToast('Erreur: '+e.message); }
+                  }} style={{opacity:0,width:0,height:0}} />
+                  <span style={trackStyle(hasMissions)} /><span style={thumbStyle(hasMissions)} />
+                </label>
+              </td>}
+              {isSuperAdmin && <td style={{textAlign:'center'}}>
+                <label style={toggleStyle(false)} title={isStaffable ? 'Staffable — questions staffables' : 'Support — questions support'}>
+                  <input type="checkbox" checked={isStaffable} onChange={async()=>{
+                    try {
+                      const next = isStaffable ? 'support' : 'staffable';
+                      await api.updateCollaborateur(c.id, { groupe_entretien: next });
+                      await reload();
+                      showToast(`${c.prenom} : ${next === 'staffable' ? 'staffable ✓' : 'support'}`);
+                    } catch(e) { showToast('Erreur: '+e.message); }
+                  }} style={{opacity:0,width:0,height:0}} />
+                  <span style={trackStyle(isStaffable)} /><span style={thumbStyle(isStaffable)} />
+                </label>
+              </td>}
               <td><div style={{display:'flex',gap:6}}>
                 <button className="btn btn-ghost btn-sm" onClick={()=>navigate(`/admin/collaborateurs/${c.id}`)}>Voir</button>
                 <button className="btn btn-ghost btn-sm" aria-label="Modifier" onClick={()=>openEdit(c)}>✏️</button>
                 <button className="btn btn-danger btn-sm" aria-label="Supprimer" onClick={()=>setConfirmDel(c.id)}>🗑️</button>
               </div></td>
-            </tr>
-          ))}</tbody>
+            </tr>;
+          })}</tbody>
         </table>
       </div>
       <Modal open={modalOpen} onClose={()=>setModalOpen(false)} title={editing ? 'Modifier' : 'Ajouter'}>
