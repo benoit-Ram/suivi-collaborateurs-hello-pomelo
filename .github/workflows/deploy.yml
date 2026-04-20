@@ -45,11 +45,19 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             set -euo pipefail
-            # Source NVM if present (non-interactive SSH sessions don't run .bashrc)
-            export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            # Fallback: try common system paths for node/npm
+            # The VPS uses fnm (fast node manager). Non-interactive SSH does not
+            # run .bashrc, so we add the active node version's bin to PATH
+            # (same path used by the systemd units in hp-backend.service).
+            FNM_NODE_DIR="$HOME/.local/share/fnm/node-versions"
+            if [ -d "$FNM_NODE_DIR" ]; then
+              ACTIVE_NODE="$(ls "$FNM_NODE_DIR" 2>/dev/null | sort -V | tail -1)"
+              if [ -n "$ACTIVE_NODE" ]; then
+                export PATH="$FNM_NODE_DIR/$ACTIVE_NODE/installation/bin:$PATH"
+              fi
+            fi
+            # Fallbacks: NVM or system paths
             if ! command -v npm >/dev/null 2>&1; then
+              [ -s "$HOME/.nvm/nvm.sh" ] && \. "$HOME/.nvm/nvm.sh"
               export PATH="/usr/local/bin:/usr/bin:$PATH"
             fi
             echo "Using node=$(command -v node) npm=$(command -v npm)"
