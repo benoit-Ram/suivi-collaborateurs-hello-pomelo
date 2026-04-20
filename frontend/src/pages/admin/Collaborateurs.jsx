@@ -42,7 +42,7 @@ export default function Collaborateurs() {
     return (va < vb ? -1 : va > vb ? 1 : 0) * (sortAsc ? 1 : -1);
   });
 
-  const openAdd = () => { setEditing(null); setForm({ prenom:'',nom:'',poste:'',email:'',telephone:'',date_entree:'',bureau:'',equipe:'',contrat:'',type_poste:'',groupe_entretien:'',manager_id:'' }); setModalOpen(true); };
+  const openAdd = () => { setEditing(null); setForm({ prenom:'',nom:'',poste:'',email:'',telephone:'',date_entree:'',bureau:'',equipe:'',contrat:'',type_poste:'',groupe_entretien:'staffable',manager_id:'' }); setModalOpen(true); };
   const openEdit = (c) => { setEditing(c.id); setForm({ ...c, manager_id: c.manager_id||'' }); setModalOpen(true); };
 
   const save = async () => {
@@ -181,12 +181,11 @@ export default function Collaborateurs() {
               {(settings.typePostes||[]).map(v=><option key={v} value={v}>{v}</option>)}
             </select>
           </div>
-          <div className="form-field"><label>Groupe entretien</label>
-            <select value={form.groupe_entretien||''} onChange={e=>setForm({...form,groupe_entretien:e.target.value})} title="Détermine quelles questions mensuelles sont posées">
-              <option value="">— Les deux groupes —</option>
-              <option value="staffable">Staffable</option>
-              <option value="support">Support</option>
-            </select>
+          <div className="form-field"><label>Staffable</label>
+            <label style={{display:'flex',alignItems:'center',gap:8,padding:'8px 0',cursor:'pointer',fontSize:'0.85rem',color:'var(--navy)'}} title="Coché = staffable (questions staffables). Décoché = support.">
+              <input type="checkbox" checked={form.groupe_entretien==='staffable'} onChange={e=>setForm({...form,groupe_entretien:e.target.checked?'staffable':'support'})} style={{accentColor:'var(--pink)',width:18,height:18}} />
+              <span style={{fontSize:'0.78rem',color:'var(--muted)'}}>{form.groupe_entretien==='staffable' ? 'Staffable — reçoit les questions staffables' : 'Support — reçoit les questions support'}</span>
+            </label>
           </div>
           <div className="form-field full"><label>Équipe(s)</label>
             <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
