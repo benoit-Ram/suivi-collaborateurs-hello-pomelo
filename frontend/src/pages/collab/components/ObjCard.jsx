@@ -21,7 +21,7 @@ export default function ObjCard({ o, i, collabId, managerId }) {
     api.getObjectifRequests({ statut: 'en_attente' }).then(reqs => {
       const mine = (reqs || []).find(r => r.objectif_id === o.id);
       if (mine) setPendingReq(mine);
-    }).catch(() => {});
+    }).catch(e => console.warn('Objectif request check failed:', e.message));
   }, [collabId, o.id, sent]);
 
   const submitProposal = async () => {

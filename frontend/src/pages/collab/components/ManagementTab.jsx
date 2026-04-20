@@ -23,7 +23,7 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
       // Filter to team members only
       const teamIds = team.map(m => m.id);
       setObjRequests((reqs || []).filter(r => teamIds.includes(r.collaborateur_id)));
-    }).catch(() => {});
+    }).catch(e => console.warn('Objectif requests (manager) fetch failed:', e.message));
   }, [team]);
 
   const approveObjReq = async (id) => {
@@ -347,6 +347,9 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
               <button className="btn btn-ghost btn-sm" style={{padding:'4px 8px'}} title="Dupliquer" onClick={()=>openDuplicateObj(o)}>📋</button>
               <button className="btn btn-danger btn-sm" style={{padding:'4px 8px'}} onClick={()=>deleteObj(o.id)}>🗑️</button>
             </div>
+            {o.historique?.length>0 && <details style={{marginTop:8}}><summary style={{fontSize:'0.72rem',color:'var(--muted)',cursor:'pointer',fontWeight:700}}>📜 Historique ({o.historique.length})</summary>
+              {[...o.historique].reverse().map((h,hi)=><div key={hi} style={{display:'flex',gap:8,padding:'6px 8px',background:'var(--offwhite)',borderRadius:6,marginTop:4,fontSize:'0.75rem'}}><span style={{color:'var(--muted)',fontWeight:600,minWidth:70}}>{fmtDate(h.date)}</span><div><strong>{h.auteur}</strong>{h.changes?.map((ch,ci)=><div key={ci} style={{color:'var(--muted)'}}>{ch.champ}: <span style={{textDecoration:'line-through',color:'var(--red)'}}>{ch.avant}</span> → <span style={{color:'var(--green)',fontWeight:600}}>{ch.apres}</span></div>)}</div></div>)}
+            </details>}
           </div>
         ))}</>}
         {mObjs.length===0 && <EmptyState icon="🎯" text="Aucun objectif" />}

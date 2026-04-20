@@ -55,11 +55,11 @@ export default function Dashboard() {
   }, [collabs]);
 
   useEffect(() => {
-    api.getActivityLog(15).then(setActivityLog).catch(() => {});
+    api.getActivityLog(15).then(setActivityLog).catch(e => console.warn('Activity log fetch failed:', e.message));
     api.getObjectifRequests({statut:'en_attente'}).then(reqs => {
       // Admin sees only requests without a manager (manager handles their own)
       setObjRequests((reqs||[]).filter(r => !r.manager_id));
-    }).catch(() => {});
+    }).catch(e => console.warn('Objectif requests fetch failed:', e.message));
   }, []);
 
   if (loading) return <div style={{maxWidth:600,margin:'40px auto'}}><Skeleton lines={5} /></div>;

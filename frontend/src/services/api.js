@@ -109,5 +109,5 @@ export const api = {
 
   // Activity Log
   getActivityLog: (limit) => request(`/activity-log?limit=${limit || 50}`),
-  logActivity: (action, auteur, cible, details) => request('/activity-log', { method: 'POST', body: { action, auteur, cible, details } }).catch(() => {}),
+  logActivity: (action, auteur, cible, details) => request('/activity-log', { method: 'POST', body: { action, auteur, cible, details } }).catch(e => console.warn('logActivity failed:', e.message)),
 };

@@ -154,6 +154,24 @@ export function FadeIn({ children }) {
 // ── CONSTANTS ──
 export const STATUS_LABELS = { 'en-cours': 'En cours', 'atteint': 'Atteint ✓', 'non-atteint': 'Non atteint', 'en-attente': 'En attente' };
 export const STATUS_COLORS = { 'en-cours': 'blue', 'atteint': 'green', 'non-atteint': 'orange', 'en-attente': 'gray' };
+/** Form field wrapper: label (with optional required *), children (input/select/textarea), optional hint.
+ * Replaces the inline pattern `<div className="form-field"><label>...</label><input/></div>`.
+ * Props: label, required, hint, full (spans both grid columns), children, labelFor. */
+export function FormField({ label, required, hint, full, labelFor, children }) {
+  return (
+    <div className={full ? 'form-field full' : 'form-field'}>
+      {label != null && (
+        <label htmlFor={labelFor}>
+          {label}
+          {required && <span style={{ color: 'var(--red)' }}> *</span>}
+        </label>
+      )}
+      {children}
+      {hint && <div style={{ fontSize: '0.68rem', color: 'var(--muted)', marginTop: 2 }}>{hint}</div>}
+    </div>
+  );
+}
+
 /** Consistent tabs component used across admin pages (Missions, Absences, CollabProfile, ...).
  * Props: items = [[key, label], ...] or [{key, label, badge}], active, onChange, compact. */
 export function Tabs({ items, active, onChange, compact = false, scrollable = true }) {

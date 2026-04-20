@@ -74,7 +74,7 @@ export default function Missions() {
   const [periodType, setPeriodType] = useState(''); // '', 'week', 'month', 'q', 'year'
 
   useEffect(() => { loadData(); }, []);
-  useEffect(() => { api.getStaffingRequests({statut:'en_attente'}).then(setStaffReqs).catch(()=>{}); }, []);
+  useEffect(() => { api.getStaffingRequests({statut:'en_attente'}).then(setStaffReqs).catch(e=>console.warn('Staffing requests fetch failed:', e.message)); }, []);
 
   async function loadData() {
     try {

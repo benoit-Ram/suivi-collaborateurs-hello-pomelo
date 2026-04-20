@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useData } from '../../services/DataContext';
 import { api } from '../../services/api';
 import { useAuth } from '../../services/AuthContext';
-import { PageHeader, Badge, Avatar, Modal, FadeIn, Skeleton, Tabs, fmtDate, countWorkDays, absenceDays, getFeriesSet, calculateSolde, ABS_TYPES, ABS_STATUTS, getAbsenceTypes, absenceDeductsSolde } from '../../components/UI';
+import { PageHeader, Badge, Avatar, Modal, FadeIn, Skeleton, Tabs, FormField, fmtDate, countWorkDays, absenceDays, getFeriesSet, calculateSolde, ABS_TYPES, ABS_STATUTS, getAbsenceTypes, absenceDeductsSolde } from '../../components/UI';
 
 const ABS_BADGE = { en_attente:'orange', approuve:'green', refuse:'pink' };
 
@@ -267,14 +267,12 @@ export default function Absences() {
           ℹ️ La valeur saisie est le <strong>solde réel à aujourd'hui</strong>. L'acquisition mensuelle et les absences s'ajouteront/se déduiront à partir de ce jour.
         </div>
         <div className="form-grid">
-          <div className="form-field">
-            <label>Solde aujourd'hui (jours)</label>
+          <FormField label="Solde aujourd'hui (jours)">
             <input type="number" step="0.01" autoFocus value={soldeForm.solde} onChange={e=>setSoldeForm({...soldeForm,solde:e.target.value})} />
-          </div>
-          <div className="form-field">
-            <label>Acquisition/mois (jours)</label>
+          </FormField>
+          <FormField label="Acquisition/mois (jours)">
             <input type="number" step="0.01" value={soldeForm.acq} onChange={e=>setSoldeForm({...soldeForm,acq:e.target.value})} />
-          </div>
+          </FormField>
         </div>
         <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:16}}>
           <button className="btn btn-ghost" onClick={()=>setSoldeModal(null)}>Annuler</button>
