@@ -24,7 +24,9 @@ export class CollaborateursService {
   async findAll(requester?: any) {
     const { data, error } = await this.supabase.db
       .from('collaborateurs')
-      .select('*, points_suivi(*), objectifs(*)');
+      .select('*, points_suivi(*), objectifs(*)')
+      .order('nom', { ascending: true })
+      .order('prenom', { ascending: true });
     if (error) throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     return (data || []).map(c => redactCollab(c, requester));
   }
