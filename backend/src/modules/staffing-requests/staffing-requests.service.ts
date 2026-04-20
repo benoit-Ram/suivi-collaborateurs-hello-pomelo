@@ -29,16 +29,20 @@ export class StaffingRequestsService {
   }
 
   async approve(id: string) {
-    // Get the request
-    const { data: req, error: fetchErr } = await this.supabase.db
+    // Atomic guard: transition en_attente → approuve. Only one caller wins.
+    const { data: req, error: claimErr } = await this.supabase.db
       .from('staffing_requests')
-      .select('*')
+      .update({ statut: 'approuve' })
       .eq('id', id)
+      .eq('statut', 'en_attente')
+      .select()
       .single();
-    if (fetchErr || !req) throw new HttpException('Demande non trouvée', HttpStatus.NOT_FOUND);
-    if (req.statut !== 'en_attente') throw new HttpException('Demande déjà traitée', HttpStatus.BAD_REQUEST);
+    if (claimErr || !req) {
+      // Either not found, or someone else already transitioned it
+      throw new HttpException('Demande déjà traitée ou introuvable', HttpStatus.CONFLICT);
+    }
 
-    // Create the assignment
+    // Now create the assignment. If it fails, roll back the request state to en_attente.
     const { error: assignErr } = await this.supabase.db.from('assignments').insert({
       mission_id: req.mission_id,
       collaborateur_id: req.collaborateur_id,
@@ -49,17 +53,11 @@ export class StaffingRequestsService {
       date_fin: req.date_fin,
       statut: 'actif',
     });
-    if (assignErr) throw new HttpException(assignErr.message, HttpStatus.BAD_REQUEST);
-
-    // Update request status
-    const { data, error } = await this.supabase.db
-      .from('staffing_requests')
-      .update({ statut: 'approuve' })
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
-    return data;
+    if (assignErr) {
+      await this.supabase.db.from('staffing_requests').update({ statut: 'en_attente' }).eq('id', id);
+      throw new HttpException(assignErr.message, HttpStatus.BAD_REQUEST);
+    }
+    return req;
   }
 
   async refuse(id: string, motif_refus: string) {

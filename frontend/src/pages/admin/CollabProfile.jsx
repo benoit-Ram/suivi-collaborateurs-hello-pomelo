@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../../services/DataContext';
 import { api } from '../../services/api';
-import { Avatar, Badge, ProgressBar, EmptyState, Modal, FadeIn, fmtDate, moisLabel, currentMois, isEntretienLocked, STATUS_LABELS, STATUS_COLORS } from '../../components/UI';
+import { Avatar, Badge, ProgressBar, EmptyState, Modal, FadeIn, Tabs, fmtDate, moisLabel, currentMois, isEntretienLocked, STATUS_LABELS, STATUS_COLORS } from '../../components/UI';
 import { getManagerQuestions, getCollabQuestions } from '../collab/utils/questions';
 import SynthesePDFModal from '../../components/SynthesePDFModal';
 
@@ -112,11 +112,7 @@ export default function CollabProfile() {
         </div>
       </div>
 
-      <div className="tabs-scroll" style={{ display:'flex', gap:6, marginBottom:24, background:'var(--offwhite)', padding:6, borderRadius:12, overflowX:'auto' }}>
-        {tabs.map(([k,l]) => (
-          <button key={k} onClick={()=>setTab(k)} style={{ flex:'1 0 auto', padding:'10px 14px', borderRadius:10, border:tab===k?'2px solid var(--pink)':'2px solid var(--lavender)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', whiteSpace:'nowrap', background:tab===k?'var(--pink)':'transparent', color:tab===k?'white':'var(--muted)', boxShadow:tab===k?'0 4px 14px rgba(255,50,133,0.3)':'none', transition:'all 0.15s' }}>{l}</button>
-        ))}
-      </div>
+      <Tabs items={tabs} active={tab} onChange={setTab} />
 
       {tab === 'objectifs' && <FadeIn><div>
         <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:16 }}><button className="btn btn-primary btn-sm" onClick={openAddObj}>+ Objectif</button></div>

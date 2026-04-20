@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../../services/api';
-import { Avatar, Badge, Modal, ProgressBar, EmptyState, fmtDate, moisLabel, absenceDays, isEntretienLocked, daysUntilEntretienLock, ABS_TYPES, ABS_STATUTS, STATUS_COLORS, STATUS_LABELS } from '../../../components/UI';
+import { Avatar, Badge, Modal, ProgressBar, EmptyState, fmtDate, moisLabel, absenceDays, isEntretienLocked, daysUntilEntretienLock, getEntretienStatus, ENTRETIEN_STATUS_BADGE, ABS_TYPES, ABS_STATUTS, STATUS_COLORS, STATUS_LABELS } from '../../../components/UI';
 import { getManagerQuestions, getCollabQuestions } from '../utils/questions';
 import ManagerTeamCalendar from './ManagerTeamCalendar';
 
@@ -131,7 +131,7 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
             const mObjs = (m.objectifs||[]).filter(o=>o.statut!=='atteint').length;
             const mPoints = (m.points_suivi||[]).filter(p=>p.type==='mensuel');
             const lastPoint = mPoints.sort((a,b)=>(b.mois||'')>(a.mois||'')?1:-1)[0];
-            const pointStatus = lastPoint ? (Object.keys(lastPoint.manager_data||{}).some(k=>k!=='objectifs'&&(lastPoint.manager_data||{})[k]) ? 'done' : 'pending') : 'none';
+            const pointStatus = lastPoint ? (getEntretienStatus(lastPoint) === 'vide' ? 'pending' : 'done') : 'none';
             return <div key={m.id} className="card" style={{marginBottom:10,padding:16,cursor:'pointer'}} onClick={()=>{setSelectedMember(m);setView('detail');setMemberTab('objectifs');loadMemberAbs(m.id);}}>
               <div style={{display:'flex',alignItems:'center',gap:12}}>
                 <Avatar prenom={m.prenom} nom={m.nom} photoUrl={m.photo_url} size={44} />
@@ -171,13 +171,13 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
         {overviewTab==='points' && team.map(m => {
           const pts = (m.points_suivi||[]).filter(p=>p.type==='mensuel').sort((a,b)=>(b.mois||'')>(a.mois||'')?1:-1);
           const last = pts[0];
-          const md = last?.manager_data||{};
-          const hasM = Object.keys(md).filter(k=>k!=='objectifs').some(k=>md[k]);
+          const status = last ? getEntretienStatus(last) : 'vide';
+          const badge = ENTRETIEN_STATUS_BADGE[status];
           return <div key={m.id} className="card" style={{marginBottom:12,padding:16}}>
             <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8,cursor:'pointer'}} onClick={()=>{setSelectedMember(m);setView('detail');setMemberTab('points');}}>
               <Avatar prenom={m.prenom} nom={m.nom} photoUrl={m.photo_url} size={36} />
               <div style={{flex:1}}><div style={{fontWeight:700,color:'var(--blue)',fontSize:'0.9rem'}}>{m.prenom} {m.nom}</div></div>
-              <Badge type={hasM?'green':'orange'}>{hasM?'✅ Rempli':'⏳ À remplir'}</Badge>
+              <Badge type={badge.type}>{badge.label}</Badge>
             </div>
           </div>;
         })}

@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { Modal, fmtDate, moisLabel, countWorkDays, STATUS_LABELS, ABS_TYPES, ABS_STATUTS } from './UI';
+import { Modal, fmtDate, moisLabel, countWorkDays, escapeHtml, STATUS_LABELS, ABS_TYPES, ABS_STATUTS } from './UI';
+
+const e = (v) => escapeHtml(v);
 
 export default function SynthesePDFModal({ open, onClose, collab, absences, getManagerName }) {
   const [dateFrom, setDateFrom] = useState('');
@@ -19,7 +21,7 @@ export default function SynthesePDFModal({ open, onClose, collab, absences, getM
   const generate = () => {
     const win = window.open('','_blank');
     if (!win) { alert('Le popup a été bloqué. Autorisez les popups pour générer la synthèse.'); return; }
-    win.document.write(`<html><head><title>Synthèse — ${c.prenom} ${c.nom}</title>
+    win.document.write(`<html><head><title>Synthèse — ${e(c.prenom)} ${e(c.nom)}</title>
     <style>
       body{font-family:Quicksand,Arial,sans-serif;padding:32px;max-width:850px;margin:0 auto;color:#05056D;font-size:14px;line-height:1.6}
       h1{font-size:1.4rem;margin-bottom:4px}
@@ -37,8 +39,8 @@ export default function SynthesePDFModal({ open, onClose, collab, absences, getM
     </style></head><body>`);
 
     // Header
-    win.document.write(`<h1>${c.prenom} ${c.nom}</h1>`);
-    win.document.write(`<div class="meta">${c.poste} · Manager : ${manager} · ${c.equipe||''} · ${c.bureau||''}</div>`);
+    win.document.write(`<h1>${e(c.prenom)} ${e(c.nom)}</h1>`);
+    win.document.write(`<div class="meta">${e(c.poste)} · Manager : ${e(manager)} · ${e(c.equipe||'')} · ${e(c.bureau||'')}</div>`);
     if (dateFrom || dateTo) win.document.write(`<div class="meta">Période : ${dateFrom?fmtDate(dateFrom):'début'} → ${dateTo?fmtDate(dateTo):'aujourd\'hui'}</div>`);
 
     // Objectifs
@@ -52,15 +54,15 @@ export default function SynthesePDFModal({ open, onClose, collab, absences, getM
       win.document.write(`<h2>🎯 Objectifs (${objs.length})</h2>`);
       objs.forEach(o => {
         const pct = o.statut==='atteint'?100:(o.progression||0);
-        win.document.write(`<h3>${o.titre} — <span class="badge badge-${o.statut==='atteint'?'green':o.statut==='en-cours'?'orange':'pink'}">${STATUS_LABELS[o.statut]||o.statut}</span></h3>`);
-        if (o.description) win.document.write(`<div style="color:#6B6B9A;margin-bottom:6px">${o.description}</div>`);
+        win.document.write(`<h3>${e(o.titre)} — <span class="badge badge-${o.statut==='atteint'?'green':o.statut==='en-cours'?'orange':'pink'}">${e(STATUS_LABELS[o.statut]||o.statut)}</span></h3>`);
+        if (o.description) win.document.write(`<div style="color:#6B6B9A;margin-bottom:6px">${e(o.description)}</div>`);
         win.document.write(`<div class="progress"><div class="progress-fill" style="width:${pct}%;background:${o.statut==='atteint'?'#22C55E':'linear-gradient(90deg,#FF3285,#0000EA)'}"></div></div>`);
         win.document.write(`<div style="font-size:0.82rem;color:#6B6B9A">Progression : ${pct}% · Du ${fmtDate(o.date_debut)} au ${fmtDate(o.date_fin)}</div>`);
         if (inclObjHist && o.historique?.length) {
           win.document.write(`<div style="margin-top:6px;font-size:0.78rem;font-weight:700;color:#6B6B9A">Historique :</div>`);
           o.historique.forEach(h => {
-            win.document.write(`<div class="hist"><strong>${fmtDate(h.date)} — ${h.auteur}</strong>`);
-            (h.changes||[]).forEach(ch => win.document.write(`<br>${ch.champ} : <s>${ch.avant}</s> → <strong>${ch.apres}</strong>`));
+            win.document.write(`<div class="hist"><strong>${fmtDate(h.date)} — ${e(h.auteur)}</strong>`);
+            (h.changes||[]).forEach(ch => win.document.write(`<br>${e(ch.champ)} : <s>${e(ch.avant)}</s> → <strong>${e(ch.apres)}</strong>`));
             win.document.write(`</div>`);
           });
         }
@@ -80,16 +82,16 @@ export default function SynthesePDFModal({ open, onClose, collab, absences, getM
       points.forEach(p => {
         const md = p.manager_data||{};
         const cd = p.collab_data||{};
-        win.document.write(`<h3>📅 ${moisLabel(p.mois)}</h3>`);
+        win.document.write(`<h3>📅 ${e(moisLabel(p.mois))}</h3>`);
         win.document.write(`<div style="font-size:0.78rem;font-weight:700;color:#5BB6F4;margin:8px 0 4px">Manager</div>`);
         Object.entries(md).filter(([k])=>k!=='objectifs').forEach(([k,v]) => {
-          win.document.write(`<div class="field"><div class="field-label">${k}</div><div class="field-value">${v||'—'}</div></div>`);
+          win.document.write(`<div class="field"><div class="field-label">${e(k)}</div><div class="field-value">${v?e(v):'—'}</div></div>`);
         });
         win.document.write(`<div style="font-size:0.78rem;font-weight:700;color:#FF3285;margin:8px 0 4px">Collaborateur</div>`);
         Object.entries(cd).filter(([k])=>k!=='objectifs'&&k !== '_commentaire').forEach(([k,v]) => {
-          win.document.write(`<div class="field"><div class="field-label">${k}</div><div class="field-value">${v||'—'}</div></div>`);
+          win.document.write(`<div class="field"><div class="field-label">${e(k)}</div><div class="field-value">${v?e(v):'—'}</div></div>`);
         });
-        if (cd._commentaire) win.document.write(`<div class="field"><div class="field-label">Commentaire libre</div><div class="field-value">${cd._commentaire}</div></div>`);
+        if (cd._commentaire) win.document.write(`<div class="field"><div class="field-label">Commentaire libre</div><div class="field-value">${e(cd._commentaire)}</div></div>`);
       });
     }
 
@@ -105,7 +107,7 @@ export default function SynthesePDFModal({ open, onClose, collab, absences, getM
       if (abs.length) {
         win.document.write(`<table><thead><tr><th>Type</th><th>Du</th><th>Au</th><th>Jours</th><th>Statut</th></tr></thead><tbody>`);
         abs.forEach(a => {
-          win.document.write(`<tr><td>${ABS_TYPES[a.type]||a.type}</td><td>${fmtDate(a.date_debut)}</td><td>${fmtDate(a.date_fin)}</td><td>${countWorkDays(a.date_debut,a.date_fin)}j</td><td>${ABS_STATUTS[a.statut]||a.statut}</td></tr>`);
+          win.document.write(`<tr><td>${e(ABS_TYPES[a.type]||a.type)}</td><td>${fmtDate(a.date_debut)}</td><td>${fmtDate(a.date_fin)}</td><td>${countWorkDays(a.date_debut,a.date_fin)}j</td><td>${e(ABS_STATUTS[a.statut]||a.statut)}</td></tr>`);
         });
         win.document.write(`</tbody></table>`);
       } else {

@@ -7,10 +7,10 @@ export class CollaborateursController {
   constructor(private service: CollaborateursService) {}
 
   @Get()
-  findAll() { return this.service.findAll(); }
+  findAll(@Req() req: any) { return this.service.findAll(req.user); }
 
   @Get(':id')
-  findOne(@Param('id') id: string) { return this.service.findOne(id); }
+  findOne(@Param('id') id: string, @Req() req: any) { return this.service.findOne(id, req.user); }
 
   @Roles('admin')
   @Post()

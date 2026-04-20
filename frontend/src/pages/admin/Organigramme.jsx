@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../../services/DataContext';
 import { api } from '../../services/api';
-import { Avatar, PageHeader } from '../../components/UI';
+import { Avatar, PageHeader, escapeHtml } from '../../components/UI';
 
 function TreeNode({ c, childrenMap, depth, navigate }) {
   const children = childrenMap[c.id] || [];
@@ -64,9 +64,9 @@ export default function Organigramme() {
       let html = `<div style="margin-left:${indent}px;${borderLeft}${paddingLeft}margin-top:${depth?6:12}px;">`;
       html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:#F8F7FC;border-radius:10px;margin-bottom:4px;">`;
       const initials = (c.prenom||'')[0] + (c.nom||'')[0];
-      html += `<div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#FF3285,#0000EA);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.75rem;">${initials}</div>`;
-      html += `<div><div style="font-weight:700;font-size:0.85rem;color:#05056D;">${c.prenom} ${c.nom}</div>`;
-      html += `<div style="font-size:0.72rem;color:#6B6B9A;">${c.poste||''}${c.equipe ? ' · '+c.equipe : ''}</div></div></div>`;
+      html += `<div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#FF3285,#0000EA);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.75rem;">${escapeHtml(initials)}</div>`;
+      html += `<div><div style="font-weight:700;font-size:0.85rem;color:#05056D;">${escapeHtml(c.prenom)} ${escapeHtml(c.nom)}</div>`;
+      html += `<div style="font-size:0.72rem;color:#6B6B9A;">${escapeHtml(c.poste||'')}${c.equipe ? ' · '+escapeHtml(c.equipe) : ''}</div></div></div>`;
       children.forEach(ch => { html += renderNode(ch, depth + 1); });
       html += '</div>';
       return html;

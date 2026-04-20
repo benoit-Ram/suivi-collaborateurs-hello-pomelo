@@ -26,7 +26,9 @@ export class ObjectifsService {
     return data;
   }
 
-  async create(dto: any) {
+  async create(dto: any, requester?: any) {
+    await this.assertCanEdit(dto?.collaborateur_id, requester);
+    this.validateObjectifDto(dto);
     const { data, error } = await this.supabase.db.from('objectifs').insert(dto).select().single();
     if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
     // If this is a recurrent template (has recurrence, no parent), create the first instance immediately
@@ -37,16 +39,54 @@ export class ObjectifsService {
     return data;
   }
 
-  async update(id: string, dto: any) {
+  async update(id: string, dto: any, requester?: any) {
+    this.validateObjectifDto(dto);
+    if (requester && !requester.isAdmin) {
+      const { data: existing } = await this.supabase.db.from('objectifs').select('collaborateur_id').eq('id', id).single();
+      await this.assertCanEdit(existing?.collaborateur_id, requester);
+    }
     const { data, error } = await this.supabase.db.from('objectifs').update(dto).eq('id', id).select().single();
     if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
     return data;
   }
 
-  async delete(id: string) {
+  async delete(id: string, requester?: any) {
+    if (requester && !requester.isAdmin) {
+      const { data: existing } = await this.supabase.db.from('objectifs').select('collaborateur_id').eq('id', id).single();
+      await this.assertCanEdit(existing?.collaborateur_id, requester);
+    }
     const { error } = await this.supabase.db.from('objectifs').delete().eq('id', id);
     if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
     return { success: true };
+  }
+
+  /** Throws 403 unless requester is admin, or is the direct manager of `collabId`. */
+  private async assertCanEdit(collabId: string | undefined, requester: any): Promise<void> {
+    if (!requester) return; // internal calls (e.g. cron) bypass
+    if (requester.isAdmin) return;
+    if (!collabId) throw new HttpException('collaborateur_id requis.', HttpStatus.BAD_REQUEST);
+    const { data: collab } = await this.supabase.db.from('collaborateurs').select('manager_id').eq('id', collabId).single();
+    if (collab?.manager_id === requester.sub) return;
+    throw new HttpException('Vous ne pouvez gérer que les objectifs de vos managés directs.', HttpStatus.FORBIDDEN);
+  }
+
+  private validateObjectifDto(dto: any): void {
+    if (!dto) return;
+    if (dto.progression !== undefined && dto.progression !== null) {
+      const p = Number(dto.progression);
+      if (!Number.isFinite(p) || p < 0 || p > 100) {
+        throw new HttpException('Progression doit être entre 0 et 100.', HttpStatus.BAD_REQUEST);
+      }
+    }
+    if (dto.recurrence && !['hebdo', 'mensuel'].includes(dto.recurrence)) {
+      throw new HttpException('Récurrence invalide.', HttpStatus.BAD_REQUEST);
+    }
+    if (dto.statut && !['en-cours', 'atteint', 'non-atteint', 'en-attente'].includes(dto.statut)) {
+      throw new HttpException('Statut d\'objectif invalide.', HttpStatus.BAD_REQUEST);
+    }
+    if (dto.date_debut && dto.date_fin && dto.date_fin < dto.date_debut) {
+      throw new HttpException('Date de fin antérieure à la date de début.', HttpStatus.BAD_REQUEST);
+    }
   }
 
   /** Create an instance for `template` matching the period containing `now`, if it doesn't already exist. */

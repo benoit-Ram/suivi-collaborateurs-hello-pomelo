@@ -50,7 +50,33 @@ export class AssignmentsService {
     }
   }
 
+  private validateAssignmentDto(dto: any): void {
+    if (!dto) return;
+    if (dto.tjm !== undefined && dto.tjm !== null) {
+      const tjm = Number(dto.tjm);
+      if (!Number.isFinite(tjm) || tjm < 0 || tjm > 5000) {
+        throw new HttpException('TJM doit être compris entre 0 et 5000 €.', HttpStatus.BAD_REQUEST);
+      }
+    }
+    if (dto.jours_par_semaine !== undefined && dto.jours_par_semaine !== null) {
+      const jps = Number(dto.jours_par_semaine);
+      if (!Number.isFinite(jps) || jps < 0 || jps > 5) {
+        throw new HttpException('Jours par semaine doit être entre 0 et 5.', HttpStatus.BAD_REQUEST);
+      }
+    }
+    if (dto.taux_staffing !== undefined && dto.taux_staffing !== null) {
+      const t = Number(dto.taux_staffing);
+      if (!Number.isFinite(t) || t < 0 || t > 100) {
+        throw new HttpException('Taux de staffing doit être entre 0 et 100.', HttpStatus.BAD_REQUEST);
+      }
+    }
+    if (dto.date_debut && dto.date_fin && dto.date_fin < dto.date_debut) {
+      throw new HttpException('Date de fin antérieure à la date de début.', HttpStatus.BAD_REQUEST);
+    }
+  }
+
   async create(dto: any) {
+    this.validateAssignmentDto(dto);
     await this.validateBudget(dto);
     const { force_over_budget, ...insertDto } = dto || {};
     const { data, error } = await this.supabase.db.from('assignments').insert(insertDto).select().single();
@@ -59,6 +85,7 @@ export class AssignmentsService {
   }
 
   async update(id: string, dto: any) {
+    this.validateAssignmentDto(dto);
     await this.validateBudget(dto, id);
     const { force_over_budget, ...updateDto } = dto || {};
     const { data, error } = await this.supabase.db.from('assignments').update(updateDto).eq('id', id).select().single();

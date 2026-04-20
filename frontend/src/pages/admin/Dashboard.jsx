@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../../services/DataContext';
 import { api } from '../../services/api';
-import { Avatar, StatCard, PageHeader, EmptyState, Badge, ProgressBar, Skeleton, currentMois, moisLabel, fmtDate, STATUS_LABELS, ABS_TYPES } from '../../components/UI';
+import { Avatar, StatCard, PageHeader, EmptyState, Badge, ProgressBar, Skeleton, currentMois, moisLabel, fmtDate, getEntretienStatus, STATUS_LABELS, ABS_TYPES } from '../../components/UI';
 
 export default function Dashboard() {
   const { collabs, absences, loading, settings } = useData();
@@ -74,12 +74,7 @@ export default function Dashboard() {
   // Points completion
   const pointsComplete = collabs.filter(c => {
     const p = (c.points_suivi || []).find(x => x.mois === cm && x.type === 'mensuel');
-    if (!p) return false;
-    const md = p.manager_data || {};
-    const cd = p.collab_data || {};
-    const mdDone = Object.keys(md).filter(k=>k!=='objectifs').some(k=>md[k]);
-    const cdDone = Object.keys(cd).filter(k=>k!=='objectifs').some(k=>cd[k]);
-    return mdDone && cdDone;
+    return p && getEntretienStatus(p) === 'complet';
   }).length;
 
   // Previous month alerts
@@ -91,11 +86,12 @@ export default function Dashboard() {
   collabs.forEach(c => {
     const prevPoint = (c.points_suivi||[]).find(p => p.mois === prevMois && p.type === 'mensuel');
     if (prevPoint) {
+      const status = getEntretienStatus(prevPoint);
       const md = prevPoint.manager_data || {};
       const cd = prevPoint.collab_data || {};
-      const mdDone = Object.keys(md).filter(k=>k!=='objectifs').some(k=>md[k]);
-      const cdDone = Object.keys(cd).filter(k=>k!=='objectifs').some(k=>cd[k]);
-      if (!mdDone && !cdDone) alerts.push({ type:'danger', icon:'🔴', text:`${c.prenom} ${c.nom} — Point ${moisLabel(prevMois)} non rempli`, id:c.id, email:c.email, prenom:c.prenom });
+      const mdDone = Object.keys(md).filter(k=>k!=='objectifs').some(k=>md[k] && String(md[k]).trim());
+      const cdDone = Object.keys(cd).filter(k=>k!=='objectifs').some(k=>cd[k] && String(cd[k]).trim());
+      if (status === 'vide') alerts.push({ type:'danger', icon:'🔴', text:`${c.prenom} ${c.nom} — Point ${moisLabel(prevMois)} non rempli`, id:c.id, email:c.email, prenom:c.prenom });
       else if (!mdDone) alerts.push({ type:'warning', icon:'🟡', text:`${c.prenom} ${c.nom} — Retours manager manquants ${moisLabel(prevMois)}`, id:c.id });
       else if (!cdDone) alerts.push({ type:'warning', icon:'🟡', text:`${c.prenom} ${c.nom} — Réponses collab manquantes ${moisLabel(prevMois)}`, id:c.id, email:c.email, prenom:c.prenom });
     }
@@ -133,10 +129,7 @@ export default function Dashboard() {
   const trendData = trendMonths.map(m => {
     const complete = collabs.filter(c => {
       const p = (c.points_suivi||[]).find(x => x.mois === m && x.type === 'mensuel');
-      if (!p) return false;
-      const md = p.manager_data||{};
-      const cd = p.collab_data||{};
-      return Object.keys(md).filter(k=>k!=='objectifs').some(k=>md[k]) && Object.keys(cd).filter(k=>k!=='objectifs').some(k=>cd[k]);
+      return p && getEntretienStatus(p) === 'complet';
     }).length;
     return { month: moisLabel(m), pct: total > 0 ? Math.round(complete/total*100) : 0 };
   });

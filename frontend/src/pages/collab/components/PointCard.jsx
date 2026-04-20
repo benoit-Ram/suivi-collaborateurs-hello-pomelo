@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { api } from '../../../services/api';
-import { Badge, Modal, moisLabel, fmtDate, isEntretienLocked, daysUntilEntretienLock, getEntretienStatus, ENTRETIEN_STATUS_BADGE } from '../../../components/UI';
+import { Badge, Modal, moisLabel, fmtDate, isEntretienLocked, daysUntilEntretienLock, getEntretienStatus, escapeHtml, ENTRETIEN_STATUS_BADGE } from '../../../components/UI';
 import { getCollabQuestions, getManagerQuestions } from '../utils/questions';
 
 export default function PointCard({ p, collabId, collab, settings, objectifs = [] }) {
@@ -41,13 +41,13 @@ export default function PointCard({ p, collabId, collab, settings, objectifs = [
     const win = window.open('','_blank');
     if (!win) { alert('Le popup a été bloqué. Autorisez les popups pour exporter en PDF.'); return; }
     win.document.write(`<html><head><title>Entretien RH ${moisLabel(p.mois)}</title><style>body{font-family:Quicksand,Arial,sans-serif;padding:32px;max-width:800px;margin:0 auto;color:#05056D}h1{font-size:1.3rem}h2{font-size:1rem;color:#FF3285;margin:20px 0 8px}.field{margin-bottom:12px}.field-label{font-size:0.75rem;font-weight:700;text-transform:uppercase;color:#6B6B9A;margin-bottom:2px}.field-value{font-size:0.9rem;line-height:1.5;padding:8px 0;border-bottom:1px solid #CFD0E5}@media print{body{padding:16px}}</style></head><body>`);
-    win.document.write(`<h1>Entretien RH — ${moisLabel(p.mois)}</h1>`);
+    win.document.write(`<h1>Entretien RH — ${escapeHtml(moisLabel(p.mois))}</h1>`);
     win.document.write(`<h2>👔 Manager</h2>`);
-    managerQuestions.forEach(q => { win.document.write(`<div class="field"><div class="field-label">${q.label}</div><div class="field-value">${md[q.key]||'—'}</div></div>`); });
+    managerQuestions.forEach(q => { win.document.write(`<div class="field"><div class="field-label">${escapeHtml(q.label)}</div><div class="field-value">${md[q.key]?escapeHtml(md[q.key]):'—'}</div></div>`); });
     win.document.write(`<h2>👤 Collaborateur</h2>`);
-    collabQuestions.forEach(q => { win.document.write(`<div class="field"><div class="field-label">${q.label}</div><div class="field-value">${cd[q.key]||'—'}</div></div>`); });
-    if (activeObjectifs.some(o=>cd['obj_'+o.id])) { win.document.write(`<h2>🎯 Avancement objectifs</h2>`); activeObjectifs.filter(o=>cd['obj_'+o.id]).forEach(o => { win.document.write(`<div class="field"><div class="field-label">${o.titre} (${o.progression||0}%)</div><div class="field-value">${cd['obj_'+o.id]}</div></div>`); }); }
-    if (cd._commentaire) win.document.write(`<div class="field"><div class="field-label">Commentaire libre</div><div class="field-value">${cd._commentaire}</div></div>`);
+    collabQuestions.forEach(q => { win.document.write(`<div class="field"><div class="field-label">${escapeHtml(q.label)}</div><div class="field-value">${cd[q.key]?escapeHtml(cd[q.key]):'—'}</div></div>`); });
+    if (activeObjectifs.some(o=>cd['obj_'+o.id])) { win.document.write(`<h2>🎯 Avancement objectifs</h2>`); activeObjectifs.filter(o=>cd['obj_'+o.id]).forEach(o => { win.document.write(`<div class="field"><div class="field-label">${escapeHtml(o.titre)} (${Number(o.progression)||0}%)</div><div class="field-value">${escapeHtml(cd['obj_'+o.id])}</div></div>`); }); }
+    if (cd._commentaire) win.document.write(`<div class="field"><div class="field-label">Commentaire libre</div><div class="field-value">${escapeHtml(cd._commentaire)}</div></div>`);
     win.document.write(`<div style="margin-top:40px;font-size:0.75rem;color:#6B6B9A">Exporté le ${new Date().toLocaleDateString('fr-FR')}</div></body></html>`);
     win.document.close();
     setTimeout(() => win.print(), 300);

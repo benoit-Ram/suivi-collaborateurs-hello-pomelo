@@ -154,6 +154,58 @@ export function FadeIn({ children }) {
 // ── CONSTANTS ──
 export const STATUS_LABELS = { 'en-cours': 'En cours', 'atteint': 'Atteint ✓', 'non-atteint': 'Non atteint', 'en-attente': 'En attente' };
 export const STATUS_COLORS = { 'en-cours': 'blue', 'atteint': 'green', 'non-atteint': 'orange', 'en-attente': 'gray' };
+/** Consistent tabs component used across admin pages (Missions, Absences, CollabProfile, ...).
+ * Props: items = [[key, label], ...] or [{key, label, badge}], active, onChange, compact. */
+export function Tabs({ items, active, onChange, compact = false, scrollable = true }) {
+  const normalized = (items || []).map(it => Array.isArray(it) ? { key: it[0], label: it[1] } : it);
+  return (
+    <div className={scrollable ? 'tabs-scroll' : ''} style={{ display: 'flex', gap: 6, marginBottom: compact ? 12 : 24, background: 'var(--offwhite)', padding: 6, borderRadius: 12, overflowX: scrollable ? 'auto' : 'visible' }}>
+      {normalized.map(t => {
+        const isActive = active === t.key;
+        return (
+          <button
+            key={t.key}
+            onClick={() => onChange(t.key)}
+            style={{
+              position: 'relative',
+              flex: '1 0 auto',
+              padding: compact ? '8px 12px' : '10px 14px',
+              borderRadius: 10,
+              fontFamily: 'inherit',
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              background: isActive ? 'var(--pink)' : 'transparent',
+              color: isActive ? 'var(--white)' : 'var(--muted)',
+              border: isActive ? 'none' : '1.5px solid var(--lavender)',
+              boxShadow: isActive ? '0 4px 14px rgba(255,50,133,0.3)' : 'none',
+              transition: 'all 0.15s',
+            }}
+          >
+            {t.label}
+            {t.badge != null && t.badge > 0 && (
+              <span style={{ position: 'absolute', top: -4, right: -4, background: 'var(--orange)', color: 'var(--white)', borderRadius: '50%', width: 20, height: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: 800, boxShadow: '0 2px 6px rgba(249,115,22,0.4)' }}>{t.badge}</span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** HTML-escape user-supplied text before injecting it into a document.write() or innerHTML sink.
+ * Prevents XSS when exporting PDFs (notes, objectifs, entretien answers). */
+export function escapeHtml(value) {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // Default absence types (used as fallback if settings not loaded)
 export const ABS_TYPES = { conge: 'Congé payé', sans_solde: 'Sans solde', maladie: 'Maladie', formation: 'Formation / Cours' };
 export const ABS_STATUTS = { en_attente: 'En attente', approuve: 'Approuvé', refuse: 'Refusé', annulation_demandee: 'Annulation demandée', annule: 'Annulé' };
