@@ -24,3 +24,20 @@ export const calcMonthlyCA = (assignments) => (assignments || [])
   .reduce((s, a) => s + ((Number(a.tjm) || 0) * jpsFromAssignment(a) * 4.33), 0);
 
 export const fmtEuro = (v) => v ? Number(v).toLocaleString('fr-FR') + ' €' : '—';
+
+/** Does the mission's [date_debut, date_fin] window overlap with [periodStart, periodEnd]? */
+export const isMissionActive = (m, periodStart, periodEnd) =>
+  (!m.date_fin || m.date_fin >= periodStart) && (!m.date_debut || m.date_debut <= periodEnd);
+
+export const getClientName = (m) => m?.clients?.nom || m?.client || '—';
+
+/** Download a CSV file built from headers + rows. Values are double-quoted and semicolon-separated
+ * for proper Excel opening on French locales. Prepends BOM for UTF-8 compatibility. */
+export function exportCSV(filename, headers, rows) {
+  const BOM = '\uFEFF';
+  const csv = [headers.join(';'), ...rows.map(r => r.map(v => `"${String(v||'').replace(/"/g,'""')}"`).join(';'))].join('\n');
+  const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 200);
+}
