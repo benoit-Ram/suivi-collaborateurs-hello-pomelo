@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { SupabaseModule } from './config/supabase.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -21,6 +22,7 @@ import { ObjectifRequestsModule } from './modules/objectif-requests/objectif-req
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     SupabaseModule,
     AuthModule,

@@ -285,6 +285,20 @@ ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS missions_access boolean DEFA
 ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS solde_reference_date date;
 ```
 
+## Migration v18 — Objectifs récurrents (template + instances)
+
+```sql
+-- Un objectif avec recurrence='hebdo' ou 'mensuel' est un TEMPLATE.
+-- Un cron crée des INSTANCES (parent_id = id du template, periode = 'W16-2026' ou 'M04-2026').
+ALTER TABLE objectifs ADD COLUMN IF NOT EXISTS parent_id uuid REFERENCES objectifs(id) ON DELETE SET NULL;
+ALTER TABLE objectifs ADD COLUMN IF NOT EXISTS periode text;
+
+-- Empêche deux instances pour la même période sur le même template
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_objectif_parent_periode
+  ON objectifs (parent_id, periode)
+  WHERE parent_id IS NOT NULL AND periode IS NOT NULL;
+```
+
 ## Migration v15 — Demandes de staffing
 
 ```sql

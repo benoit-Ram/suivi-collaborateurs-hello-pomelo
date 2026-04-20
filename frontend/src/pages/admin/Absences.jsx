@@ -227,6 +227,9 @@ export default function Absences() {
 
       {/* SOLDES */}
       {tab==='soldes' && <FadeIn><div>
+        <div style={{background:'var(--bg-info)',borderRadius:8,padding:'10px 14px',marginBottom:16,fontSize:'0.82rem',color:'var(--text-info)',borderLeft:'3px solid var(--border-info)'}}>
+          ℹ️ L'acquisition mensuelle est <strong>automatique</strong> : au 1<sup>er</sup> de chaque mois, le compteur "Acquis depuis" augmente du nombre défini (par défaut 2,08 j/mois). Modifiez manuellement le solde d'un collaborateur en cliquant sur ✏️ — la valeur saisie représente alors son solde réel à aujourd'hui.
+        </div>
         <div style={{marginBottom:16}}>
           <input type="text" value={soldeSearch} onChange={e=>setSoldeSearch(e.target.value)} placeholder="🔍 Rechercher un collaborateur..." style={{width:'100%',maxWidth:400,border:'1.5px solid var(--lavender)',borderRadius:10,padding:'10px 16px',fontFamily:'inherit',fontSize:'0.9rem',outline:'none',background:'var(--offwhite)',color:'var(--navy)'}} />
         </div>

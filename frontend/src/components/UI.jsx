@@ -155,7 +155,7 @@ export function FadeIn({ children }) {
 export const STATUS_LABELS = { 'en-cours': 'En cours', 'atteint': 'Atteint ✓', 'non-atteint': 'Non atteint', 'en-attente': 'En attente' };
 export const STATUS_COLORS = { 'en-cours': 'blue', 'atteint': 'green', 'non-atteint': 'orange', 'en-attente': 'gray' };
 // Default absence types (used as fallback if settings not loaded)
-export const ABS_TYPES = { conge: 'Congé payé', sans_solde: 'Sans solde', maladie: 'Maladie' };
+export const ABS_TYPES = { conge: 'Congé payé', sans_solde: 'Sans solde', maladie: 'Maladie', formation: 'Formation / Cours' };
 export const ABS_STATUTS = { en_attente: 'En attente', approuve: 'Approuvé', refuse: 'Refusé', annulation_demandee: 'Annulation demandée', annule: 'Annulé' };
 
 // Default absence type configs with decompte_solde flag
@@ -163,6 +163,7 @@ export const DEFAULT_ABSENCE_TYPES = [
   { key: 'conge', label: 'Congé payé', decompte: true },
   { key: 'sans_solde', label: 'Sans solde', decompte: false },
   { key: 'maladie', label: 'Maladie', decompte: false },
+  { key: 'formation', label: 'Formation / Cours', decompte: false },
 ];
 
 /** Build ABS_TYPES map from settings or defaults */
