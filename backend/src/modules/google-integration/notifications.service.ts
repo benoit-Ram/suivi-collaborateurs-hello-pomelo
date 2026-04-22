@@ -9,7 +9,14 @@ import { CalendarService } from './calendar.service';
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
-  private readonly appUrl = process.env.FRONTEND_URL || 'https://rh.pomelo-dev.fr';
+  /** Public URL used in mail templates (deep links back to the app).
+   * Falls back to the first HTTPS origin declared in FRONTEND_URL (CORS list),
+   * then to the production domain. APP_URL takes precedence when set. */
+  private readonly appUrl = (() => {
+    if (process.env.APP_URL) return process.env.APP_URL;
+    const fromCors = (process.env.FRONTEND_URL || '').split(',').map(s => s.trim()).find(s => s.startsWith('https://'));
+    return fromCors || 'https://rh.pomelo-dev.fr';
+  })();
 
   constructor(private mailer: MailerService, private calendar: CalendarService) {}
 
