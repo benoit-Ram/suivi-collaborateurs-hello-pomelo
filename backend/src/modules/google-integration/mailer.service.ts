@@ -21,21 +21,29 @@ export interface MailMessage {
 export class MailerService {
   private readonly logger = new Logger(MailerService.name);
   private readonly enabled = process.env.GOOGLE_MAIL_ENABLED === 'true';
+  /** Primary Workspace user whose mailbox the service account impersonates.
+   * Must be a real user (not an alias). Defaults to GOOGLE_IMPERSONATE_DEFAULT. */
+  private readonly impersonateUser: string | undefined;
+  /** From header — can be an alias of the impersonated user (Gmail will accept it). */
   private readonly fromAddress: string;
 
   constructor(private googleAuth: GoogleAuthService) {
-    this.fromAddress = process.env.GOOGLE_MAIL_FROM || process.env.GOOGLE_IMPERSONATE_DEFAULT || 'noreply@hello-pomelo.com';
+    this.impersonateUser = process.env.GOOGLE_IMPERSONATE_DEFAULT;
+    this.fromAddress = process.env.GOOGLE_MAIL_FROM || this.impersonateUser || 'noreply@hello-pomelo.com';
     if (!this.enabled) {
       this.logger.log('MailerService disabled (set GOOGLE_MAIL_ENABLED=true to activate).');
     } else if (!this.googleAuth.isConfigured()) {
       this.logger.warn('GOOGLE_MAIL_ENABLED=true but service account not configured — sends will be skipped.');
+    } else if (!this.impersonateUser) {
+      this.logger.warn('GOOGLE_IMPERSONATE_DEFAULT missing — cannot send mail without a real user to impersonate.');
     }
   }
 
   /** Fire-and-forget; returns true if dispatched, false if skipped. Never throws. */
   async send(msg: MailMessage): Promise<boolean> {
-    if (!this.enabled) return false;
-    const client = this.googleAuth.getClient(GMAIL_SCOPES, this.fromAddress);
+    if (!this.enabled || !this.impersonateUser) return false;
+    // Impersonate the primary user; set From: header to fromAddress (possibly an alias).
+    const client = this.googleAuth.getClient(GMAIL_SCOPES, this.impersonateUser);
     if (!client) return false;
 
     const toList = Array.isArray(msg.to) ? msg.to.join(', ') : msg.to;
