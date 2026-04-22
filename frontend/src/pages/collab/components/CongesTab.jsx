@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { api } from '../../../services/api';
+import { useData } from '../../../services/DataContext';
 import { Badge, FadeIn, Modal, fmtDate, countWorkDays, absenceDays, ABS_TYPES, getAbsenceTypes, absenceDeductsSolde } from '../../../components/UI';
 import LeaveCalendar from './LeaveCalendar';
 import TeamCalendar from './TeamCalendar';
 
-export default 
+export default
 function CongesTab({ c, absences, solde, onReload, settings }) {
+  const { showToast } = useData();
   const absTypes = getAbsenceTypes(settings);
   const [form, setForm] = useState({ type: Object.keys(absTypes)[0] || 'conge', date_debut:'', date_fin:'', demi_journee:'', commentaire:'' });
   const [submitting, setSubmitting] = useState(false);
@@ -22,7 +24,8 @@ function CongesTab({ c, absences, solde, onReload, settings }) {
       await api.updateAbsence(cancelId, { statut: 'annulation_demandee', commentaire_annulation: cancelMotif.trim() });
       setCancelId(null); setCancelMotif('');
       onReload();
-    } catch(e) { setError('Erreur: ' + e.message); }
+      showToast('🔄 Demande d\'annulation envoyée');
+    } catch(e) { setError('Erreur: ' + e.message); showToast('❌ Erreur — ' + e.message); }
     setCancelLoading(false);
   };
 
@@ -63,12 +66,14 @@ function CongesTab({ c, absences, solde, onReload, settings }) {
       if (editingId) {
         await api.updateAbsence(editingId, { type: form.type, date_debut: form.date_debut, date_fin: form.date_fin, demi_journee: form.demi_journee || null, commentaire: form.commentaire || null });
         setEditingId(null);
+        showToast('✓ Demande modifiée');
       } else {
         await api.createAbsence({ collaborateur_id: c.id, type: form.type, date_debut: form.date_debut, date_fin: form.date_fin, demi_journee: form.demi_journee || null, statut: 'en_attente', commentaire: form.commentaire || null });
+        showToast('✓ Demande envoyée — ton manager a été notifié');
       }
       setForm({ type: Object.keys(absTypes)[0] || 'conge', date_debut:'', date_fin:'', demi_journee:'', commentaire:'' });
       onReload();
-    } catch(e) { setError('Erreur: ' + e.message); }
+    } catch(e) { setError('Erreur: ' + e.message); showToast('❌ Erreur — ' + e.message); }
     setSubmitting(false);
   };
 

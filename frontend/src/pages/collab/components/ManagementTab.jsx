@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../../services/api';
+import { useData } from '../../../services/DataContext';
 import { Avatar, Badge, Modal, ProgressBar, EmptyState, fmtDate, moisLabel, absenceDays, isEntretienLocked, daysUntilEntretienLock, getEntretienStatus, ENTRETIEN_STATUS_BADGE, ABS_TYPES, ABS_STATUTS, STATUS_COLORS, STATUS_LABELS } from '../../../components/UI';
 import { getManagerQuestions, getCollabQuestions } from '../utils/questions';
 import ManagerTeamCalendar from './ManagerTeamCalendar';
 
-export default 
+export default
 function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], onAbsenceUpdate }) {
+  const { showToast } = useData();
   const [view, setView] = useState('overview'); // overview | detail
   const [selectedMember, setSelectedMember] = useState(null);
   const [memberTab, setMemberTab] = useState('objectifs');
@@ -27,11 +29,11 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
   }, [team]);
 
   const approveObjReq = async (id) => {
-    try { await api.approveObjectifRequest(id); setObjRequests(prev => prev.filter(r => r.id !== id)); } catch(e) { alert('Erreur: ' + e.message); }
+    try { await api.approveObjectifRequest(id); setObjRequests(prev => prev.filter(r => r.id !== id)); showToast('✓ Progression approuvée'); } catch(e) { showToast('❌ Erreur : ' + e.message); }
   };
   const refuseObjReq = async () => {
     if (!objRefuseId) return;
-    try { await api.refuseObjectifRequest(objRefuseId, objRefuseMotif); setObjRequests(prev => prev.filter(r => r.id !== objRefuseId)); setObjRefuseId(null); setObjRefuseMotif(''); } catch(e) { alert('Erreur: ' + e.message); }
+    try { await api.refuseObjectifRequest(objRefuseId, objRefuseMotif); setObjRequests(prev => prev.filter(r => r.id !== objRefuseId)); setObjRefuseId(null); setObjRefuseMotif(''); showToast('Demande refusée'); } catch(e) { showToast('❌ Erreur : ' + e.message); }
   };
 
   const pendingCount = teamPendingAbs.length;
@@ -76,7 +78,8 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
       if(onAbsenceUpdate) onAbsenceUpdate();
       if(selectedMember) loadMemberAbs(selectedMember.id);
       setRefuseId(null); setRefuseMotif('');
-    } catch(e) { alert('Erreur: '+e.message); }
+      showToast('Demande refusée — le collab a été notifié');
+    } catch(e) { showToast('❌ Erreur : '+e.message); }
     setRefuseLoading(false);
   };
 
@@ -204,7 +207,7 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
                     {a.commentaire && <div style={{fontSize:'0.78rem',color:'var(--muted)',fontStyle:'italic',marginTop:2}}>{a.commentaire}</div>}
                   </div>
                   <div style={{display:'flex',gap:6}}>
-                    <button className="btn btn-sm" style={{background:'var(--green)',color:'white',padding:'5px 12px'}} onClick={async()=>{try{await api.updateAbsence(a.id,{statut:'approuve',approved_by:managerName,approved_at:new Date().toISOString()});if(onAbsenceUpdate)onAbsenceUpdate();}catch(e){alert('Erreur: '+e.message);}}}>✓ Approuver</button>
+                    <button className="btn btn-sm" style={{background:'var(--green)',color:'white',padding:'5px 12px'}} onClick={async()=>{try{await api.updateAbsence(a.id,{statut:'approuve',approved_by:managerName,approved_at:new Date().toISOString()});if(onAbsenceUpdate)onAbsenceUpdate();showToast('✓ Congé approuvé — le collab a été notifié');}catch(e){showToast('❌ Erreur : '+e.message);}}}>✓ Approuver</button>
                     <button className="btn btn-danger btn-sm" style={{padding:'5px 12px'}} onClick={()=>{setRefuseId(a.id);setRefuseMotif('');}}>✕ Refuser</button>
                   </div>
                 </div>
@@ -264,9 +267,10 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
       setObjModal(false);
       const fresh = await api.getCollaborateur(m.id);
       setSelectedMember(fresh);
+      showToast(editingObj ? '✓ Objectif mis à jour' : '✓ Objectif créé');
     } catch(e) {
       console.error('Erreur sauvegarde objectif:', e);
-      alert('Erreur lors de la sauvegarde de l\'objectif.');
+      showToast('❌ Erreur : ' + e.message);
     }
   };
 
@@ -276,9 +280,10 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
       await api.deleteObjectif(oid);
       const fresh = await api.getCollaborateur(m.id);
       setSelectedMember(fresh);
+      showToast('Objectif supprimé');
     } catch(e) {
       console.error('Erreur suppression objectif:', e);
-      alert('Erreur lors de la suppression.');
+      showToast('❌ Erreur : ' + e.message);
     }
   };
 
@@ -299,9 +304,10 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
       setEditingPoint(null);
       const fresh = await api.getCollaborateur(m.id);
       setSelectedMember(fresh);
+      showToast('✓ Entretien enregistré');
     } catch(e) {
       console.error('Erreur sauvegarde entretien:', e);
-      alert('Erreur lors de la sauvegarde.');
+      showToast('❌ Erreur : ' + e.message);
     }
   };
 
@@ -436,7 +442,7 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
             </div>
             <Badge type={a.statut==='approuve'?'green':a.statut==='refuse'?'pink':'orange'}>{ABS_STATUTS[a.statut]}</Badge>
             {a.statut==='en_attente' && <>
-              <button className="btn btn-sm" style={{background:'var(--green)',color:'white',padding:'4px 10px'}} onClick={async()=>{try{await api.updateAbsence(a.id,{statut:'approuve',approved_by:managerName,approved_at:new Date().toISOString()});loadMemberAbs(m.id);if(onAbsenceUpdate)onAbsenceUpdate();}catch(e){alert('Erreur: '+e.message);}}}>✓</button>
+              <button className="btn btn-sm" style={{background:'var(--green)',color:'white',padding:'4px 10px'}} onClick={async()=>{try{await api.updateAbsence(a.id,{statut:'approuve',approved_by:managerName,approved_at:new Date().toISOString()});loadMemberAbs(m.id);if(onAbsenceUpdate)onAbsenceUpdate();showToast('✓ Congé approuvé');}catch(e){showToast('❌ Erreur : '+e.message);}}}>✓</button>
               <button className="btn btn-danger btn-sm" style={{padding:'4px 10px'}} onClick={()=>{setRefuseId(a.id);setRefuseMotif('');}}>✕</button>
             </>}
           </div>

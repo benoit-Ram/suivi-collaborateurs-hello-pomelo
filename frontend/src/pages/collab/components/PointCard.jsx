@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { api } from '../../../services/api';
 import { Badge, Modal, moisLabel, fmtDate, isEntretienLocked, daysUntilEntretienLock, getEntretienStatus, escapeHtml, ENTRETIEN_STATUS_BADGE } from '../../../components/UI';
+import { useData } from '../../../services/DataContext';
 import { getCollabQuestions, getManagerQuestions } from '../utils/questions';
 
 export default function PointCard({ p, collabId, collab, settings, objectifs = [] }) {
+  const { showToast } = useData();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({});
@@ -33,7 +35,8 @@ export default function PointCard({ p, collabId, collab, settings, objectifs = [
     try {
       await api.updatePointSuivi(p.id, { collab_data: formData });
       setEditing(false);
-    } catch(e) { console.error(e); alert('Erreur lors de la sauvegarde.'); }
+      showToast('✓ Tes réponses ont été enregistrées');
+    } catch(e) { console.error(e); showToast('❌ Erreur : ' + e.message); }
     setSaving(false);
   };
 
