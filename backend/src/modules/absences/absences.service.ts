@@ -1,9 +1,54 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { SupabaseService } from '../../config/supabase.service';
+import { NotificationsService } from '../google-integration/notifications.service';
 
 @Injectable()
 export class AbsencesService {
-  constructor(private supabase: SupabaseService) {}
+  constructor(private supabase: SupabaseService, private notifications: NotificationsService) {}
+
+  /** Count working days (weekdays) in [start, end] inclusive, accounting for half-days. */
+  private countWorkDays(start: string, end: string, demi?: string | null): number {
+    const s = new Date(start);
+    const e = new Date(end);
+    let count = 0;
+    const cur = new Date(s);
+    while (cur <= e) {
+      const d = cur.getDay();
+      if (d !== 0 && d !== 6) count++;
+      cur.setDate(cur.getDate() + 1);
+    }
+    return demi && start === end ? 0.5 : count;
+  }
+
+  /** Fetch collab info needed for notification templates */
+  private async getCollabForNotif(id: string) {
+    const { data } = await this.supabase.db
+      .from('collaborateurs')
+      .select('id, prenom, nom, email, manager_id')
+      .eq('id', id)
+      .single();
+    return data;
+  }
+
+  private async getManagerEmail(managerId: string | null | undefined) {
+    if (!managerId) return null;
+    const { data } = await this.supabase.db
+      .from('collaborateurs')
+      .select('email, prenom')
+      .eq('id', managerId)
+      .single();
+    return data;
+  }
+
+  private absenceTypeLabel(key: string): string {
+    const m: Record<string, string> = {
+      conge: 'Congé payé',
+      sans_solde: 'Sans solde',
+      maladie: 'Maladie',
+      formation: 'Formation / Cours',
+    };
+    return m[key] || key;
+  }
 
   private static readonly ALLOWED_FILTERS = ['collaborateur_id', 'statut', 'type'];
 
@@ -55,12 +100,61 @@ export class AbsencesService {
 
     const { data, error } = await this.supabase.db.from('absences').insert(dto).select().single();
     if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+
+    // Notify manager if the created absence is still pending
+    if (data?.statut === 'en_attente') {
+      const collab = await this.getCollabForNotif(data.collaborateur_id);
+      const manager = await this.getManagerEmail(collab?.manager_id);
+      if (manager?.email) {
+        this.notifications.onAbsencePending({
+          managerEmail: manager.email,
+          managerPrenom: manager.prenom,
+          collabPrenom: collab?.prenom || '',
+          collabNom: collab?.nom || '',
+          type: this.absenceTypeLabel(data.type),
+          date_debut: data.date_debut,
+          date_fin: data.date_fin,
+          jours: this.countWorkDays(data.date_debut, data.date_fin, data.demi_journee),
+          commentaire: data.commentaire,
+        });
+      }
+    }
     return data;
   }
 
   async update(id: string, dto: any) {
+    // Capture previous state for diff-based notification
+    const { data: before } = await this.supabase.db.from('absences').select('*').eq('id', id).single();
+
     const { data, error } = await this.supabase.db.from('absences').update(dto).eq('id', id).select().single();
     if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+
+    // Notify on status transitions
+    if (before && data && before.statut !== data.statut) {
+      const collab = await this.getCollabForNotif(data.collaborateur_id);
+      if (collab?.email) {
+        const common = {
+          collabEmail: collab.email,
+          collabPrenom: collab.prenom,
+          absenceId: data.id,
+          type: this.absenceTypeLabel(data.type),
+          date_debut: data.date_debut,
+          date_fin: data.date_fin,
+        };
+        if (data.statut === 'approuve') {
+          this.notifications.onAbsenceApproved({
+            ...common,
+            managerEmail: null,
+            jours: this.countWorkDays(data.date_debut, data.date_fin, data.demi_journee),
+            commentaire: data.commentaire,
+          });
+        } else if (data.statut === 'refuse') {
+          this.notifications.onAbsenceRefused({ ...common, motif_refus: data.motif_refus });
+        } else if (data.statut === 'annule') {
+          this.notifications.onAbsenceCancelled({ collabEmail: collab.email, absenceId: data.id });
+        }
+      }
+    }
     return data;
   }
 

@@ -18,6 +18,7 @@ import { TimeEntriesModule } from './modules/time-entries/time-entries.module';
 import { ActivityLogModule } from './modules/activity-log/activity-log.module';
 import { StaffingRequestsModule } from './modules/staffing-requests/staffing-requests.module';
 import { ObjectifRequestsModule } from './modules/objectif-requests/objectif-requests.module';
+import { GoogleIntegrationModule } from './modules/google-integration/google-integration.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { ObjectifRequestsModule } from './modules/objectif-requests/objectif-req
     ActivityLogModule,
     StaffingRequestsModule,
     ObjectifRequestsModule,
+    GoogleIntegrationModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: AuthGuard },

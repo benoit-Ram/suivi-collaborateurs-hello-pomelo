@@ -21,6 +21,7 @@
     "@nestjs/throttler": "^6.5.0",
     "@supabase/supabase-js": "^2.101.0",
     "google-auth-library": "^10.6.2",
+    "googleapis": "^171.4.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
     "reflect-metadata": "^0.2.2",
