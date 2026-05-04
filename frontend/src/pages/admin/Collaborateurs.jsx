@@ -81,20 +81,20 @@ export default function Collaborateurs() {
           style={{ flex:1, maxWidth:400, border:'1.5px solid var(--lavender)', borderRadius:10, padding:'10px 16px', fontFamily:'inherit', fontSize:'0.9rem', outline:'none', background:'var(--offwhite)', color:'var(--navy)' }} />
         <button className="btn btn-primary" onClick={openAdd}>+ Ajouter</button>
       </div>
-      <div className="card" style={{ overflowX:'auto' }}>
+      <div className="card" style={{ overflow:'auto', maxHeight:'calc(100vh - 240px)' }}>
         <table>
-          <thead><tr>
-            <th style={{cursor:'pointer'}} onClick={()=>sort('nom')}>Collaborateur{sortIcon('nom')}</th>
-            <th style={{cursor:'pointer'}} onClick={()=>sort('poste')}>Poste{sortIcon('poste')}</th>
-            <th style={{cursor:'pointer'}} onClick={()=>sort('equipe')}>Équipe{sortIcon('equipe')}</th>
-            <th style={{cursor:'pointer'}} onClick={()=>sort('manager')}>Manager{sortIcon('manager')}</th>
-            <th style={{cursor:'pointer'}} onClick={()=>sort('dateEntree')}>Entrée{sortIcon('dateEntree')}</th>
-            {isSuperAdmin && <th style={{textAlign:'center'}}>Admin</th>}
-            {isSuperAdmin && <th style={{textAlign:'center'}}>Missions <span style={{background:'#FDE68A',color:'#92400E',fontSize:'0.5rem',fontWeight:800,padding:'0px 3px',borderRadius:3}}>bêta</span></th>}
-            {isSuperAdmin && <th style={{textAlign:'center'}} title="Active l'onglet Objectifs dans le portail collab.">Objectifs</th>}
-            {isSuperAdmin && <th style={{textAlign:'center'}} title="Active l'onglet Entretien RH dans le portail collab.">Entretiens</th>}
-            {isSuperAdmin && <th style={{textAlign:'center'}} title="Staffable = questions staffables. Désactivé = support.">Staffable</th>}
-            <th>Actions</th>
+          <thead style={{ position:'sticky', top:0, zIndex:2, background:'var(--white)', boxShadow:'0 1px 0 var(--lavender)' }}><tr>
+            <th style={{cursor:'pointer',background:'var(--white)'}} onClick={()=>sort('nom')}>Collaborateur{sortIcon('nom')}</th>
+            <th style={{cursor:'pointer',background:'var(--white)'}} onClick={()=>sort('poste')}>Poste{sortIcon('poste')}</th>
+            <th style={{cursor:'pointer',background:'var(--white)'}} onClick={()=>sort('equipe')}>Équipe{sortIcon('equipe')}</th>
+            <th style={{cursor:'pointer',background:'var(--white)'}} onClick={()=>sort('manager')}>Manager{sortIcon('manager')}</th>
+            <th style={{cursor:'pointer',background:'var(--white)'}} onClick={()=>sort('dateEntree')}>Entrée{sortIcon('dateEntree')}</th>
+            {isSuperAdmin && <th style={{textAlign:'center',background:'var(--white)'}}>Admin</th>}
+            {isSuperAdmin && <th style={{textAlign:'center',background:'var(--white)'}}>Missions <span style={{background:'#FDE68A',color:'#92400E',fontSize:'0.5rem',fontWeight:800,padding:'0px 3px',borderRadius:3}}>bêta</span></th>}
+            {isSuperAdmin && <th style={{textAlign:'center',background:'var(--white)'}} title="Active l'onglet Objectifs dans le portail collab.">Objectifs</th>}
+            {isSuperAdmin && <th style={{textAlign:'center',background:'var(--white)'}} title="Active l'onglet Entretien RH dans le portail collab.">Entretiens</th>}
+            {isSuperAdmin && <th style={{textAlign:'center',background:'var(--white)'}} title="Staffable = questions staffables. Désactivé = support.">Staffable</th>}
+            <th style={{background:'var(--white)'}}>Actions</th>
           </tr></thead>
           <tbody>{list.map(c => {
             const isSA = (c.email||'').toLowerCase() === SUPER_ADMIN_EMAIL;
