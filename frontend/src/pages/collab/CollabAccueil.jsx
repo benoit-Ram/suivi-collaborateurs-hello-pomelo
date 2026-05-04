@@ -172,10 +172,25 @@ export default function CollabAccueil() {
   const isManager = myTeam.length > 0;
 
   const hasMissionsAccess = c.missions_access === true;
-  const tabs = [['objectifs', isManager ? '🎯 Mes objectifs' : '🎯 Objectifs'],['points', isManager ? '📋 Mes entretiens RH' : '📋 Entretien RH'],['conges', isManager ? '🏖️ Mes congés' : '🏖️ Congés']];
-  if (hasMissionsAccess) tabs.splice(1, 0, ['missions','🚀 Missions']);
-  if (isManager) tabs.splice(hasMissionsAccess?3:2, 0, ['management', pendingCount > 0 ? `👔 Management (${pendingCount})` : '👔 Management']);
-  if (isReferent) tabs.splice(hasMissionsAccess?2:1, 0, ['referent', '📋 Mes projets']);
+  // objectifs_access / entretiens_access default to TRUE when the column is null/undefined,
+  // so legacy collabs keep current behavior.
+  const hasObjectifsAccess = c.objectifs_access !== false;
+  const hasEntretiensAccess = c.entretiens_access !== false;
+
+  const tabs = [];
+  if (hasObjectifsAccess) tabs.push(['objectifs', isManager ? '🎯 Mes objectifs' : '🎯 Objectifs']);
+  if (hasMissionsAccess) tabs.push(['missions','🚀 Missions']);
+  if (isReferent) tabs.push(['referent', '📋 Mes projets']);
+  if (hasEntretiensAccess) tabs.push(['points', isManager ? '📋 Mes entretiens RH' : '📋 Entretien RH']);
+  if (isManager) tabs.push(['management', pendingCount > 0 ? `👔 Management (${pendingCount})` : '👔 Management']);
+  tabs.push(['conges', isManager ? '🏖️ Mes congés' : '🏖️ Congés']);
+
+  // If the active tab was disabled by admin while user was on it, reset to 'accueil'
+  useEffect(() => {
+    if (tab === 'accueil') return;
+    const visibleKeys = tabs.map(t => t[0]);
+    if (!visibleKeys.includes(tab)) setTab('accueil');
+  }, [tab, hasObjectifsAccess, hasEntretiensAccess, hasMissionsAccess, isManager, isReferent]);
 
   return (
     <div>

@@ -91,6 +91,8 @@ export default function Collaborateurs() {
             <th style={{cursor:'pointer'}} onClick={()=>sort('dateEntree')}>Entrée{sortIcon('dateEntree')}</th>
             {isSuperAdmin && <th style={{textAlign:'center'}}>Admin</th>}
             {isSuperAdmin && <th style={{textAlign:'center'}}>Missions <span style={{background:'#FDE68A',color:'#92400E',fontSize:'0.5rem',fontWeight:800,padding:'0px 3px',borderRadius:3}}>bêta</span></th>}
+            {isSuperAdmin && <th style={{textAlign:'center'}} title="Active l'onglet Objectifs dans le portail collab.">Objectifs</th>}
+            {isSuperAdmin && <th style={{textAlign:'center'}} title="Active l'onglet Entretien RH dans le portail collab.">Entretiens</th>}
             {isSuperAdmin && <th style={{textAlign:'center'}} title="Staffable = questions staffables. Désactivé = support.">Staffable</th>}
             <th>Actions</th>
           </tr></thead>
@@ -98,6 +100,8 @@ export default function Collaborateurs() {
             const isSA = (c.email||'').toLowerCase() === SUPER_ADMIN_EMAIL;
             const isAdm = c.is_admin === true;
             const hasMissions = c.missions_access === true;
+            const hasObjectifs = c.objectifs_access !== false; // default true if undefined
+            const hasEntretiens = c.entretiens_access !== false; // default true if undefined
             const isStaffable = c.groupe_entretien === 'staffable';
             const toggleStyle = (disabled) => ({position:'relative',display:'inline-block',width:40,height:22,cursor:disabled?'not-allowed':'pointer'});
             const trackStyle = (on) => ({position:'absolute',inset:0,borderRadius:11,background:on?'var(--green)':'var(--lavender)',transition:'background 0.2s'});
@@ -134,6 +138,30 @@ export default function Collaborateurs() {
                     } catch(e) { showToast('Erreur: '+e.message); }
                   }} style={{opacity:0,width:0,height:0}} />
                   <span style={trackStyle(hasMissions)} /><span style={thumbStyle(hasMissions)} />
+                </label>
+              </td>}
+              {isSuperAdmin && <td style={{textAlign:'center'}}>
+                <label style={toggleStyle(false)} title={hasObjectifs ? 'Onglet Objectifs visible' : 'Onglet Objectifs caché'}>
+                  <input type="checkbox" checked={hasObjectifs} onChange={async()=>{
+                    try {
+                      await api.updateCollaborateur(c.id, { objectifs_access: !hasObjectifs });
+                      await reload();
+                      showToast(!hasObjectifs ? `Objectifs activé pour ${c.prenom}` : `Objectifs désactivé pour ${c.prenom}`);
+                    } catch(e) { showToast('Erreur: '+e.message); }
+                  }} style={{opacity:0,width:0,height:0}} />
+                  <span style={trackStyle(hasObjectifs)} /><span style={thumbStyle(hasObjectifs)} />
+                </label>
+              </td>}
+              {isSuperAdmin && <td style={{textAlign:'center'}}>
+                <label style={toggleStyle(false)} title={hasEntretiens ? 'Onglet Entretien RH visible' : 'Onglet Entretien RH caché'}>
+                  <input type="checkbox" checked={hasEntretiens} onChange={async()=>{
+                    try {
+                      await api.updateCollaborateur(c.id, { entretiens_access: !hasEntretiens });
+                      await reload();
+                      showToast(!hasEntretiens ? `Entretiens activé pour ${c.prenom}` : `Entretiens désactivé pour ${c.prenom}`);
+                    } catch(e) { showToast('Erreur: '+e.message); }
+                  }} style={{opacity:0,width:0,height:0}} />
+                  <span style={trackStyle(hasEntretiens)} /><span style={thumbStyle(hasEntretiens)} />
                 </label>
               </td>}
               {isSuperAdmin && <td style={{textAlign:'center'}}>

@@ -307,6 +307,18 @@ CREATE UNIQUE INDEX IF NOT EXISTS uniq_objectif_parent_periode
 ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS groupe_entretien text;
 ```
 
+## Migration v20 — Toggles d'accès Objectifs + Entretiens RH
+
+```sql
+-- Permet à l'admin d'activer/désactiver les modules Objectifs et Entretiens RH
+-- pour un collab donné, comme pour `missions_access`. Default TRUE pour préserver
+-- le comportement existant ; backfill des lignes existantes.
+ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS objectifs_access boolean DEFAULT true;
+ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS entretiens_access boolean DEFAULT true;
+UPDATE collaborateurs SET objectifs_access = true WHERE objectifs_access IS NULL;
+UPDATE collaborateurs SET entretiens_access = true WHERE entretiens_access IS NULL;
+```
+
 Côté settings, les questions `questions_manager` / `questions_collab` acceptent un champ optionnel
 `groupes: ['staffable'] | ['support'] | ['staffable','support']`. Absence du champ = visible par tous.
 

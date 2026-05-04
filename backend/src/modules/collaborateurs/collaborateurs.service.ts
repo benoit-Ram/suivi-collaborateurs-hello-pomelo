@@ -6,7 +6,7 @@ import { SupabaseService } from '../../config/supabase.service';
 const SENSITIVE_FIELDS = ['notes', 'solde_conges', 'solde_rtt', 'acquisition_conges', 'solde_reference_date', 'cycle_conges_debut', 'date_fin_essai', 'is_admin', 'missions_access'] as const;
 
 // Fields a collab cannot write on themselves (admin-only fields).
-const ADMIN_ONLY_WRITE_FIELDS = ['is_admin', 'missions_access', 'solde_conges', 'solde_rtt', 'acquisition_conges', 'solde_reference_date', 'manager_id', 'valideur_conges_id', 'date_entree', 'date_fin_essai', 'contrat', 'type_poste', 'groupe_entretien', 'cycle_conges_debut'] as const;
+const ADMIN_ONLY_WRITE_FIELDS = ['is_admin', 'missions_access', 'objectifs_access', 'entretiens_access', 'solde_conges', 'solde_rtt', 'acquisition_conges', 'solde_reference_date', 'manager_id', 'valideur_conges_id', 'date_entree', 'date_fin_essai', 'contrat', 'type_poste', 'groupe_entretien', 'cycle_conges_debut'] as const;
 
 function redactCollab(collab: any, requester: any): any {
   if (!collab) return collab;
