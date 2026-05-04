@@ -129,6 +129,24 @@ export default function CollabAccueil() {
     api.getMissions().then(m => setIsReferent((m||[]).some(mi => mi.responsable_id === selectedId))).catch(e => console.error('Referent check error:', e));
   }, [selectedId]);
 
+  // If the active tab was disabled by admin (or doesn't apply to this collab), reset to accueil.
+  // Hook must be called unconditionally — kept BEFORE any early return.
+  const _activeCollab = collabs.find(x => x.id === selectedId);
+  const _hasMissionsAccess = _activeCollab?.missions_access === true;
+  const _hasObjectifsAccess = _activeCollab?.objectifs_access !== false;
+  const _hasEntretiensAccess = _activeCollab?.entretiens_access !== false;
+  const _isManagerEarly = (collabs || []).some(m => m.manager_id === selectedId);
+  useEffect(() => {
+    if (!_activeCollab || tab === 'accueil') return;
+    const visible = new Set(['conges']); // conges always visible
+    if (_hasObjectifsAccess) visible.add('objectifs');
+    if (_hasEntretiensAccess) visible.add('points');
+    if (_hasMissionsAccess) visible.add('missions');
+    if (_isManagerEarly) visible.add('management');
+    if (isReferent) visible.add('referent');
+    if (!visible.has(tab)) setTab('accueil');
+  }, [tab, _activeCollab, _hasObjectifsAccess, _hasEntretiensAccess, _hasMissionsAccess, _isManagerEarly, isReferent]);
+
   if (loading) return <div style={{maxWidth:600,margin:'40px auto'}}><Skeleton lines={5} /></div>;
 
   /** Charge les absences d'un collaborateur */
@@ -184,13 +202,7 @@ export default function CollabAccueil() {
   if (hasEntretiensAccess) tabs.push(['points', isManager ? '📋 Mes entretiens RH' : '📋 Entretien RH']);
   if (isManager) tabs.push(['management', pendingCount > 0 ? `👔 Management (${pendingCount})` : '👔 Management']);
   tabs.push(['conges', isManager ? '🏖️ Mes congés' : '🏖️ Congés']);
-
-  // If the active tab was disabled by admin while user was on it, reset to 'accueil'
-  useEffect(() => {
-    if (tab === 'accueil') return;
-    const visibleKeys = tabs.map(t => t[0]);
-    if (!visibleKeys.includes(tab)) setTab('accueil');
-  }, [tab, hasObjectifsAccess, hasEntretiensAccess, hasMissionsAccess, isManager, isReferent]);
+  // (tab-visibility effect lives at the top of the component, before early returns)
 
   return (
     <div>
