@@ -133,8 +133,8 @@ export default function CollabAccueil() {
   // Hook must be called unconditionally — kept BEFORE any early return.
   const _activeCollab = collabs.find(x => x.id === selectedId);
   const _hasMissionsAccess = _activeCollab?.missions_access === true;
-  const _hasObjectifsAccess = _activeCollab?.objectifs_access !== false;
-  const _hasEntretiensAccess = _activeCollab?.entretiens_access !== false;
+  const _hasObjectifsAccess = _activeCollab?.objectifs_access === true;
+  const _hasEntretiensAccess = _activeCollab?.entretiens_access === true;
   const _isManagerEarly = (collabs || []).some(m => m.manager_id === selectedId);
   useEffect(() => {
     if (!_activeCollab || tab === 'accueil') return;
@@ -190,10 +190,10 @@ export default function CollabAccueil() {
   const isManager = myTeam.length > 0;
 
   const hasMissionsAccess = c.missions_access === true;
-  // objectifs_access / entretiens_access default to TRUE when the column is null/undefined,
-  // so legacy collabs keep current behavior.
-  const hasObjectifsAccess = c.objectifs_access !== false;
-  const hasEntretiensAccess = c.entretiens_access !== false;
+  // Modules opt-in: a collab sees the Objectifs / Entretiens / Missions tabs
+  // only when the admin has explicitly enabled them. Default state = congés-only.
+  const hasObjectifsAccess = c.objectifs_access === true;
+  const hasEntretiensAccess = c.entretiens_access === true;
 
   const tabs = [];
   if (hasObjectifsAccess) tabs.push(['objectifs', isManager ? '🎯 Mes objectifs' : '🎯 Objectifs']);

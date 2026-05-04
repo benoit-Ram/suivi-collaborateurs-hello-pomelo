@@ -37,13 +37,36 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
   };
 
   const pendingCount = teamPendingAbs.length;
-  const [overviewTab, setOverviewTab] = useState(pendingCount > 0 ? 'conges' : 'objectifs');
+  // Per-managé module flags: only members whose admin has enabled the module are counted.
+  const teamWithObjectifs = team.filter(m => m.objectifs_access === true);
+  const teamWithEntretiens = team.filter(m => m.entretiens_access === true);
+  const showOverviewObjectifs = teamWithObjectifs.length > 0;
+  const showOverviewEntretiens = teamWithEntretiens.length > 0;
+  // Default landing tab: pending congés > affilies > objectifs > entretiens > conges
+  const defaultOverviewTab = pendingCount > 0 ? 'conges' : 'affilies';
+  const [overviewTab, setOverviewTab] = useState(defaultOverviewTab);
   const [objModal, setObjModal] = useState(false);
   const [editingObj, setEditingObj] = useState(null);
   const [objForm, setObjForm] = useState({});
   const [editingPoint, setEditingPoint] = useState(null);
   const [pointForm, setPointForm] = useState({});
   const [lastRefresh, setLastRefresh] = useState(null);
+
+  // Reset overview tab if the currently selected one is no longer visible
+  // (e.g. admin disabled Objectifs for the only managé who had it).
+  useEffect(() => {
+    if (overviewTab === 'objectifs' && !showOverviewObjectifs) setOverviewTab('affilies');
+    else if (overviewTab === 'points' && !showOverviewEntretiens) setOverviewTab('affilies');
+  }, [overviewTab, showOverviewObjectifs, showOverviewEntretiens]);
+
+  // Same guard for the per-member detail tab.
+  useEffect(() => {
+    if (!selectedMember) return;
+    const memberHasObjectifs = selectedMember.objectifs_access === true;
+    const memberHasEntretiens = selectedMember.entretiens_access === true;
+    if (memberTab === 'objectifs' && !memberHasObjectifs) setMemberTab('conges');
+    else if (memberTab === 'points' && !memberHasEntretiens) setMemberTab('conges');
+  }, [memberTab, selectedMember?.id, selectedMember?.objectifs_access, selectedMember?.entretiens_access]);
 
   // Live refresh of the selected member's data when viewing entretiens (#7e)
   useEffect(() => {
@@ -119,7 +142,12 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
         </div>}
 
         <div style={{display:'flex',gap:6,marginBottom:20,background:'var(--offwhite)',padding:6,borderRadius:12}}>
-          {[['affilies','👥 Affiliés'],['objectifs','🎯 Objectifs'],['points','📋 Entretiens équipe'],['conges','🏖️ Congés']].map(([k,l])=>(
+          {[
+            ['affilies','👥 Affiliés', true],
+            ['objectifs','🎯 Objectifs', showOverviewObjectifs],
+            ['points','📋 Entretiens équipe', showOverviewEntretiens],
+            ['conges','🏖️ Congés', true],
+          ].filter(([,,visible]) => visible).map(([k,l])=>(
             <button key={k} onClick={()=>setOverviewTab(k)} style={{position:'relative',flex:1,padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',background:overviewTab===k?'var(--pink)':'transparent',color:overviewTab===k?'white':'var(--muted)',border:overviewTab===k?'none':'1.5px solid var(--lavender)',boxShadow:overviewTab===k?'0 4px 14px rgba(255,50,133,0.3)':'none'}}>
               {l}
               {k==='conges' && pendingCount > 0 && <span style={{position:'absolute',top:-4,right:-4,background:'var(--orange)',color:'white',borderRadius:'50%',width:20,height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'0.65rem',fontWeight:800,boxShadow:'0 2px 6px rgba(249,115,22,0.4)'}}>{pendingCount}</span>}
@@ -131,11 +159,14 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
         {overviewTab==='affilies' && <>
           <div style={{fontSize:'0.78rem',fontWeight:700,textTransform:'uppercase',color:'var(--muted)',marginBottom:12,display:'flex',alignItems:'center',gap:8}}>👥 Mes affiliés ({team.length})<span style={{flex:1,height:1,background:'var(--lavender)'}} /></div>
           {team.map(m => {
-            const mObjs = (m.objectifs||[]).filter(o=>o.statut!=='atteint').length;
+            const mHasObjectifs = m.objectifs_access === true;
+            const mHasEntretiens = m.entretiens_access === true;
+            const mObjs = mHasObjectifs ? (m.objectifs||[]).filter(o=>o.statut!=='atteint').length : 0;
             const mPoints = (m.points_suivi||[]).filter(p=>p.type==='mensuel');
             const lastPoint = mPoints.sort((a,b)=>(b.mois||'')>(a.mois||'')?1:-1)[0];
-            const pointStatus = lastPoint ? (getEntretienStatus(lastPoint) === 'vide' ? 'pending' : 'done') : 'none';
-            return <div key={m.id} className="card" style={{marginBottom:10,padding:16,cursor:'pointer'}} onClick={()=>{setSelectedMember(m);setView('detail');setMemberTab('objectifs');loadMemberAbs(m.id);}}>
+            const pointStatus = mHasEntretiens && lastPoint ? (getEntretienStatus(lastPoint) === 'vide' ? 'pending' : 'done') : 'none';
+            const initialTab = mHasObjectifs ? 'objectifs' : (mHasEntretiens ? 'points' : 'conges');
+            return <div key={m.id} className="card" style={{marginBottom:10,padding:16,cursor:'pointer'}} onClick={()=>{setSelectedMember(m);setView('detail');setMemberTab(initialTab);loadMemberAbs(m.id);}}>
               <div style={{display:'flex',alignItems:'center',gap:12}}>
                 <Avatar prenom={m.prenom} nom={m.nom} photoUrl={m.photo_url} size={44} />
                 <div style={{flex:1}}>
@@ -143,16 +174,16 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
                   <div style={{fontSize:'0.75rem',color:'var(--muted)'}}>{m.poste}{m.equipe ? ` · ${m.equipe}` : ''}</div>
                 </div>
                 <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                  {mObjs > 0 && <Badge type="pink">{mObjs} obj.</Badge>}
-                  <Badge type={pointStatus==='done'?'green':pointStatus==='pending'?'orange':'gray'}>{pointStatus==='done'?'✅ Point':'⏳ Point'}</Badge>
+                  {mHasObjectifs && mObjs > 0 && <Badge type="pink">{mObjs} obj.</Badge>}
+                  {mHasEntretiens && <Badge type={pointStatus==='done'?'green':pointStatus==='pending'?'orange':'gray'}>{pointStatus==='done'?'✅ Point':'⏳ Point'}</Badge>}
                 </div>
               </div>
             </div>;
           })}
         </>}
 
-        {/* Vue objectifs de tous les managés */}
-        {overviewTab==='objectifs' && team.map(m => {
+        {/* Vue objectifs des managés ayant le module activé */}
+        {overviewTab==='objectifs' && teamWithObjectifs.map(m => {
           const objs = m.objectifs||[];
           return <div key={m.id} className="card" style={{marginBottom:16,padding:16}}>
             <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12,cursor:'pointer'}} onClick={()=>{setSelectedMember(m);setView('detail');setMemberTab('objectifs');}}>
@@ -170,8 +201,8 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
           </div>;
         })}
 
-        {/* Vue entretiens de tous les managés */}
-        {overviewTab==='points' && team.map(m => {
+        {/* Vue entretiens des managés ayant le module activé */}
+        {overviewTab==='points' && teamWithEntretiens.map(m => {
           const pts = (m.points_suivi||[]).filter(p=>p.type==='mensuel').sort((a,b)=>(b.mois||'')>(a.mois||'')?1:-1);
           const last = pts[0];
           const status = last ? getEntretienStatus(last) : 'vide';
@@ -240,6 +271,9 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
   if (!m) return null;
   const mObjs = m.objectifs||[];
   const mPoints = (m.points_suivi||[]).filter(p=>p.type==='mensuel').sort((a,b)=>(b.mois||'')>(a.mois||'')?1:-1);
+  // Per-member module flags — cache the inner tabs accordingly.
+  const mHasObjectifs = m.objectifs_access === true;
+  const mHasEntretiens = m.entretiens_access === true;
 
   const openAddObj = () => { setEditingObj(null); setObjForm({titre:'',description:'',date_debut:'',date_fin:'',statut:'en-cours',progression:0,recurrence:''}); setObjModal(true); };
   const openEditObj = (o) => { setEditingObj(o.id); setObjForm({titre:o.titre,description:o.description||'',date_debut:o.date_debut||'',date_fin:o.date_fin||'',statut:o.statut,progression:o.progression||0,recurrence:o.recurrence||''}); setObjModal(true); };
@@ -319,7 +353,12 @@ function ManagementTab({ manager, team, collabs, settings, teamPendingAbs = [], 
         <div><div style={{fontSize:'1.1rem',fontWeight:700,color:'var(--navy)'}}>{m.prenom} {m.nom}</div><div style={{fontSize:'0.85rem',color:'var(--muted)'}}>{m.poste}</div></div>
       </div>
       <div style={{display:'flex',gap:6,marginBottom:20,background:'var(--offwhite)',padding:6,borderRadius:12}}>
-        {[['affilies','👥 Affiliés'],['objectifs','🎯 Objectifs'],['points','📋 Entretiens équipe'],['conges','🏖️ Congés']].map(([k,l])=>(
+        {[
+          ['affilies','👥 Affiliés', true],
+          ['objectifs','🎯 Objectifs', mHasObjectifs],
+          ['points','📋 Entretiens équipe', mHasEntretiens],
+          ['conges','🏖️ Congés', true],
+        ].filter(([,,visible]) => visible).map(([k,l])=>(
           <button key={k} onClick={()=>{setMemberTab(k);if(k==='conges')loadMemberAbs(m.id);}} style={{flex:1,padding:'10px 14px',borderRadius:10,border:'none',fontFamily:'inherit',fontSize:'0.78rem',fontWeight:700,cursor:'pointer',background:memberTab===k?'var(--pink)':'transparent',color:memberTab===k?'white':'var(--muted)',border:memberTab===k?'none':'1.5px solid var(--lavender)',boxShadow:memberTab===k?'0 4px 14px rgba(255,50,133,0.3)':'none'}}>{l}</button>
         ))}
       </div>

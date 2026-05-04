@@ -311,12 +311,24 @@ ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS groupe_entretien text;
 
 ```sql
 -- Permet à l'admin d'activer/désactiver les modules Objectifs et Entretiens RH
--- pour un collab donné, comme pour `missions_access`. Default TRUE pour préserver
--- le comportement existant ; backfill des lignes existantes.
+-- pour un collab donné, comme pour `missions_access`.
 ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS objectifs_access boolean DEFAULT true;
 ALTER TABLE collaborateurs ADD COLUMN IF NOT EXISTS entretiens_access boolean DEFAULT true;
 UPDATE collaborateurs SET objectifs_access = true WHERE objectifs_access IS NULL;
 UPDATE collaborateurs SET entretiens_access = true WHERE entretiens_access IS NULL;
+```
+
+> ⚠️ Les défauts ont été inversés en v21 — voir ci-dessous. Les rows existantes
+> sont conservées (admin a piloté à la main).
+
+## Migration v21 — Défauts modules à FALSE (déploiement congés-only)
+
+```sql
+-- Pour le déploiement initial à 120 users, on n'expose que le module Congés.
+-- Admin réactive Objectifs / Entretiens / Missions par collab via /admin/collaborateurs.
+ALTER TABLE collaborateurs ALTER COLUMN objectifs_access SET DEFAULT false;
+ALTER TABLE collaborateurs ALTER COLUMN entretiens_access SET DEFAULT false;
+ALTER TABLE collaborateurs ALTER COLUMN missions_access SET DEFAULT false;
 ```
 
 Côté settings, les questions `questions_manager` / `questions_collab` acceptent un champ optionnel

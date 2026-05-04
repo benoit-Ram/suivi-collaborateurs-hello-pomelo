@@ -100,8 +100,8 @@ export default function Collaborateurs() {
             const isSA = (c.email||'').toLowerCase() === SUPER_ADMIN_EMAIL;
             const isAdm = c.is_admin === true;
             const hasMissions = c.missions_access === true;
-            const hasObjectifs = c.objectifs_access !== false; // default true if undefined
-            const hasEntretiens = c.entretiens_access !== false; // default true if undefined
+            const hasObjectifs = c.objectifs_access === true; // opt-in
+            const hasEntretiens = c.entretiens_access === true; // opt-in
             const isStaffable = c.groupe_entretien === 'staffable';
             const toggleStyle = (disabled) => ({position:'relative',display:'inline-block',width:40,height:22,cursor:disabled?'not-allowed':'pointer'});
             const trackStyle = (on) => ({position:'absolute',inset:0,borderRadius:11,background:on?'var(--green)':'var(--lavender)',transition:'background 0.2s'});
