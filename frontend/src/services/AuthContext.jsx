@@ -45,9 +45,19 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  // Listen for auth-expired events from API layer
+  // Listen for auth-expired events from API layer.
+  // Wiping state un-mounts protected routes (PrivateRoute redirects to /login).
+  // A hard reload is the cleanest way to drop any in-flight fetches and stale
+  // component state — sessionStorage carries the "session expired" notice over.
   useEffect(() => {
-    const handler = () => { setUser(null); setCollabs([]); };
+    const handler = () => {
+      setUser(null);
+      setCollabs([]);
+      // Avoid reload loops if we're already on /login
+      if (!window.location.pathname.startsWith('/login')) {
+        window.location.replace('/login');
+      }
+    };
     window.addEventListener('auth-expired', handler);
     return () => window.removeEventListener('auth-expired', handler);
   }, []);

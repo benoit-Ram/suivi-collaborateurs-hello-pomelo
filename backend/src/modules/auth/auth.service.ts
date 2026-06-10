@@ -8,7 +8,9 @@ if (!GOOGLE_CLIENT_ID) throw new Error('GOOGLE_CLIENT_ID environment variable is
 const SUPER_ADMIN_EMAIL = 'benoit@hello-pomelo.com';
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) throw new Error('JWT_SECRET environment variable is required. Set it in backend/.env');
-const JWT_EXPIRY = '24h';
+// 7 jours — équilibre entre sécurité et confort. Les 120 collabs ne se reconnectent
+// qu'une fois par semaine. Si compromis, faire tourner JWT_SECRET invalidera tout.
+const JWT_EXPIRY = '7d';
 
 @Injectable()
 export class AuthService {

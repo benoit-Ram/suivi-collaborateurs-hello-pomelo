@@ -26,11 +26,12 @@ export class NotificationsService {
     collabEmail: string; collabPrenom: string; managerEmail?: string | null;
     absenceId: string; type: string; date_debut: string; date_fin: string; jours: number; commentaire?: string;
   }): void {
+    const noun = absenceNoun(data.type);
     // Fire mail
     this.mailer.send({
       to: data.collabEmail,
-      subject: `✅ Ton congé du ${fr(data.date_debut)} au ${fr(data.date_fin)} a été validé`,
-      html: congeApprovedTemplate(data, this.appUrl),
+      subject: `✅ ${capitalize(noun.demonstrative)} ${noun.label} du ${fr(data.date_debut)} au ${fr(data.date_fin)} a été validé${noun.eAccord}`,
+      html: congeApprovedTemplate(data, this.appUrl, noun),
     }).catch(() => {});
     // Fire calendar event
     this.calendar.upsertAbsenceEvent({
@@ -43,10 +44,11 @@ export class NotificationsService {
     collabEmail: string; collabPrenom: string; absenceId: string;
     type: string; date_debut: string; date_fin: string; motif_refus?: string;
   }): void {
+    const noun = absenceNoun(data.type);
     this.mailer.send({
       to: data.collabEmail,
-      subject: `❌ Ton congé du ${fr(data.date_debut)} au ${fr(data.date_fin)} a été refusé`,
-      html: congeRefusedTemplate(data, this.appUrl),
+      subject: `❌ ${capitalize(noun.demonstrative)} ${noun.label} du ${fr(data.date_debut)} au ${fr(data.date_fin)} a été refusé${noun.eAccord}`,
+      html: congeRefusedTemplate(data, this.appUrl, noun),
     }).catch(() => {});
     // In case the absence had been approved before, remove the calendar event
     this.calendar.deleteAbsenceEvent(data.collabEmail, data.absenceId).catch(() => {});
@@ -57,10 +59,11 @@ export class NotificationsService {
     collabPrenom: string; collabNom: string;
     type: string; date_debut: string; date_fin: string; jours: number; commentaire?: string;
   }): void {
+    const noun = absenceNoun(data.type);
     this.mailer.send({
       to: data.managerEmail,
-      subject: `⏳ Demande de congé — ${data.collabPrenom} ${data.collabNom}`,
-      html: congeRequestTemplate(data, this.appUrl),
+      subject: `⏳ Demande ${noun.dePrefix}${noun.label} — ${data.collabPrenom} ${data.collabNom}`,
+      html: congeRequestTemplate(data, this.appUrl, noun),
     }).catch(() => {});
   }
 
@@ -81,6 +84,36 @@ function esc(s: string): string {
   return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+function capitalize(s: string): string {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
+interface AbsenceNoun {
+  label: string;          // "congé", "formation", "absence", …
+  demonstrative: string;  // "ton", "ta"
+  dePrefix: string;       // "de ", "d'"
+  eAccord: string;        // "" pour masculin, "e" pour féminin
+  emoji: string;          // 🏖️ / 📚 / …
+}
+
+/** Map a raw absence type label (e.g. "Formation / Cours") to a French-grammatically-correct noun bundle. */
+function absenceNoun(typeLabel: string): AbsenceNoun {
+  const t = (typeLabel || '').toLowerCase();
+  if (t.includes('formation') || t.includes('cours')) {
+    return { label: 'formation', demonstrative: 'ta', dePrefix: 'de ', eAccord: 'e', emoji: '📚' };
+  }
+  if (t.includes('maladie')) {
+    return { label: 'absence maladie', demonstrative: 'ton', dePrefix: "d'", eAccord: 'e', emoji: '🤒' };
+  }
+  if (t.includes('sans solde')) {
+    return { label: 'absence sans solde', demonstrative: 'ton', dePrefix: "d'", eAccord: 'e', emoji: '🚫' };
+  }
+  if (t.includes('congé') || t.includes('conge')) {
+    return { label: 'congé', demonstrative: 'ton', dePrefix: 'de ', eAccord: '', emoji: '🏖️' };
+  }
+  return { label: 'absence', demonstrative: 'ton', dePrefix: "d'", eAccord: 'e', emoji: '📅' };
+}
+
 const baseStyle = `
   body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#05056D;max-width:560px;margin:0 auto;padding:24px;line-height:1.5;background:#F8F7FC}
   .card{background:#FFFFFF;border-radius:12px;padding:24px;box-shadow:0 2px 8px rgba(5,5,109,0.05)}
@@ -91,25 +124,26 @@ const baseStyle = `
   .footer{margin-top:16px;font-size:0.72rem;color:#6B6B9A}
 `;
 
-function congeApprovedTemplate(d: any, appUrl: string): string {
+function congeApprovedTemplate(d: any, appUrl: string, noun: AbsenceNoun): string {
+  const ctaLabel = noun.label === 'congé' ? 'Voir mon solde' : 'Voir mon agenda';
   return `<html><head><style>${baseStyle}</style></head><body>
 <div class="card">
-  <h1>✅ Ton congé est validé, ${esc(d.collabPrenom)} 🎉</h1>
+  <h1>✅ ${capitalize(noun.demonstrative)} ${noun.label} est validé${noun.eAccord}, ${esc(d.collabPrenom)} ${noun.emoji}</h1>
   <div class="detail">
     <strong>${esc(d.type)}</strong><br/>
     Du <strong>${fr(d.date_debut)}</strong> au <strong>${fr(d.date_fin)}</strong> — ${d.jours} jour(s) ouvré(s)
     ${d.commentaire ? `<br/><span class="muted">${esc(d.commentaire)}</span>` : ''}
   </div>
   <p class="muted">Un événement a été ajouté à ton calendrier Google.</p>
-  <a href="${appUrl}/collab" class="btn">Voir mon solde</a>
+  <a href="${appUrl}/collab" class="btn">${ctaLabel}</a>
   <div class="footer">— Hello Pomelo RH</div>
 </div></body></html>`;
 }
 
-function congeRefusedTemplate(d: any, appUrl: string): string {
+function congeRefusedTemplate(d: any, appUrl: string, noun: AbsenceNoun): string {
   return `<html><head><style>${baseStyle}</style></head><body>
 <div class="card">
-  <h1>❌ Ta demande de congé a été refusée</h1>
+  <h1>❌ Ta demande ${noun.dePrefix}${noun.label} a été refusée</h1>
   <div class="detail">
     <strong>${esc(d.type)}</strong> du <strong>${fr(d.date_debut)}</strong> au <strong>${fr(d.date_fin)}</strong>
   </div>
@@ -120,10 +154,10 @@ function congeRefusedTemplate(d: any, appUrl: string): string {
 </div></body></html>`;
 }
 
-function congeRequestTemplate(d: any, appUrl: string): string {
+function congeRequestTemplate(d: any, appUrl: string, noun: AbsenceNoun): string {
   return `<html><head><style>${baseStyle}</style></head><body>
 <div class="card">
-  <h1>⏳ Nouvelle demande de congé à valider</h1>
+  <h1>⏳ Nouvelle demande ${noun.dePrefix}${noun.label} à valider</h1>
   <p>Bonjour ${esc(d.managerPrenom)},</p>
   <div class="detail">
     <strong>${esc(d.collabPrenom)} ${esc(d.collabNom)}</strong><br/>

@@ -38,6 +38,16 @@ export class CalendarService {
     return dt.toISOString().split('T')[0];
   }
 
+  /** Pick a contextual emoji based on the absence type label (best-effort match). */
+  private emojiFor(typeLabel: string): string {
+    const t = (typeLabel || '').toLowerCase();
+    if (t.includes('formation') || t.includes('cours')) return '📚';
+    if (t.includes('maladie')) return '🤒';
+    if (t.includes('sans solde')) return '🚫';
+    if (t.includes('congé') || t.includes('conge')) return '🏖️';
+    return '📅';
+  }
+
   async upsertAbsenceEvent(input: AbsenceEventInput): Promise<boolean> {
     if (!this.enabled) return false;
     const client = this.googleAuth.getClient(CAL_SCOPES, input.userEmail);
@@ -46,7 +56,7 @@ export class CalendarService {
     const eventId = this.eventId(input.id);
     const body = {
       id: eventId,
-      summary: `🏖️ ${input.type}`,
+      summary: `${this.emojiFor(input.type)} ${input.type}`,
       description: input.commentaire || '',
       start: { date: input.date_debut },
       end: { date: this.addOneDay(input.date_fin) },

@@ -8,7 +8,17 @@ export default function LoginPage() {
   const [showChoice, setShowChoice] = useState(false);
   const [loggingIn, setLoggingIn] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
+  // Banner shown when user landed here because their JWT expired mid-session.
+  // Read from sessionStorage which is set by api.js on 401, then consumed once.
+  const [expiredNotice, setExpiredNotice] = useState(() => {
+    const flag = sessionStorage.getItem('hp_auth_expired_notice') === '1';
+    if (flag) sessionStorage.removeItem('hp_auth_expired_notice');
+    return flag;
+  });
   const googleBtnRef = useRef(null);
+  // Guard: Google Identity Services warns "initialize() called multiple times"
+  // if we call it more than once. We init at most once per page life.
+  const googleInitialized = useRef(false);
   const navigate = useNavigate();
 
   // If already authenticated, redirect
@@ -22,30 +32,35 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, isAdmin, loading, loggingIn]);
 
-  // Google Sign-In init
+  // Google Sign-In: initialize ONCE, then just re-render the button when
+  // the visible state (loading/auth/loggingIn) changes.
   useEffect(() => {
     if (loading || isAuthenticated || loggingIn) return;
     if (!GOOGLE_CLIENT_ID) return;
 
-    const initGoogle = () => {
-      if (window.google?.accounts?.id) {
+    const initOrRender = () => {
+      if (!window.google?.accounts?.id) return false;
+      if (!googleInitialized.current) {
         window.google.accounts.id.initialize({
           client_id: GOOGLE_CLIENT_ID,
           callback: handleGoogleResponse,
           auto_select: false,
         });
-        if (googleBtnRef.current) {
-          window.google.accounts.id.renderButton(googleBtnRef.current, {
-            theme: 'outline', size: 'large', width: Math.min(340, window.innerWidth - 100), text: 'signin_with', shape: 'rectangular', locale: 'fr'
-          });
-        }
-        setGoogleReady(true);
+        googleInitialized.current = true;
       }
+      if (googleBtnRef.current) {
+        // Clear before re-rendering so we don't stack buttons
+        googleBtnRef.current.innerHTML = '';
+        window.google.accounts.id.renderButton(googleBtnRef.current, {
+          theme: 'outline', size: 'large', width: Math.min(340, window.innerWidth - 100), text: 'signin_with', shape: 'rectangular', locale: 'fr'
+        });
+      }
+      setGoogleReady(true);
+      return true;
     };
 
-    initGoogle();
-    if (!window.google?.accounts?.id) {
-      const timer = setTimeout(initGoogle, 2000);
+    if (!initOrRender()) {
+      const timer = setTimeout(initOrRender, 2000);
       return () => clearTimeout(timer);
     }
   }, [loading, isAuthenticated, loggingIn]);
@@ -136,9 +151,14 @@ export default function LoginPage() {
         </div>
         <div style={{ height: 3, background: 'linear-gradient(90deg, #FF3285, #0000EA, #5BB6F4)', borderRadius: 99, margin: '28px 0' }} />
         <h2 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#05056D', marginBottom: 8 }}>Connexion</h2>
-        <p style={{ fontSize: '0.85rem', color: '#6B6B9A', marginBottom: 32, lineHeight: 1.6 }}>
+        <p style={{ fontSize: '0.85rem', color: '#6B6B9A', marginBottom: 24, lineHeight: 1.6 }}>
           Connectez-vous avec votre compte Hello Pomelo.
         </p>
+        {expiredNotice && (
+          <div style={{ background: '#FFF8E6', color: '#854D0E', borderLeft: '4px solid #EAB308', borderRadius: 10, padding: '12px 16px', fontSize: '0.82rem', fontWeight: 600, marginBottom: 20, textAlign: 'left' }}>
+            ⏱️ Ta session a expiré. Reconnecte-toi avec Google pour continuer.
+          </div>
+        )}
         {GOOGLE_CLIENT_ID ? (
           <>
             <div ref={googleBtnRef} style={{ display: 'flex', justifyContent: 'center', minHeight: 44 }} />
