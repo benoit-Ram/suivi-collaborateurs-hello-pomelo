@@ -38,11 +38,11 @@ USER hp
 # NestJS écoute PORT ou 4000 par défaut
 EXPOSE 4000
 
-# Healthcheck via l'endpoint root de l'API (NestJS répond 404 sans auth, pas 5xx)
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD wget -q -O- http://127.0.0.1:${PORT:-4000}/api/health 2>/dev/null \
-      || wget -q --spider http://127.0.0.1:${PORT:-4000}/api 2>/dev/null \
-      || exit 1
+# Healthcheck via l'endpoint /api/health (exposé par HealthModule, public).
+# On utilise `node -e` plutôt que wget/curl pour ne pas dépendre de leur présence
+# dans l'image alpine. Code 200 attendu quand le pool pg répond ; sinon exit 1.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+ (process.env.PORT||4000) +'/api/health').then(r=>{if(r.status!==200)process.exit(1)}).catch(()=>process.exit(1))"
 
 ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["node", "dist/main.js"]

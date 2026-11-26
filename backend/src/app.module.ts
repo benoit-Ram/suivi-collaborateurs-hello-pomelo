@@ -19,6 +19,7 @@ import { ActivityLogModule } from './modules/activity-log/activity-log.module';
 import { StaffingRequestsModule } from './modules/staffing-requests/staffing-requests.module';
 import { ObjectifRequestsModule } from './modules/objectif-requests/objectif-requests.module';
 import { GoogleIntegrationModule } from './modules/google-integration/google-integration.module';
+import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { GoogleIntegrationModule } from './modules/google-integration/google-int
     StaffingRequestsModule,
     ObjectifRequestsModule,
     GoogleIntegrationModule,
+    HealthModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: AuthGuard },
