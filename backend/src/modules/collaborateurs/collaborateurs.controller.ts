@@ -14,7 +14,7 @@ export class CollaborateursController {
 
   @Roles('admin')
   @Post()
-  create(@Body() dto: any) { return this.service.create(dto); }
+  create(@Body() dto: any, @Req() req: any) { return this.service.create(dto, req.user); }
 
   @Put(':id')
   update(@Param('id') id: string, @Body() dto: any, @Req() req: any) {

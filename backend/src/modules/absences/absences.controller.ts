@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, Req } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, Req, NotFoundException } from '@nestjs/common';
 import { AbsencesService } from './absences.service';
 import { Roles } from '../auth/auth.guard';
 
@@ -7,10 +7,24 @@ export class AbsencesController {
   constructor(private service: AbsencesService) {}
 
   @Get()
-  findAll(@Query() filters: Record<string, string>) { return this.service.findAll(filters); }
+  findAll(@Query() filters: Record<string, string>, @Req() req: any) {
+    // Un non-admin ne voit QUE ses propres absences (pas celles des autres).
+    // Un admin voit tout, ou peut filtrer via ?collaborateur_id=...
+    if (!req.user?.isAdmin) {
+      filters = { ...filters, collaborateur_id: req.user?.sub };
+    }
+    return this.service.findAll(filters);
+  }
 
   @Get(':id')
-  findOne(@Param('id') id: string) { return this.service.findOne(id); }
+  async findOne(@Param('id') id: string, @Req() req: any) {
+    const abs = await this.service.findOne(id);
+    if (!req.user?.isAdmin && abs.collaborateur_id !== req.user?.sub) {
+      // Masque l'existence de l'absence plutôt que révéler 403
+      throw new NotFoundException(`Absence ${id} introuvable`);
+    }
+    return abs;
+  }
 
   @Post()
   create(@Body() dto: any, @Req() req: any) {

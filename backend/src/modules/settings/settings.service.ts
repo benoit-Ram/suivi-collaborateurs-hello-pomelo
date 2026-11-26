@@ -1,5 +1,12 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { sql } from 'kysely';
 import { DatabaseService } from '../../config/database.service';
+
+// pg attend du JSON stringifié (pas un array/object JS brut) pour les colonnes jsonb.
+// Ce helper produit un fragment Kysely qui fait le cast côté serveur.
+function jsonb(value: any) {
+  return sql`${JSON.stringify(value)}::jsonb`;
+}
 
 // Table settings : PK = `key` (pas `id`). Le controller route sur :id mais
 // le paramètre désigne bien la `key` — on le traite comme tel ici.
@@ -30,8 +37,8 @@ export class SettingsService {
     try {
       await this.database.db
         .insertInto('settings')
-        .values({ key, value })
-        .onConflict((oc) => oc.column('key').doUpdateSet({ value }))
+        .values({ key, value: jsonb(value) as any })
+        .onConflict((oc) => oc.column('key').doUpdateSet({ value: jsonb(value) as any }))
         .execute();
       return { success: true };
     } catch (e: any) {
@@ -54,7 +61,7 @@ export class SettingsService {
     try {
       return await this.database.db
         .insertInto('settings')
-        .values({ key: dto.key, value: dto.value })
+        .values({ key: dto.key, value: jsonb(dto.value) as any })
         .returningAll()
         .executeTakeFirstOrThrow();
     } catch (e: any) {
@@ -67,7 +74,7 @@ export class SettingsService {
       const row = await this.database.db
         .updateTable('settings')
         .set({
-          ...(dto.value !== undefined ? { value: dto.value } : {}),
+          ...(dto.value !== undefined ? { value: jsonb(dto.value) as any } : {}),
           ...(dto.key !== undefined ? { key: dto.key } : {}),
         })
         .where('key', '=', key)

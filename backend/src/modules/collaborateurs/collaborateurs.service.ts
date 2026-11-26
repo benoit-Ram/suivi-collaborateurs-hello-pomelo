@@ -15,6 +15,10 @@ function redactCollab(collab: any, requester: any): any {
   if (collab.id === requester?.sub) return collab; // self sees everything
   const redacted: any = { ...collab };
   SENSITIVE_FIELDS.forEach(f => { delete redacted[f]; });
+  // Les jointures points_suivi (entretiens RH) et objectifs sont privées :
+  // visibles uniquement par l'admin ou le collab lui-même (traités au-dessus).
+  if ('points_suivi' in redacted) redacted.points_suivi = [];
+  if ('objectifs' in redacted) redacted.objectifs = [];
   return redacted;
 }
 
@@ -70,8 +74,10 @@ export class CollaborateursService {
     return redactCollab(row, requester);
   }
 
-  async create(dto: any) {
+  async create(dto: any, requester?: any) {
     if (!dto?.prenom || !dto?.nom) throw new HttpException('prenom et nom requis', HttpStatus.BAD_REQUEST);
+    // Un admin non super_admin ne peut pas créer directement un autre admin (parité avec update).
+    if (!requester?.isSuperAdmin && 'is_admin' in dto) delete dto.is_admin;
     try {
       return await this.database.db
         .insertInto('collaborateurs')

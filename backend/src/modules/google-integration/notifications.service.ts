@@ -74,9 +74,11 @@ export class NotificationsService {
 
 // ── Templates (kept inline to avoid template-engine dep) ──────────
 
-function fr(d: string): string {
+// pg renvoie les colonnes `date` en Date object (pas en string) — on accepte les deux.
+function fr(d: string | Date): string {
   if (!d) return '—';
-  const [y, m, day] = d.split('-');
+  const s = typeof d === 'string' ? d : d.toISOString().slice(0, 10);
+  const [y, m, day] = s.split('-');
   return `${day}/${m}/${y}`;
 }
 
