@@ -75,8 +75,11 @@ export default function CollabLayout() {
   const [showPanel, setShowPanel] = useState(false);
   const panelRef = useRef(null);
 
-  // Impersonate mode
-  const impersonateId = searchParams.get('impersonate');
+  // Impersonate mode : réservé aux admins. Un non-admin qui bidouille l'URL
+  // ne doit pas voir le nom/photo d'un autre collab dans le header (fuite UX,
+  // même si les data réelles sont bloquées par le backend).
+  const impersonateIdRaw = searchParams.get('impersonate');
+  const impersonateId = isAdmin ? impersonateIdRaw : null;
   const impersonatedCollab = impersonateId ? (collabs || []).find(c => c.id === impersonateId) : null;
   const displayUser = impersonatedCollab
     ? { name: `${impersonatedCollab.prenom} ${impersonatedCollab.nom}`, picture: impersonatedCollab.photo_url }
@@ -160,7 +163,7 @@ export default function CollabLayout() {
               {showPanel && (
                 <div style={{
                   position: 'absolute', top: 40, right: 0, width: 'min(380px, 90vw)',
-                  background: 'white', borderRadius: 16, boxShadow: '0 12px 48px rgba(5,5,109,0.2)',
+                  background: 'var(--white)', borderRadius: 16, boxShadow: '0 12px 48px rgba(5,5,109,0.2)',
                   zIndex: 200, overflow: 'hidden', animation: 'fadeIn 0.15s ease'
                 }}>
                   <div style={{ padding: '14px 18px', borderBottom: '1px solid #CFD0E5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

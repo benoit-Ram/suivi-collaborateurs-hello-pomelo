@@ -25,7 +25,12 @@ import { HealthModule } from './modules/health/health.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
-    ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
+    // Deux throttlers : 'default' pour tout le monde (100/min), 'login' pour /auth/login (10/min).
+    // Appliqué via @Throttle({ login: {...} }) sur le controller.
+    ThrottlerModule.forRoot([
+      { name: 'default', ttl: 60_000, limit: 100 },
+      { name: 'login', ttl: 60_000, limit: 10 },
+    ]),
     DatabaseModule,
     AuthModule,
     CollaborateursModule,

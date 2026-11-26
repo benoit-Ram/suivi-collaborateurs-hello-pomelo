@@ -6,18 +6,57 @@ import { NotificationsService } from '../google-integration/notifications.servic
 export class AbsencesService {
   constructor(private database: DatabaseService, private notifications: NotificationsService) {}
 
-  /** Count working days (weekdays) in [start, end] inclusive, accounting for half-days. */
-  private countWorkDays(start: string, end: string, demi?: string | null): number {
-    const s = new Date(start);
-    const e = new Date(end);
+  /** Jours fériés français fixes + mobiles (Lundi de Pâques, Ascension, Lundi Pentecôte).
+   *  Calcul via Butcher-Meeus pour Pâques puis offsets.
+   *  Les dates renvoyées sont au format YYYY-MM-DD en timezone locale.
+   */
+  private frenchHolidays(year: number): Set<string> {
+    const fixed = [
+      `${year}-01-01`, `${year}-05-01`, `${year}-05-08`, `${year}-07-14`,
+      `${year}-08-15`, `${year}-11-01`, `${year}-11-11`, `${year}-12-25`,
+    ];
+    // Easter (Butcher-Meeus Gregorian)
+    const a = year % 19;
+    const b = Math.floor(year / 100);
+    const c = year % 100;
+    const d = Math.floor(b / 4);
+    const e = b % 4;
+    const f = Math.floor((b + 8) / 25);
+    const g = Math.floor((b - f + 1) / 3);
+    const h = (19 * a + b - d - g + 15) % 30;
+    const i = Math.floor(c / 4);
+    const k = c % 4;
+    const l = (32 + 2 * e + 2 * i - h - k) % 7;
+    const m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const month = Math.floor((h + l - 7 * m + 114) / 31); // 3 or 4
+    const day = ((h + l - 7 * m + 114) % 31) + 1;
+    const easter = new Date(year, month - 1, day);
+    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const addDays = (d: Date, n: number) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
+    const easterMonday = addDays(easter, 1);
+    const ascension = addDays(easter, 39);
+    const pentecostMonday = addDays(easter, 50);
+    return new Set([...fixed, fmt(easterMonday), fmt(ascension), fmt(pentecostMonday)]);
+  }
+
+  /** Count working days (weekdays, hors fériés FR) in [start, end] inclusive, accounting for half-days. */
+  private countWorkDays(start: string | Date, end: string | Date, demi?: string | null): number {
+    const toStr = (v: string | Date) => typeof v === 'string' ? v : v.toISOString().slice(0, 10);
+    const s = new Date(toStr(start));
+    const e = new Date(toStr(end));
+    const years = new Set<number>();
+    for (let y = s.getFullYear(); y <= e.getFullYear(); y++) years.add(y);
+    const holidays = new Set<string>();
+    years.forEach((y) => this.frenchHolidays(y).forEach((d) => holidays.add(d)));
+    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     let count = 0;
     const cur = new Date(s);
     while (cur <= e) {
-      const d = cur.getDay();
-      if (d !== 0 && d !== 6) count++;
+      const dow = cur.getDay();
+      if (dow !== 0 && dow !== 6 && !holidays.has(fmt(cur))) count++;
       cur.setDate(cur.getDate() + 1);
     }
-    return demi && start === end ? 0.5 : count;
+    return demi && toStr(start) === toStr(end) ? 0.5 : count;
   }
 
   private async getCollabForNotif(id: string) {
@@ -85,11 +124,23 @@ export class AbsencesService {
     if (!dto.date_fin) throw new HttpException('date_fin requis', HttpStatus.BAD_REQUEST);
     if (dto.date_fin < dto.date_debut) throw new HttpException('date_fin doit être >= date_debut', HttpStatus.BAD_REQUEST);
 
+    // Valide le type contre settings.absence_types pour éviter qu'un collab
+    // crée une absence "formation" (pas de décompte) alors que seul `conge` est autorisé pour lui.
+    const typesSetting = await this.database.db
+      .selectFrom('settings').select('value').where('key', '=', 'absence_types').executeTakeFirst();
+    const allowedTypes = Array.isArray(typesSetting?.value)
+      ? (typesSetting!.value as any[]).map((t) => t.key).filter(Boolean)
+      : ['conge', 'maladie', 'formation', 'sans_solde', 'autre'];
+    if (!allowedTypes.includes(dto.type)) {
+      throw new HttpException(`Type d'absence "${dto.type}" non autorisé`, HttpStatus.BAD_REQUEST);
+    }
+
+    // Overlap check : inclut aussi les absences avec annulation demandée (toujours actives tant que non validées).
     const existing = await this.database.db
       .selectFrom('absences')
       .select(['id', 'date_debut', 'date_fin', 'demi_journee', 'statut'])
       .where('collaborateur_id', '=', dto.collaborateur_id)
-      .where('statut', 'in', ['en_attente', 'approuve'])
+      .where('statut', 'in', ['en_attente', 'approuve', 'annulation_demandee'])
       .where('date_debut', '<=', dto.date_fin)
       .where('date_fin', '>=', dto.date_debut)
       .execute();

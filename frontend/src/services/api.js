@@ -36,7 +36,11 @@ async function request(path, options = {}) {
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: res.statusText }));
-    throw new Error(err.message || 'Erreur API');
+    // Attache le status HTTP à l'erreur pour que les callers puissent distinguer
+    // 401 (vraie expiration) d'une erreur réseau (à ne pas traiter comme logout).
+    const e = new Error(err.message || 'Erreur API');
+    e.status = res.status;
+    throw e;
   }
   return res.json();
 }

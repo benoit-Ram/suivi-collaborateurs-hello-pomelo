@@ -106,7 +106,7 @@ export default function LoginPage() {
   if (showChoice) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 16px', background: 'linear-gradient(135deg, #F0F0FF 0%, #FFF0F8 100%)' }}>
-        <div style={{ background: 'white', borderRadius: 24, padding: 'clamp(28px, 5vw, 52px) clamp(20px, 4vw, 48px)', maxWidth: 480, width: '100%', boxShadow: '0 12px 48px rgba(5,5,109,0.12)', textAlign: 'center' }}>
+        <div style={{ background: 'var(--white)', borderRadius: 24, padding: 'clamp(28px, 5vw, 52px) clamp(20px, 4vw, 48px)', maxWidth: 480, width: '100%', boxShadow: '0 12px 48px rgba(5,5,109,0.12)', textAlign: 'center' }}>
           <div style={{ fontFamily: "'Nunito', sans-serif", fontWeight: 900, color: '#0000EA', fontSize: '1.8rem', lineHeight: 1.08, letterSpacing: '0.22em', textTransform: 'uppercase', marginBottom: 8 }}>
             Hello Pomelo
           </div>
@@ -114,7 +114,7 @@ export default function LoginPage() {
           <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#05056D', marginBottom: 24 }}>Choisir votre espace</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <button onClick={() => navigate('/admin', { replace: true })}
-              style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '18px 24px', borderRadius: 14, border: '2px solid #CFD0E5', background: 'white', cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '18px 24px', borderRadius: 14, border: '2px solid #CFD0E5', background: 'var(--white)', cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}
               onMouseOver={e => { e.currentTarget.style.borderColor = '#FF3285'; e.currentTarget.style.background = '#FFF0F6'; }}
               onMouseOut={e => { e.currentTarget.style.borderColor = '#CFD0E5'; e.currentTarget.style.background = 'white'; }}>
               <span style={{ fontSize: '1.8rem' }}>🛠️</span>
@@ -124,7 +124,7 @@ export default function LoginPage() {
               </div>
             </button>
             <button onClick={() => navigate('/collab', { replace: true })}
-              style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '18px 24px', borderRadius: 14, border: '2px solid #CFD0E5', background: 'white', cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '18px 24px', borderRadius: 14, border: '2px solid #CFD0E5', background: 'var(--white)', cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}
               onMouseOver={e => { e.currentTarget.style.borderColor = '#5BB6F4'; e.currentTarget.style.background = '#F0F8FF'; }}
               onMouseOut={e => { e.currentTarget.style.borderColor = '#CFD0E5'; e.currentTarget.style.background = 'white'; }}>
               <span style={{ fontSize: '1.8rem' }}>👤</span>
@@ -142,7 +142,7 @@ export default function LoginPage() {
   // Login screen
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 16px', background: 'linear-gradient(135deg, #F0F0FF 0%, #FFF0F8 100%)' }}>
-      <div style={{ background: 'white', borderRadius: 24, padding: 'clamp(28px, 5vw, 52px) clamp(20px, 4vw, 48px)', maxWidth: 440, width: '100%', boxShadow: '0 12px 48px rgba(5,5,109,0.12)', textAlign: 'center' }}>
+      <div style={{ background: 'var(--white)', borderRadius: 24, padding: 'clamp(28px, 5vw, 52px) clamp(20px, 4vw, 48px)', maxWidth: 440, width: '100%', boxShadow: '0 12px 48px rgba(5,5,109,0.12)', textAlign: 'center' }}>
         <div style={{ marginBottom: 32 }}>
           <div style={{ fontFamily: "'Nunito', sans-serif", fontWeight: 900, color: '#0000EA', fontSize: '2.05rem', lineHeight: 1.08, letterSpacing: '0.22em', textTransform: 'uppercase' }}>
             Hello<br />Pomelo

@@ -28,11 +28,18 @@ export function AuthProvider({ children }) {
         api.getCollaborateurs().then(data => {
           setCollabs(data || []);
           setLoading(false);
-        }).catch(() => {
-          // Token expired — clear everything
-          localStorage.removeItem(SESSION_KEY);
-          setToken(null);
-          setUser(null);
+        }).catch((err) => {
+          // Un 401 = token expiré → on reset tout. Toute autre erreur (réseau transient,
+          // 500 serveur, offline) = on garde la session, l'UI affichera un état vide
+          // mais l'user n'est pas déconnecté/reloggé de force.
+          const status = err?.status || err?.response?.status;
+          if (status === 401 || status === 403) {
+            localStorage.removeItem(SESSION_KEY);
+            setToken(null);
+            setUser(null);
+          } else {
+            console.warn('Collabs load failed (not auth):', err?.message || err);
+          }
           setLoading(false);
         });
       } catch (e) {

@@ -267,7 +267,7 @@ export default function MissionDetail() {
                       onClick={inRange && !isEditing ? ()=>{setEditingCell({assignId:a.id,weekIdx:wi}); setEditCellValue(String(jps));} : undefined}>
                       {isEditing ? (
                         <input type="number" step="0.5" min="0" max="5" value={editCellValue} autoFocus
-                          style={{width:38,padding:'1px 2px',fontSize:'0.55rem',fontWeight:700,textAlign:'center',border:'1.5px solid var(--pink)',borderRadius:3,outline:'none',background:'white',color:'var(--navy)'}}
+                          style={{width:38,padding:'1px 2px',fontSize:'0.55rem',fontWeight:700,textAlign:'center',border:'1.5px solid var(--pink)',borderRadius:3,outline:'none',background:'var(--white)',color:'var(--navy)'}}
                           onChange={e=>setEditCellValue(e.target.value)}
                           onBlur={()=>{const v=parseFloat(editCellValue); if(!isNaN(v)&&v>=0&&v<=5) updateWeekCell(a,w.weekKey,v); setEditingCell(null);}}
                           onKeyDown={e=>{if(e.key==='Enter')e.target.blur();if(e.key==='Escape')setEditingCell(null);}}
