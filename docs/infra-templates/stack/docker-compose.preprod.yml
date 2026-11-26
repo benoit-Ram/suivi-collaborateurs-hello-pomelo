@@ -1,0 +1,13 @@
+services:
+  backend:
+    image: registry.digitalocean.com/hp-suivi-collaborateurs/backend:${IMAGE_TAG}
+
+  frontend:
+    image: registry.digitalocean.com/hp-suivi-collaborateurs/frontend:${IMAGE_TAG}
+
+# Variables (par infisical run) :
+#   PUBLIC_HOST=preprod.rh.pomelo-dev.fr
+#   FRONTEND_URL=https://preprod.rh.pomelo-dev.fr
+#   APP_URL=https://preprod.rh.pomelo-dev.fr
+#   HP_ENV=preprod
+#   IMAGE_TAG=<sha7>

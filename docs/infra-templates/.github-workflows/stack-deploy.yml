@@ -1,0 +1,83 @@
+# Repo: suivi-collaborateurs-stack
+# .github/workflows/deploy.yml
+# Trigger : repository_dispatch (new-image) depuis le repo app après un push d'image.
+# Action : SSH (opkssh) sur le droplet → pull image + compose up -d.
+
+name: deploy
+
+on:
+  repository_dispatch:
+    types: [new-image]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag (SHA short) à déployer"
+        required: true
+      env:
+        description: "Environnement"
+        required: true
+        type: choice
+        options: [preprod, prod]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy-preprod:
+    if: github.event_name == 'repository_dispatch' || inputs.env == 'preprod'
+    runs-on: ubuntu-latest
+    environment: preprod
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve tag
+        id: tag
+        run: |
+          TAG="${{ github.event.client_payload.tag || inputs.tag }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      # Pas de clé SSH stockée. opkssh génère un cert OIDC à la volée.
+      - name: Install opkssh
+        run: curl -sSL https://github.com/openpubkey/opkssh/releases/latest/download/opkssh-linux-amd64 -o /usr/local/bin/opkssh && chmod +x /usr/local/bin/opkssh
+
+      - name: Fetch target SSH host from Infisical
+        uses: infisical/secrets-action@v3
+        with:
+          method: oidc
+          identity-id: ${{ vars.INFISICAL_STACK_CI_IDENTITY_ID }}
+          project-slug: suivi-collaborateurs
+          env-slug: preprod
+          secret-paths: '["/deploy/vps"]'
+          export-type: env
+
+      - name: Deploy via opkssh
+        env:
+          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
+          DEPLOY_HOST: ${{ env.DEPLOY_HOST }} # résolu par Terraform, stocké Infisical
+        run: |
+          opkssh ssh deploy@${DEPLOY_HOST} \
+            "cd /srv/stack && git pull && \
+             export IMAGE_TAG=${IMAGE_TAG} && \
+             infisical run --env=preprod -- \
+               docker compose -f docker-compose.base.yml -f docker-compose.preprod.yml pull && \
+             infisical run --env=preprod -- \
+               docker compose -f docker-compose.base.yml -f docker-compose.preprod.yml up -d --remove-orphans"
+
+      - name: Smoke test
+        run: |
+          for i in $(seq 1 20); do
+            s=$(curl -s -o /dev/null -w "%{http_code}" https://preprod.rh.pomelo-dev.fr/api/health)
+            [ "$s" = "200" ] && echo "preprod healthy" && exit 0
+            sleep 5
+          done
+          echo "preprod didn't come healthy"; exit 1
+
+  deploy-prod:
+    if: inputs.env == 'prod'
+    needs: deploy-preprod
+    runs-on: ubuntu-latest
+    environment: prod # gate manuel
+    steps:
+      # ... (symétrique avec env-slug=prod et DEPLOY_HOST prod)
+      - run: echo "prod deploy — see preprod job template"

@@ -1,0 +1,94 @@
+// Grafana Alloy — agent unique pour métriques (Mimir) + logs (Loki).
+// Déployé en container sur chaque droplet, expose les métriques host +
+// Docker + containers applicatifs, et push les logs du journal + Docker.
+
+// ─── Discovery : tous les containers Docker du droplet ───────────────
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+  refresh_interval = "30s"
+}
+
+discovery.relabel "container_labels" {
+  targets = discovery.docker.containers.targets
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    target_label  = "container"
+    regex         = "/(.+)"
+    replacement   = "$1"
+  }
+  rule {
+    target_label = "env"
+    replacement  = sys.env("HP_ENV")
+  }
+  rule {
+    target_label = "project"
+    replacement  = sys.env("HP_PROJECT")
+  }
+  rule {
+    target_label = "instance"
+    replacement  = constants.hostname
+  }
+}
+
+// ─── Logs Docker containers → Loki ────────────────────────────────────
+loki.source.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+  targets = discovery.relabel.container_labels.output
+  forward_to = [loki.write.hub.receiver]
+}
+
+// ─── Logs système (journal) → Loki ────────────────────────────────────
+loki.source.journal "system" {
+  forward_to = [loki.write.hub.receiver]
+  labels = {
+    job = "systemd",
+    env = sys.env("HP_ENV"),
+    project = sys.env("HP_PROJECT"),
+    instance = constants.hostname,
+  }
+}
+
+loki.write "hub" {
+  endpoint {
+    url = sys.env("LOKI_ENDPOINT")
+    basic_auth {
+      username = sys.env("LOKI_USERNAME")
+      password = sys.env("LOKI_PASSWORD")
+    }
+  }
+}
+
+// ─── Métriques host (node_exporter intégré) → Mimir ───────────────────
+prometheus.exporter.unix "node" {
+  procfs_path = "/proc"
+  sysfs_path  = "/sys"
+  rootfs_path = "/rootfs"
+}
+
+prometheus.exporter.cadvisor "containers" {
+  docker_host = "unix:///var/run/docker.sock"
+}
+
+prometheus.scrape "metrics" {
+  targets = concat(
+    prometheus.exporter.unix.node.targets,
+    prometheus.exporter.cadvisor.containers.targets,
+  )
+  forward_to = [prometheus.remote_write.hub.receiver]
+  scrape_interval = "30s"
+}
+
+prometheus.remote_write "hub" {
+  endpoint {
+    url = sys.env("MIMIR_ENDPOINT")
+    basic_auth {
+      username = sys.env("MIMIR_USERNAME")
+      password = sys.env("MIMIR_PASSWORD")
+    }
+  }
+  external_labels = {
+    env = sys.env("HP_ENV"),
+    project = sys.env("HP_PROJECT"),
+    instance = constants.hostname,
+  }
+}

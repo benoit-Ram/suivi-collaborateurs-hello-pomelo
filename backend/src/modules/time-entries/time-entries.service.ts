@@ -1,37 +1,89 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
-import { SupabaseService } from '../../config/supabase.service';
+import { jsonObjectFrom } from 'kysely/helpers/postgres';
+import { DatabaseService } from '../../config/database.service';
 
 @Injectable()
 export class TimeEntriesService {
-  constructor(private supabase: SupabaseService) {}
+  constructor(private database: DatabaseService) {}
 
-  private static readonly ALLOWED_FILTERS = ['assignment_id', 'collaborateur_id', 'date'];
+  private static readonly ALLOWED_FILTERS = ['assignment_id', 'collaborateur_id', 'date'] as const;
 
   async findAll(filters?: Record<string, string>) {
-    let query = this.supabase.db.from('time_entries').select('*, assignments:assignment_id(*, missions:mission_id(id, nom, clients:client_id(id, nom)))').order('date', { ascending: false });
-    if (filters) {
-      Object.entries(filters).forEach(([key, val]) => { if (val && TimeEntriesService.ALLOWED_FILTERS.includes(key)) query = query.eq(key, val); });
+    try {
+      let query = this.database.db
+        .selectFrom('time_entries')
+        .selectAll('time_entries')
+        .select((eb) => [
+          jsonObjectFrom(
+            eb.selectFrom('assignments')
+              .selectAll('assignments')
+              .select((eb2) => [
+                jsonObjectFrom(
+                  eb2.selectFrom('missions')
+                    .select(['missions.id', 'missions.nom'])
+                    .select((eb3) => [
+                      jsonObjectFrom(
+                        eb3.selectFrom('clients')
+                          .select(['clients.id', 'clients.nom'])
+                          .whereRef('clients.id', '=', 'missions.client_id'),
+                      ).as('clients'),
+                    ])
+                    .whereRef('missions.id', '=', 'assignments.mission_id'),
+                ).as('missions'),
+              ])
+              .whereRef('assignments.id', '=', 'time_entries.assignment_id'),
+          ).as('assignments'),
+        ])
+        .orderBy('date', 'desc');
+
+      if (filters) {
+        for (const [col, val] of Object.entries(filters)) {
+          if (val && (TimeEntriesService.ALLOWED_FILTERS as readonly string[]).includes(col)) {
+            query = query.where(`time_entries.${col}` as any, '=', val);
+          }
+        }
+      }
+      return await query.execute();
+    } catch (e: any) {
+      throw new HttpException(e.message ?? 'Erreur time_entries', HttpStatus.INTERNAL_SERVER_ERROR);
     }
-    const { data, error } = await query;
-    if (error) throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    return data;
   }
 
   async findOne(id: string) {
-    const { data, error } = await this.supabase.db.from('time_entries').select('*').eq('id', id).single();
-    if (error) throw new HttpException(error.message, HttpStatus.NOT_FOUND);
-    return data;
+    const row = await this.database.db
+      .selectFrom('time_entries')
+      .selectAll()
+      .where('id', '=', id)
+      .executeTakeFirst();
+    if (!row) throw new HttpException(`Time entry ${id} introuvable`, HttpStatus.NOT_FOUND);
+    return row;
   }
 
   async create(dto: any) {
-    const { data, error } = await this.supabase.db.from('time_entries').insert(dto).select().single();
-    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
-    return data;
+    try {
+      return await this.database.db
+        .insertInto('time_entries')
+        .values(dto as any)
+        .returningAll()
+        .executeTakeFirstOrThrow();
+    } catch (e: any) {
+      throw new HttpException(e.message ?? 'Erreur create time_entry', HttpStatus.BAD_REQUEST);
+    }
   }
 
   async update(id: string, dto: any) {
-    const { data, error } = await this.supabase.db.from('time_entries').update(dto).eq('id', id).select().single();
-    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
-    return data;
+    try {
+      const row = await this.database.db
+        .updateTable('time_entries')
+        .set(dto)
+        .where('id', '=', id)
+        .returningAll()
+        .executeTakeFirst();
+      if (!row) throw new HttpException(`Time entry ${id} introuvable`, HttpStatus.NOT_FOUND);
+      return row;
+    } catch (e: any) {
+      if (e instanceof HttpException) throw e;
+      throw new HttpException(e.message ?? 'Erreur update time_entry', HttpStatus.BAD_REQUEST);
+    }
   }
 }

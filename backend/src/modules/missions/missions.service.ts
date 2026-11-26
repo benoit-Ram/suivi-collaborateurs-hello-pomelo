@@ -1,55 +1,138 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
-import { SupabaseService } from '../../config/supabase.service';
+import { jsonArrayFrom, jsonObjectFrom } from 'kysely/helpers/postgres';
+import { DatabaseService } from '../../config/database.service';
 
 @Injectable()
 export class MissionsService {
-  constructor(private supabase: SupabaseService) {}
+  constructor(private database: DatabaseService) {}
 
-  private static readonly ALLOWED_FILTERS = ['client_id', 'statut'];
+  private static readonly ALLOWED_FILTERS = ['client_id', 'statut'] as const;
 
   async findAll(filters?: Record<string, string>) {
-    let query = this.supabase.db.from('missions').select('*, clients:client_id(id, nom), assignments(*, collaborateurs:collaborateur_id(id, prenom, nom, photo_url, poste))').order('created_at', { ascending: false });
-    if (filters) {
-      Object.entries(filters).forEach(([key, val]) => { if (val && MissionsService.ALLOWED_FILTERS.includes(key)) query = query.eq(key, val); });
+    try {
+      let query = this.database.db
+        .selectFrom('missions')
+        .selectAll('missions')
+        .select((eb) => [
+          jsonObjectFrom(
+            eb.selectFrom('clients')
+              .select(['clients.id', 'clients.nom'])
+              .whereRef('clients.id', '=', 'missions.client_id'),
+          ).as('clients'),
+          jsonArrayFrom(
+            eb.selectFrom('assignments')
+              .selectAll('assignments')
+              .select((eb2) => [
+                jsonObjectFrom(
+                  eb2.selectFrom('collaborateurs')
+                    .select(['id', 'prenom', 'nom', 'photo_url', 'poste'])
+                    .whereRef('collaborateurs.id', '=', 'assignments.collaborateur_id'),
+                ).as('collaborateurs'),
+              ])
+              .whereRef('assignments.mission_id', '=', 'missions.id'),
+          ).as('assignments'),
+        ])
+        .orderBy('created_at', 'desc');
+
+      if (filters) {
+        for (const [col, val] of Object.entries(filters)) {
+          if (val && (MissionsService.ALLOWED_FILTERS as readonly string[]).includes(col)) {
+            query = query.where(`missions.${col}` as any, '=', val);
+          }
+        }
+      }
+      return await query.execute();
+    } catch (e: any) {
+      throw new HttpException(e.message ?? 'Erreur missions', HttpStatus.INTERNAL_SERVER_ERROR);
     }
-    const { data, error } = await query;
-    if (error) throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    return data;
   }
 
   async findOne(id: string) {
-    const { data, error } = await this.supabase.db.from('missions').select('*, clients:client_id(id, nom), assignments(*, collaborateurs:collaborateur_id(id, prenom, nom, photo_url, poste, equipe))').eq('id', id).single();
-    if (error) throw new HttpException(error.message, HttpStatus.NOT_FOUND);
-    return data;
+    const row = await this.database.db
+      .selectFrom('missions')
+      .selectAll('missions')
+      .select((eb) => [
+        jsonObjectFrom(
+          eb.selectFrom('clients')
+            .select(['clients.id', 'clients.nom'])
+            .whereRef('clients.id', '=', 'missions.client_id'),
+        ).as('clients'),
+        jsonArrayFrom(
+          eb.selectFrom('assignments')
+            .selectAll('assignments')
+            .select((eb2) => [
+              jsonObjectFrom(
+                eb2.selectFrom('collaborateurs')
+                  .select(['id', 'prenom', 'nom', 'photo_url', 'poste', 'equipe'])
+                  .whereRef('collaborateurs.id', '=', 'assignments.collaborateur_id'),
+              ).as('collaborateurs'),
+            ])
+            .whereRef('assignments.mission_id', '=', 'missions.id'),
+        ).as('assignments'),
+      ])
+      .where('missions.id', '=', id)
+      .executeTakeFirst();
+    if (!row) throw new HttpException(`Mission ${id} introuvable`, HttpStatus.NOT_FOUND);
+    return row;
   }
 
   async create(dto: any) {
-    const { data, error } = await this.supabase.db.from('missions').insert(dto).select().single();
-    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
-    return data;
+    try {
+      return await this.database.db
+        .insertInto('missions')
+        .values(dto as any)
+        .returningAll()
+        .executeTakeFirstOrThrow();
+    } catch (e: any) {
+      throw new HttpException(e.message ?? 'Erreur create mission', HttpStatus.BAD_REQUEST);
+    }
   }
 
   async update(id: string, dto: any) {
-    const { data, error } = await this.supabase.db.from('missions').update(dto).eq('id', id).select().single();
-    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
-    return data;
+    try {
+      const row = await this.database.db
+        .updateTable('missions')
+        .set(dto)
+        .where('id', '=', id)
+        .returningAll()
+        .executeTakeFirst();
+      if (!row) throw new HttpException(`Mission ${id} introuvable`, HttpStatus.NOT_FOUND);
+      return row;
+    } catch (e: any) {
+      if (e instanceof HttpException) throw e;
+      throw new HttpException(e.message ?? 'Erreur update mission', HttpStatus.BAD_REQUEST);
+    }
   }
 
   async delete(id: string) {
     // Block deletion if any time entries are attached (via assignments cascade)
-    const { data: assignments } = await this.supabase.db.from('assignments').select('id').eq('mission_id', id);
-    const assignmentIds = (assignments || []).map(a => a.id);
+    const assignments = await this.database.db
+      .selectFrom('assignments')
+      .select('id')
+      .where('mission_id', '=', id)
+      .execute();
+    const assignmentIds = assignments.map((a) => a.id);
     if (assignmentIds.length > 0) {
-      const { count } = await this.supabase.db.from('time_entries').select('id', { count: 'exact', head: true }).in('assignment_id', assignmentIds);
-      if (count && count > 0) {
+      const { count } = await this.database.db
+        .selectFrom('time_entries')
+        .select((eb) => eb.fn.countAll<number>().as('count'))
+        .where('assignment_id', 'in', assignmentIds)
+        .executeTakeFirst() ?? { count: 0 };
+      const n = Number(count) || 0;
+      if (n > 0) {
         throw new HttpException(
-          `Impossible de supprimer : ${count} saisie(s) de temps existe(nt) sur cette mission. Archivez-la (statut "terminée") plutôt que de la supprimer.`,
+          `Impossible de supprimer : ${n} saisie(s) de temps existe(nt) sur cette mission. Archivez-la (statut "terminée") plutôt que de la supprimer.`,
           HttpStatus.CONFLICT,
         );
       }
     }
-    const { error } = await this.supabase.db.from('missions').delete().eq('id', id);
-    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+    const res = await this.database.db
+      .deleteFrom('missions')
+      .where('id', '=', id)
+      .executeTakeFirst();
+    if (res.numDeletedRows === 0n) {
+      throw new HttpException(`Mission ${id} introuvable`, HttpStatus.NOT_FOUND);
+    }
     return { success: true };
   }
 }

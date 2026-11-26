@@ -1,0 +1,84 @@
+# Repo: suivi-collaborateurs-infra
+# .github/workflows/apply.yml
+# Terraform apply sur merge main — preprod puis prod (séquentiel + gate manuel).
+
+name: terraform apply
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**.tf"
+      - "**.tfvars"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: tf-apply-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  apply-preprod:
+    runs-on: ubuntu-latest
+    environment: preprod # pas de gate (déploie direct)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - uses: infisical/secrets-action@v3
+        with:
+          method: oidc
+          identity-id: ${{ vars.INFISICAL_INFRA_CI_IDENTITY_ID }}
+          project-slug: suivi-collaborateurs
+          env-slug: preprod
+          secret-paths: '["/bootstrap"]'
+          export-type: env
+
+      - env:
+          AWS_ACCESS_KEY_ID:     ${{ env.DO_SPACES_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.DO_SPACES_SECRET_KEY }}
+          TF_VAR_environment: preprod
+          TF_VAR_do_api_token:            ${{ env.DO_API_TOKEN }}
+          TF_VAR_cloudflare_api_token:    ${{ env.CLOUDFLARE_API_TOKEN }}
+          TF_VAR_infisical_client_id:     ${{ env.INFISICAL_CLIENT_ID }}
+          TF_VAR_infisical_client_secret: ${{ env.INFISICAL_CLIENT_SECRET }}
+          TF_VAR_cloudflared_tunnel_id:   ${{ env.CLOUDFLARED_TUNNEL_ID }}
+        run: |
+          terraform init -backend-config="key=preprod.tfstate"
+          terraform apply -auto-approve -var-file=environments/preprod.tfvars
+
+  apply-prod:
+    needs: apply-preprod
+    runs-on: ubuntu-latest
+    environment: prod # gate manuel configuré dans GitHub Environment (approval)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - uses: infisical/secrets-action@v3
+        with:
+          method: oidc
+          identity-id: ${{ vars.INFISICAL_INFRA_CI_IDENTITY_ID }}
+          project-slug: suivi-collaborateurs
+          env-slug: prod
+          secret-paths: '["/bootstrap"]'
+          export-type: env
+
+      - env:
+          AWS_ACCESS_KEY_ID:     ${{ env.DO_SPACES_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.DO_SPACES_SECRET_KEY }}
+          TF_VAR_environment: prod
+          TF_VAR_do_api_token:            ${{ env.DO_API_TOKEN }}
+          TF_VAR_cloudflare_api_token:    ${{ env.CLOUDFLARE_API_TOKEN }}
+          TF_VAR_infisical_client_id:     ${{ env.INFISICAL_CLIENT_ID }}
+          TF_VAR_infisical_client_secret: ${{ env.INFISICAL_CLIENT_SECRET }}
+          TF_VAR_cloudflared_tunnel_id:   ${{ env.CLOUDFLARED_TUNNEL_ID }}
+        run: |
+          terraform init -backend-config="key=prod.tfstate"
+          terraform apply -auto-approve -var-file=environments/prod.tfvars

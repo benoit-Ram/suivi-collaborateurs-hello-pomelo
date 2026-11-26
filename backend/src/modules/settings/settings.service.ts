@@ -1,49 +1,94 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
-import { SupabaseService } from '../../config/supabase.service';
+import { DatabaseService } from '../../config/database.service';
 
+// Table settings : PK = `key` (pas `id`). Le controller route sur :id mais
+// le paramètre désigne bien la `key` — on le traite comme tel ici.
 @Injectable()
 export class SettingsService {
-  constructor(private supabase: SupabaseService) {}
+  constructor(private database: DatabaseService) {}
 
-  private static readonly ALLOWED_FILTERS = ['key'];
+  private static readonly ALLOWED_FILTERS = ['key'] as const;
 
   async findAll(filters?: Record<string, string>) {
-    let query = this.supabase.db.from('settings').select('*');
-    if (filters) {
-      Object.entries(filters).forEach(([key, val]) => { if (val && SettingsService.ALLOWED_FILTERS.includes(key)) query = query.eq(key, val); });
+    try {
+      let query = this.database.db.selectFrom('settings').selectAll();
+      if (filters) {
+        for (const [col, val] of Object.entries(filters)) {
+          if (val && (SettingsService.ALLOWED_FILTERS as readonly string[]).includes(col)) {
+            query = query.where(col as 'key', '=', val);
+          }
+        }
+      }
+      return await query.execute();
+    } catch (e: any) {
+      throw new HttpException(e.message ?? 'Erreur settings', HttpStatus.INTERNAL_SERVER_ERROR);
     }
-    const { data, error } = await query;
-    if (error) throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    return data;
   }
 
+  /** Upsert par `key` — c'est le point d'entrée principal côté frontend. */
   async upsertByKey(key: string, value: any) {
-    const { error } = await this.supabase.db.from('settings').upsert({ key, value }, { onConflict: 'key' });
-    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
-    return { success: true };
+    try {
+      await this.database.db
+        .insertInto('settings')
+        .values({ key, value })
+        .onConflict((oc) => oc.column('key').doUpdateSet({ value }))
+        .execute();
+      return { success: true };
+    } catch (e: any) {
+      throw new HttpException(e.message ?? 'Erreur upsert', HttpStatus.BAD_REQUEST);
+    }
   }
 
-  async findOne(id: string) {
-    const { data, error } = await this.supabase.db.from('settings').select('*').eq('id', id).single();
-    if (error) throw new HttpException(error.message, HttpStatus.NOT_FOUND);
-    return data;
+  async findOne(key: string) {
+    const row = await this.database.db
+      .selectFrom('settings')
+      .selectAll()
+      .where('key', '=', key)
+      .executeTakeFirst();
+    if (!row) throw new HttpException(`Setting ${key} introuvable`, HttpStatus.NOT_FOUND);
+    return row;
   }
 
-  async create(dto: any) {
-    const { data, error } = await this.supabase.db.from('settings').insert(dto).select().single();
-    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
-    return data;
+  async create(dto: { key: string; value: any }) {
+    if (!dto?.key) throw new HttpException('key requis', HttpStatus.BAD_REQUEST);
+    try {
+      return await this.database.db
+        .insertInto('settings')
+        .values({ key: dto.key, value: dto.value })
+        .returningAll()
+        .executeTakeFirstOrThrow();
+    } catch (e: any) {
+      throw new HttpException(e.message ?? 'Erreur create', HttpStatus.BAD_REQUEST);
+    }
   }
 
-  async update(id: string, dto: any) {
-    const { data, error } = await this.supabase.db.from('settings').update(dto).eq('id', id).select().single();
-    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
-    return data;
+  async update(key: string, dto: { value?: any; key?: string }) {
+    try {
+      const row = await this.database.db
+        .updateTable('settings')
+        .set({
+          ...(dto.value !== undefined ? { value: dto.value } : {}),
+          ...(dto.key !== undefined ? { key: dto.key } : {}),
+        })
+        .where('key', '=', key)
+        .returningAll()
+        .executeTakeFirst();
+      if (!row) throw new HttpException(`Setting ${key} introuvable`, HttpStatus.NOT_FOUND);
+      return row;
+    } catch (e: any) {
+      if (e instanceof HttpException) throw e;
+      throw new HttpException(e.message ?? 'Erreur update', HttpStatus.BAD_REQUEST);
+    }
   }
 
-  async delete(id: string) {
-    const { error } = await this.supabase.db.from('settings').delete().eq('id', id);
-    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+  async delete(key: string) {
+    const res = await this.database.db
+      .deleteFrom('settings')
+      .where('key', '=', key)
+      .executeTakeFirst();
+    if (res.numDeletedRows === 0n) {
+      throw new HttpException(`Setting ${key} introuvable`, HttpStatus.NOT_FOUND);
+    }
     return { success: true };
   }
 }

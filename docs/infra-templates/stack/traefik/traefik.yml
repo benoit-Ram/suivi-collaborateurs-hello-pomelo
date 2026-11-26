@@ -1,0 +1,37 @@
+# Traefik v3 — reverse proxy du droplet.
+# Config statique. Les routers sont déclarés via labels sur les services
+# du docker-compose (provider docker).
+
+entryPoints:
+  web:
+    address: ":80"
+    # Pas de TLS côté Traefik : le TLS se termine chez Cloudflare (edge).
+    # Le trafic Cloudflare → Traefik passe par le tunnel chiffré cloudflared.
+
+providers:
+  docker:
+    exposedByDefault: false  # services sans label traefik.enable=true ignorés
+    network: suivi-collaborateurs_app
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+
+api:
+  dashboard: false # jamais exposer le dashboard admin publiquement (VPS-NET02)
+  insecure: false
+
+log:
+  level: INFO
+  format: json
+
+accessLog:
+  format: json
+  fields:
+    defaultMode: keep
+    headers:
+      names:
+        Authorization: drop # ne jamais loguer les JWT
+        Cookie: drop
+
+ping:
+  entryPoint: web

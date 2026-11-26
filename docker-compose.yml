@@ -1,0 +1,72 @@
+# Dev local — lance Postgres + backend + frontend en containers Docker.
+# Pour la prod, le compose vit dans le repo "suivi-collaborateurs-stack"
+# avec Managed DB OVH/DO, cloudflared, Traefik, Alloy, Wazuh.
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: hp-db-dev
+    environment:
+      POSTGRES_USER: hp
+      POSTGRES_PASSWORD: hp_dev_password
+      POSTGRES_DB: suivi_collaborateurs
+    ports:
+      - "5432:5432"
+    volumes:
+      - hp_pg_data:/var/lib/postgresql/data
+      # Les scripts sont exécutés dans l'ordre alphabétique UNE FOIS, à la toute 1re init.
+      # Pour les relancer, il faut purger le volume (docker compose down -v).
+      - ./backend/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hp -d suivi_collaborateurs"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: hp-backend-dev
+    env_file:
+      - ./backend/.env
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - FRONTEND_URL=http://localhost:8080
+      # Kysely se connecte via DATABASE_URL (standard pg)
+      - DATABASE_URL=postgres://hp:hp_dev_password@db:5432/suivi_collaborateurs
+    ports:
+      - "4000:4000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/api/health').then(r=>{if(r.status!==200)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: hp-frontend-dev
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:80/healthz"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  hp_pg_data:
+    name: hp_pg_data

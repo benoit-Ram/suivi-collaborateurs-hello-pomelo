@@ -1,73 +1,118 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
-import { SupabaseService } from '../../config/supabase.service';
+import { jsonObjectFrom } from 'kysely/helpers/postgres';
+import { DatabaseService } from '../../config/database.service';
 
 @Injectable()
 export class StaffingRequestsService {
-  constructor(private supabase: SupabaseService) {}
+  constructor(private database: DatabaseService) {}
 
   async findAll(filters?: Record<string, string>) {
-    let query = this.supabase.db
-      .from('staffing_requests')
-      .select('*, missions:mission_id(id, nom, client, clients:client_id(id, nom)), collaborateurs:collaborateur_id(id, prenom, nom, photo_url, poste, equipe, bureau, competences), demandeurs:demandeur_id(id, prenom, nom)')
-      .order('created_at', { ascending: false });
-    if (filters?.demandeur_id) query = query.eq('demandeur_id', filters.demandeur_id);
-    if (filters?.statut) query = query.eq('statut', filters.statut);
-    if (filters?.mission_id) query = query.eq('mission_id', filters.mission_id);
-    const { data, error } = await query;
-    if (error) throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    return data;
+    try {
+      let query = this.database.db
+        .selectFrom('staffing_requests')
+        .selectAll('staffing_requests')
+        .select((eb) => [
+          jsonObjectFrom(
+            eb.selectFrom('missions')
+              .select(['missions.id', 'missions.nom', 'missions.client'])
+              .select((eb2) => [
+                jsonObjectFrom(
+                  eb2.selectFrom('clients')
+                    .select(['clients.id', 'clients.nom'])
+                    .whereRef('clients.id', '=', 'missions.client_id'),
+                ).as('clients'),
+              ])
+              .whereRef('missions.id', '=', 'staffing_requests.mission_id'),
+          ).as('missions'),
+          jsonObjectFrom(
+            eb.selectFrom('collaborateurs')
+              .select(['id', 'prenom', 'nom', 'photo_url', 'poste', 'equipe', 'bureau', 'competences'])
+              .whereRef('collaborateurs.id', '=', 'staffing_requests.collaborateur_id'),
+          ).as('collaborateurs'),
+          jsonObjectFrom(
+            eb.selectFrom('collaborateurs')
+              .select(['id', 'prenom', 'nom'])
+              .whereRef('collaborateurs.id', '=', 'staffing_requests.demandeur_id'),
+          ).as('demandeurs'),
+        ])
+        .orderBy('created_at', 'desc');
+
+      if (filters?.demandeur_id) query = query.where('staffing_requests.demandeur_id', '=', filters.demandeur_id);
+      if (filters?.statut) query = query.where('staffing_requests.statut', '=', filters.statut);
+      if (filters?.mission_id) query = query.where('staffing_requests.mission_id', '=', filters.mission_id);
+      return await query.execute();
+    } catch (e: any) {
+      throw new HttpException(e.message ?? 'Erreur staffing_requests', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   async create(dto: any) {
-    const { data, error } = await this.supabase.db
-      .from('staffing_requests')
-      .insert(dto)
-      .select()
-      .single();
-    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
-    return data;
+    try {
+      return await this.database.db
+        .insertInto('staffing_requests')
+        .values(dto as any)
+        .returningAll()
+        .executeTakeFirstOrThrow();
+    } catch (e: any) {
+      throw new HttpException(e.message ?? 'Erreur create staffing_request', HttpStatus.BAD_REQUEST);
+    }
   }
 
+  /** Transition atomique en_attente → approuve, puis création assignment. */
   async approve(id: string) {
-    // Atomic guard: transition en_attente → approuve. Only one caller wins.
-    const { data: req, error: claimErr } = await this.supabase.db
-      .from('staffing_requests')
-      .update({ statut: 'approuve' })
-      .eq('id', id)
-      .eq('statut', 'en_attente')
-      .select()
-      .single();
-    if (claimErr || !req) {
-      // Either not found, or someone else already transitioned it
+    // Atomic guard : UPDATE ... WHERE statut='en_attente' AND id=:id.
+    // Si quelqu'un d'autre a déjà passé la ligne à "approuve", notre UPDATE affectera 0 rows.
+    const req = await this.database.db
+      .updateTable('staffing_requests')
+      .set({ statut: 'approuve' })
+      .where('id', '=', id)
+      .where('statut', '=', 'en_attente')
+      .returningAll()
+      .executeTakeFirst();
+    if (!req) {
       throw new HttpException('Demande déjà traitée ou introuvable', HttpStatus.CONFLICT);
     }
 
-    // Now create the assignment. If it fails, roll back the request state to en_attente.
-    const { error: assignErr } = await this.supabase.db.from('assignments').insert({
-      mission_id: req.mission_id,
-      collaborateur_id: req.collaborateur_id,
-      role: req.role,
-      jours_par_semaine: req.jours_par_semaine,
-      taux_staffing: Math.round((req.jours_par_semaine || 5) / 5 * 100),
-      date_debut: req.date_debut,
-      date_fin: req.date_fin,
-      statut: 'actif',
-    });
-    if (assignErr) {
-      await this.supabase.db.from('staffing_requests').update({ statut: 'en_attente' }).eq('id', id);
-      throw new HttpException(assignErr.message, HttpStatus.BAD_REQUEST);
+    try {
+      const jps = Number(req.jours_par_semaine) || 5;
+      await this.database.db
+        .insertInto('assignments')
+        .values({
+          mission_id: req.mission_id,
+          collaborateur_id: req.collaborateur_id,
+          role: req.role,
+          jours_par_semaine: jps,
+          taux_staffing: Math.round((jps / 5) * 100),
+          date_debut: req.date_debut,
+          date_fin: req.date_fin,
+          statut: 'actif',
+        } as any)
+        .execute();
+      return req;
+    } catch (e: any) {
+      // Rollback de la transition pour laisser la demande ré-approvable
+      await this.database.db
+        .updateTable('staffing_requests')
+        .set({ statut: 'en_attente' })
+        .where('id', '=', id)
+        .execute();
+      throw new HttpException(e.message ?? 'Erreur création assignment', HttpStatus.BAD_REQUEST);
     }
-    return req;
   }
 
   async refuse(id: string, motif_refus: string) {
-    const { data, error } = await this.supabase.db
-      .from('staffing_requests')
-      .update({ statut: 'refuse', motif_refus })
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
-    return data;
+    try {
+      const row = await this.database.db
+        .updateTable('staffing_requests')
+        .set({ statut: 'refuse', motif_refus })
+        .where('id', '=', id)
+        .returningAll()
+        .executeTakeFirst();
+      if (!row) throw new HttpException(`Staffing request ${id} introuvable`, HttpStatus.NOT_FOUND);
+      return row;
+    } catch (e: any) {
+      if (e instanceof HttpException) throw e;
+      throw new HttpException(e.message ?? 'Erreur refuse staffing_request', HttpStatus.BAD_REQUEST);
+    }
   }
 }

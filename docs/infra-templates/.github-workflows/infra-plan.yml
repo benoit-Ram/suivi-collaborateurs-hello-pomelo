@@ -1,0 +1,78 @@
+# Repo: suivi-collaborateurs-infra
+# .github/workflows/plan.yml
+# Terraform plan sur chaque PR + preprod ET prod (2 workspaces).
+
+name: terraform plan
+
+on:
+  pull_request:
+    paths:
+      - "**.tf"
+      - "**.tfvars"
+      - ".github/workflows/plan.yml"
+
+permissions:
+  contents: read
+  id-token: write      # OIDC pour Infisical
+  pull-requests: write # pour commenter le plan
+
+concurrency:
+  group: tf-plan-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    strategy:
+      matrix:
+        env: [preprod, prod]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      # OIDC auth vers Infisical — pas de secret long-lived dans GitHub (VPS-IAM01)
+      - name: Fetch infra secrets via Infisical OIDC
+        id: infisical
+        uses: infisical/secrets-action@v3
+        with:
+          method: oidc
+          identity-id: ${{ vars.INFISICAL_INFRA_CI_IDENTITY_ID }}
+          project-slug: suivi-collaborateurs
+          env-slug: ${{ matrix.env }}
+          secret-paths: '["/bootstrap"]'
+          export-type: env
+
+      - name: Terraform init
+        working-directory: .
+        env:
+          AWS_ACCESS_KEY_ID:     ${{ env.DO_SPACES_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.DO_SPACES_SECRET_KEY }}
+        run: |
+          terraform init -backend-config="key=${{ matrix.env }}.tfstate"
+
+      - name: Terraform plan
+        env:
+          TF_VAR_environment: ${{ matrix.env }}
+          TF_VAR_do_api_token:            ${{ env.DO_API_TOKEN }}
+          TF_VAR_cloudflare_api_token:    ${{ env.CLOUDFLARE_API_TOKEN }}
+          TF_VAR_infisical_client_id:     ${{ env.INFISICAL_CLIENT_ID }}
+          TF_VAR_infisical_client_secret: ${{ env.INFISICAL_CLIENT_SECRET }}
+          TF_VAR_cloudflared_tunnel_id:   ${{ env.CLOUDFLARED_TUNNEL_ID }}
+        run: terraform plan -var-file=environments/${{ matrix.env }}.tfvars -out=tf.plan -no-color 2>&1 | tee plan.txt
+
+      - name: Post plan to PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('plan.txt','utf8').slice(0, 60000);
+            const body = `### \`${{ matrix.env }}\` terraform plan\n\n\`\`\`hcl\n${plan}\n\`\`\``;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });

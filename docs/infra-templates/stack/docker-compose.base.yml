@@ -1,0 +1,114 @@
+# Base stack — étendue par docker-compose.{preprod,prod}.yml pour fixer :
+#  - l'image tag (SHA court)
+#  - les labels Traefik (hostname Cloudflare)
+#  - les tokens cloudflared / Alloy
+# Lancé depuis la CI stack avec :
+#   infisical run --env prod -- docker compose \
+#     -f docker-compose.base.yml -f docker-compose.prod.yml up -d
+
+name: suivi-collaborateurs
+
+networks:
+  app:
+    driver: bridge
+    # name volontairement non figé → le `-p` du compose évite le cross-env.
+
+services:
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.11.1
+    restart: always
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TOKEN}
+    networks: [app]
+    # Pas de ports: cloudflared ne fait QUE du sortant vers Cloudflare Edge.
+    healthcheck:
+      test: ["CMD-SHELL", "ps -p 1 >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  traefik:
+    image: traefik:v3.1
+    restart: always
+    networks: [app]
+    expose: ["80"] # accessible uniquement via le network app (cloudflared l'appelle)
+    volumes:
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
+    # Pas d'exposition publique : seul cloudflared parle à traefik.
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  backend:
+    # image: définie dans docker-compose.{preprod,prod}.yml
+    restart: always
+    networks: [app]
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - DATABASE_URL=${DATABASE_URL}
+      - DB_SSL=true
+      - JWT_SECRET=${JWT_SECRET}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_MAIL_ENABLED=${GOOGLE_MAIL_ENABLED:-false}
+      - GOOGLE_CALENDAR_ENABLED=${GOOGLE_CALENDAR_ENABLED:-false}
+      - GOOGLE_IMPERSONATE_DEFAULT=${GOOGLE_IMPERSONATE_DEFAULT:-}
+      - GOOGLE_MAIL_FROM=${GOOGLE_MAIL_FROM:-}
+      - GOOGLE_SERVICE_ACCOUNT_KEY=${GOOGLE_SERVICE_ACCOUNT_KEY:-}
+      - FRONTEND_URL=${FRONTEND_URL}
+      - APP_URL=${APP_URL}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`${PUBLIC_HOST}`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.backend.entrypoints=web"
+      - "traefik.http.services.backend.loadbalancer.server.port=4000"
+      - "traefik.http.services.backend.loadbalancer.healthcheck.path=/api/health"
+      - "traefik.http.services.backend.loadbalancer.healthcheck.interval=30s"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/api/health').then(r=>{if(r.status!==200)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  frontend:
+    # image: définie dans docker-compose.{preprod,prod}.yml
+    restart: always
+    networks: [app]
+    labels:
+      - "traefik.enable=true"
+      # Fallback : tout ce qui n'a pas matché /api tombe ici
+      - "traefik.http.routers.frontend.rule=Host(`${PUBLIC_HOST}`)"
+      - "traefik.http.routers.frontend.entrypoints=web"
+      - "traefik.http.routers.frontend.priority=1"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:80/healthz"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  alloy:
+    image: grafana/alloy:v1.5.1
+    restart: always
+    networks: [app]
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/log:/var/log:ro
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --storage.path=/var/lib/alloy/data
+    environment:
+      - LOKI_ENDPOINT=${LOKI_ENDPOINT}
+      - LOKI_USERNAME=${LOKI_USERNAME}
+      - LOKI_PASSWORD=${LOKI_PASSWORD}
+      - MIMIR_ENDPOINT=${MIMIR_ENDPOINT}
+      - MIMIR_USERNAME=${MIMIR_USERNAME}
+      - MIMIR_PASSWORD=${MIMIR_PASSWORD}
+      - HP_ENV=${HP_ENV}
+      - HP_PROJECT=suivi-collaborateurs

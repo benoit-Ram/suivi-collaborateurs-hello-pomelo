@@ -1,0 +1,16 @@
+# Prod — override du base. IMAGE_TAG injecté par la CI stack au moment du
+# déploiement (SHA court du commit du repo applicatif qui a build l'image).
+
+services:
+  backend:
+    image: registry.digitalocean.com/hp-suivi-collaborateurs/backend:${IMAGE_TAG}
+
+  frontend:
+    image: registry.digitalocean.com/hp-suivi-collaborateurs/frontend:${IMAGE_TAG}
+
+# Variables côté env du compose (chargées par infisical run) :
+#   PUBLIC_HOST=rh.pomelo-dev.fr
+#   FRONTEND_URL=https://rh.pomelo-dev.fr
+#   APP_URL=https://rh.pomelo-dev.fr
+#   HP_ENV=prod
+#   IMAGE_TAG=<sha7>

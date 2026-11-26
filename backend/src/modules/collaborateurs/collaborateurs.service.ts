@@ -1,5 +1,6 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
-import { SupabaseService } from '../../config/supabase.service';
+import { jsonArrayFrom } from 'kysely/helpers/postgres';
+import { DatabaseService } from '../../config/database.service';
 
 // Fields that a non-admin user should never see on other collaborateurs.
 // Kept for self or admins; redacted otherwise.
@@ -19,36 +20,67 @@ function redactCollab(collab: any, requester: any): any {
 
 @Injectable()
 export class CollaborateursService {
-  constructor(private supabase: SupabaseService) {}
+  constructor(private database: DatabaseService) {}
 
   async findAll(requester?: any) {
-    const { data, error } = await this.supabase.db
-      .from('collaborateurs')
-      .select('*, points_suivi(*), objectifs(*)')
-      .order('nom', { ascending: true })
-      .order('prenom', { ascending: true });
-    if (error) throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    return (data || []).map(c => redactCollab(c, requester));
+    try {
+      const rows = await this.database.db
+        .selectFrom('collaborateurs')
+        .selectAll()
+        .select((eb) => [
+          jsonArrayFrom(
+            eb.selectFrom('points_suivi')
+              .selectAll('points_suivi')
+              .whereRef('points_suivi.collaborateur_id', '=', 'collaborateurs.id'),
+          ).as('points_suivi'),
+          jsonArrayFrom(
+            eb.selectFrom('objectifs')
+              .selectAll('objectifs')
+              .whereRef('objectifs.collaborateur_id', '=', 'collaborateurs.id'),
+          ).as('objectifs'),
+        ])
+        .orderBy('nom', 'asc')
+        .orderBy('prenom', 'asc')
+        .execute();
+      return rows.map((c) => redactCollab(c, requester));
+    } catch (e: any) {
+      throw new HttpException(e.message ?? 'Erreur collaborateurs', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   async findOne(id: string, requester?: any) {
-    const { data, error } = await this.supabase.db
-      .from('collaborateurs')
-      .select('*, points_suivi(*), objectifs(*)')
-      .eq('id', id)
-      .single();
-    if (error) throw new HttpException(error.message, HttpStatus.NOT_FOUND);
-    return redactCollab(data, requester);
+    const row = await this.database.db
+      .selectFrom('collaborateurs')
+      .selectAll()
+      .select((eb) => [
+        jsonArrayFrom(
+          eb.selectFrom('points_suivi')
+            .selectAll('points_suivi')
+            .whereRef('points_suivi.collaborateur_id', '=', 'collaborateurs.id'),
+        ).as('points_suivi'),
+        jsonArrayFrom(
+          eb.selectFrom('objectifs')
+            .selectAll('objectifs')
+            .whereRef('objectifs.collaborateur_id', '=', 'collaborateurs.id'),
+        ).as('objectifs'),
+      ])
+      .where('id', '=', id)
+      .executeTakeFirst();
+    if (!row) throw new HttpException(`Collaborateur ${id} introuvable`, HttpStatus.NOT_FOUND);
+    return redactCollab(row, requester);
   }
 
   async create(dto: any) {
-    const { data, error } = await this.supabase.db
-      .from('collaborateurs')
-      .insert(dto)
-      .select()
-      .single();
-    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
-    return data;
+    if (!dto?.prenom || !dto?.nom) throw new HttpException('prenom et nom requis', HttpStatus.BAD_REQUEST);
+    try {
+      return await this.database.db
+        .insertInto('collaborateurs')
+        .values(dto as any)
+        .returningAll()
+        .executeTakeFirstOrThrow();
+    } catch (e: any) {
+      throw new HttpException(e.message ?? 'Erreur create collaborateur', HttpStatus.BAD_REQUEST);
+    }
   }
 
   async update(id: string, dto: any, requester?: any) {
@@ -58,27 +90,34 @@ export class CollaborateursService {
         throw new HttpException('Vous ne pouvez modifier que votre propre profil.', HttpStatus.FORBIDDEN);
       }
       // Strip admin-only fields
-      ADMIN_ONLY_WRITE_FIELDS.forEach(f => { if (f in dto) delete dto[f]; });
+      ADMIN_ONLY_WRITE_FIELDS.forEach((f) => { if (f in dto) delete dto[f]; });
     } else if (!requester?.isSuperAdmin) {
       // Admin (not super): cannot grant is_admin
       if ('is_admin' in dto) delete dto.is_admin;
     }
-    const { data, error } = await this.supabase.db
-      .from('collaborateurs')
-      .update(dto)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
-    return data;
+    try {
+      const row = await this.database.db
+        .updateTable('collaborateurs')
+        .set(dto)
+        .where('id', '=', id)
+        .returningAll()
+        .executeTakeFirst();
+      if (!row) throw new HttpException(`Collaborateur ${id} introuvable`, HttpStatus.NOT_FOUND);
+      return row;
+    } catch (e: any) {
+      if (e instanceof HttpException) throw e;
+      throw new HttpException(e.message ?? 'Erreur update collaborateur', HttpStatus.BAD_REQUEST);
+    }
   }
 
   async delete(id: string) {
-    const { error } = await this.supabase.db
-      .from('collaborateurs')
-      .delete()
-      .eq('id', id);
-    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+    const res = await this.database.db
+      .deleteFrom('collaborateurs')
+      .where('id', '=', id)
+      .executeTakeFirst();
+    if (res.numDeletedRows === 0n) {
+      throw new HttpException(`Collaborateur ${id} introuvable`, HttpStatus.NOT_FOUND);
+    }
     return { success: true };
   }
 }

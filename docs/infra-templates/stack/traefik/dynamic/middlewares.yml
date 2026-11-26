@@ -1,0 +1,29 @@
+http:
+  middlewares:
+    # Appliqué via label sur les services : traefik.http.routers.X.middlewares=secure@file,compress@file
+
+    compress:
+      compress: {}
+
+    secure:
+      headers:
+        frameDeny: true
+        contentTypeNosniff: true
+        referrerPolicy: strict-origin-when-cross-origin
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentSecurityPolicy: |
+          default-src 'self';
+          script-src 'self' https://accounts.google.com https://apis.google.com;
+          connect-src 'self' https://accounts.google.com;
+          frame-src https://accounts.google.com;
+          img-src 'self' data: https:;
+          style-src 'self' 'unsafe-inline';
+
+    # Rate-limit sur /api (anti-brute-force)
+    rate-limit-api:
+      rateLimit:
+        average: 100
+        burst: 200
+        period: "1m"

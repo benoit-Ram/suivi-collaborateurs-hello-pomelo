@@ -3,7 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
-import { SupabaseModule } from './config/supabase.module';
+import { DatabaseModule } from './config/database.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AuthGuard } from './modules/auth/auth.guard';
 import { CollaborateursModule } from './modules/collaborateurs/collaborateurs.module';
@@ -19,13 +19,14 @@ import { ActivityLogModule } from './modules/activity-log/activity-log.module';
 import { StaffingRequestsModule } from './modules/staffing-requests/staffing-requests.module';
 import { ObjectifRequestsModule } from './modules/objectif-requests/objectif-requests.module';
 import { GoogleIntegrationModule } from './modules/google-integration/google-integration.module';
+import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
-    SupabaseModule,
+    DatabaseModule,
     AuthModule,
     CollaborateursModule,
     ObjectifsModule,
@@ -40,6 +41,7 @@ import { GoogleIntegrationModule } from './modules/google-integration/google-int
     StaffingRequestsModule,
     ObjectifRequestsModule,
     GoogleIntegrationModule,
+    HealthModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: AuthGuard },
