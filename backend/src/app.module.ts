@@ -3,7 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
-import { SupabaseModule } from './config/supabase.module';
+import { DatabaseModule } from './config/database.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AuthGuard } from './modules/auth/auth.guard';
 import { CollaborateursModule } from './modules/collaborateurs/collaborateurs.module';
@@ -25,7 +25,7 @@ import { GoogleIntegrationModule } from './modules/google-integration/google-int
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
-    SupabaseModule,
+    DatabaseModule,
     AuthModule,
     CollaborateursModule,
     ObjectifsModule,

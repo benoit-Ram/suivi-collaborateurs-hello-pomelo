@@ -1,27 +1,41 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
-import { SupabaseService } from '../../config/supabase.service';
+import { DatabaseService } from '../../config/database.service';
 
 @Injectable()
 export class ActivityLogService {
-  constructor(private supabase: SupabaseService) {}
+  constructor(private database: DatabaseService) {}
 
   async findAll(limit = 50) {
-    const { data, error } = await this.supabase.db
-      .from('activity_log')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(limit);
-    if (error) throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    return data;
+    try {
+      return await this.database.db
+        .selectFrom('activity_log')
+        .selectAll()
+        .orderBy('created_at', 'desc')
+        .limit(limit)
+        .execute();
+    } catch (e: any) {
+      throw new HttpException(e.message ?? 'Erreur activity_log', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
-  async create(dto: any) {
-    const { data, error } = await this.supabase.db
-      .from('activity_log')
-      .insert(dto)
-      .select()
-      .single();
-    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
-    return data;
+  async create(dto: { action: string; auteur?: string | null; cible?: string | null; details?: string | null }) {
+    if (!dto?.action) throw new HttpException('action requise', HttpStatus.BAD_REQUEST);
+    try {
+      // `as any` : tsconfig.strictNullChecks=false empêche Kysely de rendre les
+      // colonnes Generated<> optionnelles. Correctif structurant = activer strict,
+      // chantier à part.
+      return await this.database.db
+        .insertInto('activity_log')
+        .values({
+          action: dto.action,
+          auteur: dto.auteur ?? null,
+          cible: dto.cible ?? null,
+          details: dto.details ?? null,
+        } as any)
+        .returningAll()
+        .executeTakeFirstOrThrow();
+    } catch (e: any) {
+      throw new HttpException(e.message ?? 'Erreur create activity_log', HttpStatus.BAD_REQUEST);
+    }
   }
 }

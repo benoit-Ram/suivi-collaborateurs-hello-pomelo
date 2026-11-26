@@ -1,7 +1,8 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { OAuth2Client } from 'google-auth-library';
 import * as jwt from 'jsonwebtoken';
-import { SupabaseService } from '../../config/supabase.service';
+import { sql } from 'kysely';
+import { DatabaseService } from '../../config/database.service';
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 if (!GOOGLE_CLIENT_ID) throw new Error('GOOGLE_CLIENT_ID environment variable is required. Set it in backend/.env');
@@ -16,7 +17,7 @@ const JWT_EXPIRY = '7d';
 export class AuthService {
   private googleClient: OAuth2Client;
 
-  constructor(private supabase: SupabaseService) {
+  constructor(private database: DatabaseService) {
     this.googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
   }
 
@@ -41,21 +42,27 @@ export class AuthService {
       throw new UnauthorizedException('Seuls les comptes @hello-pomelo.com sont autorises.');
     }
 
-    // Find collaborateur by email (case-insensitive)
-    const { data: collab, error: collabError } = await this.supabase.db
-      .from('collaborateurs')
-      .select('id, email, prenom, nom, is_admin, photo_url')
-      .ilike('email', payload.email.toLowerCase())
-      .single();
+    // Find collaborateur by email (case-insensitive). Kysely n'a pas de .ilike
+    // générique — on utilise une comparaison lowered des deux côtés.
+    const emailLower = payload.email.toLowerCase();
+    const collab = await this.database.db
+      .selectFrom('collaborateurs')
+      .select(['id', 'email', 'prenom', 'nom', 'is_admin', 'photo_url'])
+      .where(sql<boolean>`lower(${sql.ref('email')}) = ${emailLower}`)
+      .executeTakeFirst();
 
-    if (collabError || !collab) throw new UnauthorizedException(`Aucun collaborateur pour ${payload.email}`);
+    if (!collab) throw new UnauthorizedException(`Aucun collaborateur pour ${payload.email}`);
 
-    const isSuperAdmin = payload.email.toLowerCase() === SUPER_ADMIN_EMAIL;
+    const isSuperAdmin = emailLower === SUPER_ADMIN_EMAIL;
     const isAdmin = isSuperAdmin || collab.is_admin === true;
 
     // Save Google photo if available
     if (payload.picture && payload.picture !== collab.photo_url) {
-      await this.supabase.db.from('collaborateurs').update({ photo_url: payload.picture }).eq('id', collab.id);
+      await this.database.db
+        .updateTable('collaborateurs')
+        .set({ photo_url: payload.picture })
+        .where('id', '=', collab.id)
+        .execute();
     }
 
     // Issue our own JWT

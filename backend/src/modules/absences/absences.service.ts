@@ -1,10 +1,10 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
-import { SupabaseService } from '../../config/supabase.service';
+import { DatabaseService } from '../../config/database.service';
 import { NotificationsService } from '../google-integration/notifications.service';
 
 @Injectable()
 export class AbsencesService {
-  constructor(private supabase: SupabaseService, private notifications: NotificationsService) {}
+  constructor(private database: DatabaseService, private notifications: NotificationsService) {}
 
   /** Count working days (weekdays) in [start, end] inclusive, accounting for half-days. */
   private countWorkDays(start: string, end: string, demi?: string | null): number {
@@ -20,24 +20,21 @@ export class AbsencesService {
     return demi && start === end ? 0.5 : count;
   }
 
-  /** Fetch collab info needed for notification templates */
   private async getCollabForNotif(id: string) {
-    const { data } = await this.supabase.db
-      .from('collaborateurs')
-      .select('id, prenom, nom, email, manager_id')
-      .eq('id', id)
-      .single();
-    return data;
+    return await this.database.db
+      .selectFrom('collaborateurs')
+      .select(['id', 'prenom', 'nom', 'email', 'manager_id'])
+      .where('id', '=', id)
+      .executeTakeFirst();
   }
 
   private async getManagerEmail(managerId: string | null | undefined) {
     if (!managerId) return null;
-    const { data } = await this.supabase.db
-      .from('collaborateurs')
-      .select('email, prenom')
-      .eq('id', managerId)
-      .single();
-    return data;
+    return await this.database.db
+      .selectFrom('collaborateurs')
+      .select(['email', 'prenom'])
+      .where('id', '=', managerId)
+      .executeTakeFirst();
   }
 
   private absenceTypeLabel(key: string): string {
@@ -50,44 +47,55 @@ export class AbsencesService {
     return m[key] || key;
   }
 
-  private static readonly ALLOWED_FILTERS = ['collaborateur_id', 'statut', 'type'];
+  private static readonly ALLOWED_FILTERS = ['collaborateur_id', 'statut', 'type'] as const;
 
   async findAll(filters?: Record<string, string>) {
-    let query = this.supabase.db.from('absences').select('*').order('date_debut', { ascending: false });
-    if (filters) {
-      Object.entries(filters).forEach(([key, val]) => { if (val && AbsencesService.ALLOWED_FILTERS.includes(key)) query = query.eq(key, val); });
+    try {
+      let query = this.database.db
+        .selectFrom('absences')
+        .selectAll()
+        .orderBy('date_debut', 'desc');
+      if (filters) {
+        for (const [col, val] of Object.entries(filters)) {
+          if (val && (AbsencesService.ALLOWED_FILTERS as readonly string[]).includes(col)) {
+            query = query.where(col as any, '=', val);
+          }
+        }
+      }
+      return await query.execute();
+    } catch (e: any) {
+      throw new HttpException(e.message ?? 'Erreur absences', HttpStatus.INTERNAL_SERVER_ERROR);
     }
-    const { data, error } = await query;
-    if (error) throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    return data;
   }
 
   async findOne(id: string) {
-    const { data, error } = await this.supabase.db.from('absences').select('*').eq('id', id).single();
-    if (error) throw new HttpException(error.message, HttpStatus.NOT_FOUND);
-    return data;
+    const row = await this.database.db
+      .selectFrom('absences')
+      .selectAll()
+      .where('id', '=', id)
+      .executeTakeFirst();
+    if (!row) throw new HttpException(`Absence ${id} introuvable`, HttpStatus.NOT_FOUND);
+    return row;
   }
 
   async create(dto: any) {
-    // Validate required fields
     if (!dto.collaborateur_id) throw new HttpException('collaborateur_id requis', HttpStatus.BAD_REQUEST);
     if (!dto.type) throw new HttpException('type requis', HttpStatus.BAD_REQUEST);
     if (!dto.date_debut) throw new HttpException('date_debut requis', HttpStatus.BAD_REQUEST);
     if (!dto.date_fin) throw new HttpException('date_fin requis', HttpStatus.BAD_REQUEST);
     if (dto.date_fin < dto.date_debut) throw new HttpException('date_fin doit être >= date_debut', HttpStatus.BAD_REQUEST);
 
-    // Check for overlapping absences (only non-cancelled)
-    const { data: existing } = await this.supabase.db
-      .from('absences')
-      .select('id, date_debut, date_fin, demi_journee, statut')
-      .eq('collaborateur_id', dto.collaborateur_id)
-      .in('statut', ['en_attente', 'approuve'])
-      .lte('date_debut', dto.date_fin)
-      .gte('date_fin', dto.date_debut);
+    const existing = await this.database.db
+      .selectFrom('absences')
+      .select(['id', 'date_debut', 'date_fin', 'demi_journee', 'statut'])
+      .where('collaborateur_id', '=', dto.collaborateur_id)
+      .where('statut', 'in', ['en_attente', 'approuve'])
+      .where('date_debut', '<=', dto.date_fin)
+      .where('date_fin', '>=', dto.date_debut)
+      .execute();
 
-    if (existing && existing.length > 0) {
-      // Check if it's a real overlap (handle half-day)
-      const hasRealOverlap = existing.some(a => {
+    if (existing.length > 0) {
+      const hasRealOverlap = existing.some((a) => {
         if (dto.demi_journee && a.demi_journee && dto.date_debut === a.date_debut) {
           return dto.demi_journee === a.demi_journee;
         }
@@ -98,12 +106,19 @@ export class AbsencesService {
       }
     }
 
-    const { data, error } = await this.supabase.db.from('absences').insert(dto).select().single();
-    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+    let created: any;
+    try {
+      created = await this.database.db
+        .insertInto('absences')
+        .values(dto as any)
+        .returningAll()
+        .executeTakeFirstOrThrow();
+    } catch (e: any) {
+      throw new HttpException(e.message ?? 'Erreur create absence', HttpStatus.BAD_REQUEST);
+    }
 
-    // Notify manager if the created absence is still pending
-    if (data?.statut === 'en_attente') {
-      const collab = await this.getCollabForNotif(data.collaborateur_id);
+    if (created.statut === 'en_attente') {
+      const collab = await this.getCollabForNotif(created.collaborateur_id);
       const manager = await this.getManagerEmail(collab?.manager_id);
       if (manager?.email) {
         this.notifications.onAbsencePending({
@@ -111,26 +126,38 @@ export class AbsencesService {
           managerPrenom: manager.prenom,
           collabPrenom: collab?.prenom || '',
           collabNom: collab?.nom || '',
-          type: this.absenceTypeLabel(data.type),
-          date_debut: data.date_debut,
-          date_fin: data.date_fin,
-          jours: this.countWorkDays(data.date_debut, data.date_fin, data.demi_journee),
-          commentaire: data.commentaire,
+          type: this.absenceTypeLabel(created.type),
+          date_debut: created.date_debut,
+          date_fin: created.date_fin,
+          jours: this.countWorkDays(created.date_debut, created.date_fin, created.demi_journee),
+          commentaire: created.commentaire,
         });
       }
     }
-    return data;
+    return created;
   }
 
   async update(id: string, dto: any) {
-    // Capture previous state for diff-based notification
-    const { data: before } = await this.supabase.db.from('absences').select('*').eq('id', id).single();
+    const before = await this.database.db
+      .selectFrom('absences')
+      .selectAll()
+      .where('id', '=', id)
+      .executeTakeFirst();
 
-    const { data, error } = await this.supabase.db.from('absences').update(dto).eq('id', id).select().single();
-    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+    let data: any;
+    try {
+      data = await this.database.db
+        .updateTable('absences')
+        .set(dto)
+        .where('id', '=', id)
+        .returningAll()
+        .executeTakeFirst();
+    } catch (e: any) {
+      throw new HttpException(e.message ?? 'Erreur update absence', HttpStatus.BAD_REQUEST);
+    }
+    if (!data) throw new HttpException(`Absence ${id} introuvable`, HttpStatus.NOT_FOUND);
 
-    // Notify on status transitions
-    if (before && data && before.statut !== data.statut) {
+    if (before && before.statut !== data.statut) {
       const collab = await this.getCollabForNotif(data.collaborateur_id);
       if (collab?.email) {
         const common = {
@@ -160,37 +187,49 @@ export class AbsencesService {
 
   /** Collab can only cancel their own pending/approved absences */
   async updateForCollab(id: string, dto: any, collabId: string) {
-    // Fetch the absence first
-    const { data: absence, error: fetchErr } = await this.supabase.db
-      .from('absences')
-      .select('*')
-      .eq('id', id)
-      .single();
-    if (fetchErr || !absence) throw new HttpException('Absence non trouvée', HttpStatus.NOT_FOUND);
+    const absence = await this.database.db
+      .selectFrom('absences')
+      .selectAll()
+      .where('id', '=', id)
+      .executeTakeFirst();
+    if (!absence) throw new HttpException('Absence non trouvée', HttpStatus.NOT_FOUND);
     if (absence.collaborateur_id !== collabId) throw new HttpException('Non autorisé', HttpStatus.FORBIDDEN);
 
-    // Only allow specific state transitions
     const allowed: Record<string, string[]> = {
-      'en_attente': ['annule'], // Can cancel pending
-      'approuve': ['annulation_demandee'], // Can request cancellation of approved
+      'en_attente': ['annule'],
+      'approuve': ['annulation_demandee'],
     };
     if (dto.statut && (!allowed[absence.statut] || !allowed[absence.statut].includes(dto.statut))) {
       throw new HttpException(`Transition ${absence.statut} → ${dto.statut} non autorisée`, HttpStatus.BAD_REQUEST);
     }
 
-    // Only allow statut + commentaire_annulation fields
     const safeDto: any = {};
     if (dto.statut) safeDto.statut = dto.statut;
     if (dto.commentaire_annulation) safeDto.commentaire_annulation = dto.commentaire_annulation;
 
-    const { data, error } = await this.supabase.db.from('absences').update(safeDto).eq('id', id).select().single();
-    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
-    return data;
+    try {
+      const row = await this.database.db
+        .updateTable('absences')
+        .set(safeDto)
+        .where('id', '=', id)
+        .returningAll()
+        .executeTakeFirst();
+      if (!row) throw new HttpException(`Absence ${id} introuvable`, HttpStatus.NOT_FOUND);
+      return row;
+    } catch (e: any) {
+      if (e instanceof HttpException) throw e;
+      throw new HttpException(e.message ?? 'Erreur update absence', HttpStatus.BAD_REQUEST);
+    }
   }
 
   async delete(id: string) {
-    const { error } = await this.supabase.db.from('absences').delete().eq('id', id);
-    if (error) throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+    const res = await this.database.db
+      .deleteFrom('absences')
+      .where('id', '=', id)
+      .executeTakeFirst();
+    if (res.numDeletedRows === 0n) {
+      throw new HttpException(`Absence ${id} introuvable`, HttpStatus.NOT_FOUND);
+    }
     return { success: true };
   }
 }
