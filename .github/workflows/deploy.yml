@@ -1,8 +1,13 @@
-name: Deploy to VPS
+name: Deploy to VPS (obsolete)
+
+# Workflow désactivé : l'ancien VPS OVH (hp-tma-ele-dev) a été repris par
+# l'équipe Palett. Le nouveau déploiement passe par les 3 repos séparés
+# (infra Terraform / applicatif / stack) sur l'org Hello-Pomelo.
+# Ce fichier est gardé pour référence historique en attendant les nouveaux
+# workflows ; `on: workflow_dispatch` seul évite les runs auto sur push.
 
 on:
-  push:
-    branches: [master]
+  workflow_dispatch:
 
 jobs:
   deploy:
