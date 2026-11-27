@@ -105,7 +105,9 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-          ssh-keyscan -H ${{ secrets.DROPLET_HOST }} >> ~/.ssh/known_hosts
+          # Trim CR/LF au cas où le secret aurait été posé depuis Windows PowerShell
+          HOST=$(echo "${{ secrets.DROPLET_HOST }}" | tr -d '\r\n ')
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts
 
       - name: Pull & restart stack on droplet (immutable sha tag)
         env:
@@ -113,6 +115,7 @@ jobs:
           DROPLET: ${{ secrets.DROPLET_HOST }}
           IMAGE_TAG: ${{ needs.build-push.outputs.tag }}
         run: |
+          DROPLET=$(echo "$DROPLET" | tr -d '\r\n ')
           ssh -i ~/.ssh/id_deploy root@$DROPLET IMAGE_TAG="$IMAGE_TAG" DO_TOKEN="$DO_TOKEN" bash -s <<'EOF'
           set -euo pipefail
           cd /opt/suivi-collaborateurs
@@ -128,7 +131,8 @@ jobs:
 
       - name: Smoke test
         run: |
+          HOST=$(echo "${{ secrets.DROPLET_HOST }}" | tr -d '\r\n ')
           # Test via la connexion directe au droplet (bypass DNS/Cloudflare) sur le port interne
-          ssh -i ~/.ssh/id_deploy root@${{ secrets.DROPLET_HOST }} \
+          ssh -i ~/.ssh/id_deploy root@$HOST \
             'docker run --rm --network hp_edge curlimages/curl -sSf http://frontend/api/health || exit 1'
           echo "Health check OK"
