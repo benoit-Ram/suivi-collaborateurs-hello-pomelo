@@ -1,5 +1,14 @@
--- Schema initial — reproduit la Supabase actuelle sur un Postgres natif.
--- Généré depuis l'inventaire des tables avant la refonte Kysely.
+-- Schema de référence — Managed Postgres (DigitalOcean fra1, PG 18).
+-- Source de vérité pour un `psql -f` sur une base vide.
+-- Toute évolution passe par un ALTER à ajouter en fin de fichier + MAJ miroir
+-- dans backend/src/config/database.types.ts (types Kysely).
+--
+-- Appliqué via : psql "$DATABASE_URL" -f 01_schema.sql
+-- Idempotent (CREATE ... IF NOT EXISTS partout).
+
+-- gen_random_uuid() : natif en PG 13+, mais on force l'extension pour
+-- supporter les restores sur une image PG antérieure si besoin.
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- ═══════════════════════════════════════════════════════════════
 -- 1. COLLABORATEURS (table racine, self-référence)
@@ -37,6 +46,11 @@ CREATE TABLE IF NOT EXISTS public.collaborateurs (
   entretiens_access boolean DEFAULT false
 );
 
+CREATE INDEX IF NOT EXISTS idx_collaborateurs_manager_id ON public.collaborateurs(manager_id);
+CREATE INDEX IF NOT EXISTS idx_collaborateurs_valideur_conges_id ON public.collaborateurs(valideur_conges_id);
+-- Recherche par email (lookup à l'auth Google)
+CREATE INDEX IF NOT EXISTS idx_collaborateurs_email_lower ON public.collaborateurs(lower(email));
+
 -- ═══════════════════════════════════════════════════════════════
 -- 2. CLIENTS
 -- ═══════════════════════════════════════════════════════════════
@@ -65,6 +79,8 @@ CREATE TABLE IF NOT EXISTS public.clients (
   categorie_entreprise text
 );
 
+CREATE INDEX IF NOT EXISTS idx_clients_referent_id ON public.clients(referent_id);
+
 -- ═══════════════════════════════════════════════════════════════
 -- 3. MISSIONS
 -- ═══════════════════════════════════════════════════════════════
@@ -85,6 +101,10 @@ CREATE TABLE IF NOT EXISTS public.missions (
   client_id uuid REFERENCES public.clients(id),
   lien_propale text
 );
+
+CREATE INDEX IF NOT EXISTS idx_missions_client_id ON public.missions(client_id);
+CREATE INDEX IF NOT EXISTS idx_missions_responsable_id ON public.missions(responsable_id);
+CREATE INDEX IF NOT EXISTS idx_missions_statut ON public.missions(statut);
 
 -- ═══════════════════════════════════════════════════════════════
 -- 4. OBJECTIFS
@@ -110,6 +130,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS uniq_objectif_parent_periode
   ON public.objectifs (parent_id, periode)
   WHERE parent_id IS NOT NULL AND periode IS NOT NULL;
 
+CREATE INDEX IF NOT EXISTS idx_objectifs_collaborateur_id ON public.objectifs(collaborateur_id);
+CREATE INDEX IF NOT EXISTS idx_objectifs_parent_id ON public.objectifs(parent_id);
+
 -- ═══════════════════════════════════════════════════════════════
 -- 5. POINTS_SUIVI (entretiens RH)
 -- ═══════════════════════════════════════════════════════════════
@@ -130,6 +153,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS unique_point_mensuel_par_mois
   ON public.points_suivi (collaborateur_id, mois)
   WHERE type = 'mensuel';
 
+CREATE INDEX IF NOT EXISTS idx_points_suivi_collaborateur_id ON public.points_suivi(collaborateur_id);
+CREATE INDEX IF NOT EXISTS idx_points_suivi_mois ON public.points_suivi(mois);
+
 -- ═══════════════════════════════════════════════════════════════
 -- 6. ABSENCES
 -- ═══════════════════════════════════════════════════════════════
@@ -149,6 +175,11 @@ CREATE TABLE IF NOT EXISTS public.absences (
   commentaire_annulation text
 );
 
+CREATE INDEX IF NOT EXISTS idx_absences_collaborateur_id ON public.absences(collaborateur_id);
+CREATE INDEX IF NOT EXISTS idx_absences_statut ON public.absences(statut);
+-- Range queries (planning, détection de chevauchements) : index composite sur les dates
+CREATE INDEX IF NOT EXISTS idx_absences_dates ON public.absences(date_debut, date_fin);
+
 -- ═══════════════════════════════════════════════════════════════
 -- 7. OBJECTIF_REQUESTS
 -- ═══════════════════════════════════════════════════════════════
@@ -165,6 +196,10 @@ CREATE TABLE IF NOT EXISTS public.objectif_requests (
   created_at timestamptz DEFAULT now()
 );
 
+CREATE INDEX IF NOT EXISTS idx_objectif_requests_objectif_id ON public.objectif_requests(objectif_id);
+CREATE INDEX IF NOT EXISTS idx_objectif_requests_collaborateur_id ON public.objectif_requests(collaborateur_id);
+CREATE INDEX IF NOT EXISTS idx_objectif_requests_statut ON public.objectif_requests(statut);
+
 -- ═══════════════════════════════════════════════════════════════
 -- 8. ACTIVITY_LOG
 -- ═══════════════════════════════════════════════════════════════
@@ -176,6 +211,9 @@ CREATE TABLE IF NOT EXISTS public.activity_log (
   details text,
   created_at timestamptz DEFAULT now()
 );
+
+-- Pagination du log par date desc
+CREATE INDEX IF NOT EXISTS idx_activity_log_created_at ON public.activity_log(created_at DESC);
 
 -- ═══════════════════════════════════════════════════════════════
 -- 9. ASSIGNMENTS
@@ -196,6 +234,10 @@ CREATE TABLE IF NOT EXISTS public.assignments (
   notes text
 );
 
+CREATE INDEX IF NOT EXISTS idx_assignments_mission_id ON public.assignments(mission_id);
+CREATE INDEX IF NOT EXISTS idx_assignments_collaborateur_id ON public.assignments(collaborateur_id);
+CREATE INDEX IF NOT EXISTS idx_assignments_statut ON public.assignments(statut);
+
 -- ═══════════════════════════════════════════════════════════════
 -- 10. TIME_ENTRIES
 -- ═══════════════════════════════════════════════════════════════
@@ -211,6 +253,10 @@ CREATE TABLE IF NOT EXISTS public.time_entries (
   created_at timestamptz DEFAULT now(),
   UNIQUE(assignment_id, date)
 );
+
+-- Les écrans staffing filtrent par collab + plage de dates
+CREATE INDEX IF NOT EXISTS idx_time_entries_collaborateur_date ON public.time_entries(collaborateur_id, date);
+CREATE INDEX IF NOT EXISTS idx_time_entries_date ON public.time_entries(date);
 
 -- ═══════════════════════════════════════════════════════════════
 -- 11. STAFFING_REQUESTS
@@ -230,8 +276,12 @@ CREATE TABLE IF NOT EXISTS public.staffing_requests (
   created_at timestamptz DEFAULT now()
 );
 
+CREATE INDEX IF NOT EXISTS idx_staffing_requests_mission_id ON public.staffing_requests(mission_id);
+CREATE INDEX IF NOT EXISTS idx_staffing_requests_collaborateur_id ON public.staffing_requests(collaborateur_id);
+CREATE INDEX IF NOT EXISTS idx_staffing_requests_statut ON public.staffing_requests(statut);
+
 -- ═══════════════════════════════════════════════════════════════
--- 12. SETTINGS
+-- 12. SETTINGS (clé-valeur JSONB)
 -- ═══════════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS public.settings (
   key text PRIMARY KEY,
