@@ -79,7 +79,7 @@ jobs:
         run: doctl registry login --expiry-seconds 1200
 
       - name: Trivy scan backend
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_BACKEND }}:${{ needs.build-push.outputs.tag }}
           severity: CRITICAL
@@ -88,7 +88,7 @@ jobs:
           format: table
 
       - name: Trivy scan frontend
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_FRONTEND }}:${{ needs.build-push.outputs.tag }}
           severity: CRITICAL
