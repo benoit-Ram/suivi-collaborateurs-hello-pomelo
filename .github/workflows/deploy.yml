@@ -119,8 +119,14 @@ jobs:
           ssh -i ~/.ssh/id_deploy root@$DROPLET IMAGE_TAG="$IMAGE_TAG" DO_TOKEN="$DO_TOKEN" bash -s <<'EOF'
           set -euo pipefail
           cd /opt/suivi-collaborateurs
-          # Persister le tag courant pour les redémarrages manuels (`docker compose up -d` sans la CI)
-          grep -q '^IMAGE_TAG=' .env && sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=${IMAGE_TAG}|" .env || echo "IMAGE_TAG=${IMAGE_TAG}" >> .env
+          # Persister le tag courant pour les redémarrages manuels.
+          # Garantir une newline terminale AVANT d'ajouter pour éviter la fusion avec la ligne précédente.
+          if grep -q '^IMAGE_TAG=' .env 2>/dev/null; then
+            sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=${IMAGE_TAG}|" .env
+          else
+            [ -s .env ] && [ "$(tail -c1 .env | wc -l)" -eq 0 ] && echo >> .env
+            echo "IMAGE_TAG=${IMAGE_TAG}" >> .env
+          fi
           # Re-login en cas d'expiration du token docker
           echo "$DO_TOKEN" | docker login registry.digitalocean.com --username "$DO_TOKEN" --password-stdin
           docker compose pull backend frontend
@@ -132,7 +138,21 @@ jobs:
       - name: Smoke test
         run: |
           HOST=$(echo "${{ secrets.DROPLET_HOST }}" | tr -d '\r\n ')
-          # Test via la connexion directe au droplet (bypass DNS/Cloudflare) sur le port interne
-          ssh -i ~/.ssh/id_deploy root@$HOST \
-            'docker run --rm --network hp_edge curlimages/curl -sSf http://frontend/api/health || exit 1'
-          echo "Health check OK"
+          # Test via la connexion directe au droplet (bypass DNS/Cloudflare) sur le port interne.
+          # Retry 6x 10s = 60s max — laisse le temps au backend (DB pool + healthcheck) de monter.
+          ssh -i ~/.ssh/id_deploy root@$HOST bash -s <<'EOF'
+          for i in 1 2 3 4 5 6; do
+            if docker run --rm --network hp_edge curlimages/curl -sSf -m 5 http://frontend/api/health > /tmp/health.json 2>/dev/null; then
+              cat /tmp/health.json
+              echo ""
+              echo "Health check OK (try $i)"
+              exit 0
+            fi
+            echo "try $i: pas prêt, retry dans 10s..."
+            sleep 10
+          done
+          echo "FAIL après 60s"
+          docker ps --format 'table {{.Names}}\t{{.Status}}' | head
+          docker logs hp-backend --tail=20 2>&1
+          exit 1
+          EOF
