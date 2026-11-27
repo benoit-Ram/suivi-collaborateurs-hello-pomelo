@@ -23,8 +23,8 @@ RUN npm prune --omit=dev
 FROM node:22-alpine AS runtime
 WORKDIR /app
 
-# tini comme PID 1 pour forwarder SIGTERM proprement (shutdown gracieux NestJS)
-RUN apk add --no-cache tini
+# Upgrade des paquets Alpine (CVE fixes) + tini comme PID 1 pour forwarder SIGTERM
+RUN apk upgrade --no-cache && apk add --no-cache tini
 
 # Copie des artefacts build + node_modules prod
 COPY --from=builder /app/node_modules ./node_modules

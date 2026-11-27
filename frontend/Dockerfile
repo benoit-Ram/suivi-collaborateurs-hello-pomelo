@@ -21,6 +21,10 @@ RUN npm run build
 # nginx:alpine pour servir le bundle static + SPA fallback
 FROM nginx:1.29-alpine AS runtime
 
+# Upgrade des paquets Alpine pour appliquer les CVE fixes (brotli, etc.)
+# cf. scan trivy CI — maintient l'alignement VPS-DEP06
+RUN apk upgrade --no-cache
+
 # Config nginx minimale : SPA routing + headers sécurité + health
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
